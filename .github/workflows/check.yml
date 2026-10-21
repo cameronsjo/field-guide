@@ -1,0 +1,21 @@
+name: Check site
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generated data is up to date
+        run: |
+          python3 scripts/build.py
+          git diff --exit-code -- docs/assets/catalog.js docs/recipe/data.js
+      - name: Local links resolve
+        run: python3 scripts/check_links.py

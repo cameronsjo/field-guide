@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Voice &amp; Tone Workbook</title>
+<meta name="description" content="The words for how writing sounds: voices and tones, registers, the shapes a piece can take, the rhetorical moves inside sentences, writers and publications worth pointing at, and the formats from error messages to liner notes. Every card shows a short sample, with a phrase you can paste into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Literata:ital,opsz,wght@0,7..72,300..700;1,7..72,300..700&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=DM+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Voice &amp; Tone <span class="pencil">Workbook</span></h1>
+      <p>The words for how writing sounds: voices and tones, registers, the shapes a piece can take, the rhetorical moves inside sentences, writers and publications worth pointing at, and the formats from error messages to liner notes. Every card shows a short sample, with a phrase you can paste into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Pick a topic and read until a sample sounds like what you hear in your head</li>
+        <li><b>2</b>Press Add on the voices, structures and devices that fit</li>
+        <li><b>3</b>Say what you're writing, then copy a one-off request or a reusable voice guide</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="same" aria-labelledby="sameH">
+      <h2 id="sameH">Same message, every voice</h2>
+      <p class="lead">Voice is easiest to hear when the facts stay fixed. Pick a message and read across: the information never changes, only who seems to be saying it. Tap a voice to open its card.</p>
+      <div class="seg" id="msgs" role="group" aria-label="Message"></div>
+      <div class="brief" id="brief"></div>
+      <div class="vgrid" id="vgrid"></div>
+    </section>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a voice prompt</h2>
+      <p class="lead">A writing prompt that lands names a voice (who is talking), a tone (how they feel right now), a structure (the order things arrive in), a device or two, and something to point at. Here is what that sounds like for three different jobs. Tap any word to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Voice stays, tone moves</strong>Voice is the personality and shouldn't change between a launch post and an outage notice. Tone is the mood, and should. Name both.</li>
+        <li><strong>Say what it isn't</strong>"Witty, not snarky" or "warm, not gushing" does more than another adjective. The Not line on each voice card gives you one.</li>
+        <li><strong>Point at a writer, then describe them</strong>"Like Joan Didion: cool, exact, first person, short declaratives" works even if the model's idea of Didion is fuzzy.</li>
+        <li><strong>Give a sample and a word count</strong>Paste two sentences you like and say "about 150 words". Length and an example steer harder than any list of adjectives.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Voice by job</h2>
+      <p class="lead">Start from what you're writing and read across: a voice, a tone, a structure, a device that suits it, and a writer or publication to point at. Every name links to its card.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All topics</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the Visual Vocabulary, UI Patterns, Color, Typography and Photography workbooks. Every sample is written for this page: the author and publication cards are short pastiches that show the moves, not quotations.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt" role="group" aria-label="Prompt format">
+        <button type="button" data-fmt="request" aria-pressed="true">Writing request</button>
+        <button type="button" data-fmt="guide" aria-pressed="false">Voice guide</button>
+        <small id="fmtNote">A one-off ask for a single piece.</small>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What are you writing?</label>
+          <input id="subject-in" type="text" placeholder="e.g. a 404 page, liner notes, a launch email">
+        </div>
+        <div>
+          <label for="aud-in">Who's reading? (optional)</label>
+          <input id="aud-in" type="text" placeholder="e.g. longtime fans, first-time users">
+        </div>
+        <div>
+          <label for="len-in">Length (optional)</label>
+          <input id="len-in" type="text" placeholder="e.g. about 150 words">
+          <div class="stacks" id="lens"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

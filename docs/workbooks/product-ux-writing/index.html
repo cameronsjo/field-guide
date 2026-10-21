@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Product &amp; UX Writing Workbook</title>
+<meta name="description" content="The words inside a product: buttons, labels, errors, empty states, onboarding, confirmations, notifications and the copy around AI features. It sits between UI Patterns (what the screen is) and Voice &amp; Tone (how it sounds). Every card shows the pattern in a small mock with its real strings, and a phrase you can paste into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Product &amp; UX Writing <span class="q">Workbook</span></h1>
+      <p>The words inside a product: buttons, labels, errors, empty states, onboarding, confirmations, notifications and the copy around AI features. It sits between UI Patterns (what the screen is) and Voice &amp; Tone (how it sounds). Every card shows the pattern in a small mock with its real strings, and a phrase you can paste into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Pick a topic and find the moment you're writing for</li>
+        <li><b>2</b>Press Add on the patterns and principles that fit</li>
+        <li><b>3</b>Name the screen and who's on it, then copy a copy request or a content guide</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="states" aria-labelledby="statesH">
+      <h2 id="statesH">One screen, every state</h2>
+      <p class="lead">Most screens are designed in their happy state and written in none of the others. Pick a screen and read across: the same feature on its first day, while it loads, when a search finds nothing, when it fails, offline, and when you're done. Tap a label to open its card.</p>
+      <div class="seg" id="screens" role="group" aria-label="Screen"></div>
+      <div class="brief" id="sbrief"></div>
+      <div class="sgrid" id="sgrid"></div>
+    </section>
+
+    <section class="panel" id="swaps" aria-labelledby="swapsH">
+      <h2 id="swapsH">The swap list</h2>
+      <p class="lead">The quickest edits in product writing. Each line is a phrase that turns up in almost every first draft, what to write instead, and the card that explains why.</p>
+      <div class="swap" id="swaplist"></div>
+    </section>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a copy request</h2>
+      <p class="lead">A request for product copy that comes back usable names the screen, the moment the person is in, the components that need words, the principles to hold to, and what to cut. Here are three. Tap any word to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Describe the moment, not the screen</strong>"Someone's card was declined while they were checking out a gift for tomorrow" gets better copy than "payment error screen".</li>
+        <li><strong>Give the real nouns</strong>Paste your product's actual names for things (projects, boards, spaces) and ask for one term per concept. Models drift into synonyms otherwise.</li>
+        <li><strong>Ask for a string table</strong>Request keys, strings and character counts in a table. You get copy you can paste into code and a check on length in one go.</li>
+        <li><strong>Ask for every state</strong>Name the empty, loading, error and success states up front, or you'll get only the happy path.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Copy by moment</h2>
+      <p class="lead">Start from where the person is and read across: the components that need words, the pattern that usually fits, the principle that matters most, and what to cut. Every name links to its card.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All topics</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the UI Patterns and Voice &amp; Tone workbooks. Every string is written for this page around a few made-up products (a trail app, a shared-files tool, a team inbox, a meal-kit service). The text under each mock that starts with # is a string key in the style of a copy deck, so you can see how the words would be filed in code.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt" role="group" aria-label="Prompt format">
+        <button type="button" data-fmt="request" aria-pressed="true">Copy request</button>
+        <button type="button" data-fmt="guide" aria-pressed="false">Content guide</button>
+        <small id="fmtNote">A one-off ask for the copy on one screen or flow.</small>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What screen or flow?</label>
+          <input id="subject-in" type="text" placeholder="e.g. the checkout page, first-run onboarding">
+        </div>
+        <div>
+          <label for="aud-in">Who's on it, trying to do what? (optional)</label>
+          <input id="aud-in" type="text" placeholder="e.g. a new admin inviting their team">
+        </div>
+        <div>
+          <label for="len-in">Constraints (optional)</label>
+          <input id="len-in" type="text" placeholder="e.g. buttons under 20 characters">
+          <div class="stacks" id="lens"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

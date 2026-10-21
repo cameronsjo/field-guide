@@ -1,0 +1,140 @@
+/* Layout: a corporate identity standards manual. Home page of section tiles, one page per section with a sticky index, cards whose example is a numbered plate drawn for a fictional brand on a construction grid, and a prompt tray docked at the bottom. Signal red is the accent, the way the 1970s manuals used it. */
+:root{
+  --bg:#EFEDE6; --panel:#FBFAF6; --ink:#141414; --ink2:#4D4C48; --ink3:#8A8882; --line:#DAD7CE;
+  --accent:#D9381E; --accent-soft:#F8DED6; --plate:#F6F4EE; --grid:#E6E2D8;
+  --c-blue:#1F4FD1; --c-ochre:#E3A21A; --c-green:#1E7A57; --c-pink:#E77FA8; --c-sky:#8CC3E8; --c-cream:#F2E6C9;
+  --display:"Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body:"Hanken Grotesk", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121212; --panel:#1B1B1C; --ink:#EDEBE5; --ink2:#B2AFA7; --ink3:#7C7A74; --line:#2D2C2A;
+  --accent:#FF6A4D; --accent-soft:#3A1F19; --plate:#171718; --grid:#242423;
+  --c-blue:#6E93FF; --c-ochre:#F0B840; --c-green:#4FC08F; --c-pink:#F29CC0; --c-sky:#5B9CC6; --c-cream:#4A4232;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#121212; --panel:#1B1B1C; --ink:#EDEBE5; --ink2:#B2AFA7; --ink3:#7C7A74; --line:#2D2C2A;
+  --accent:#FF6A4D; --accent-soft:#3A1F19; --plate:#171718; --grid:#242423;
+  --c-blue:#6E93FF; --c-ochre:#F0B840; --c-green:#4FC08F; --c-pink:#F29CC0; --c-sky:#5B9CC6; --c-cream:#4A4232;
+  color-scheme:dark;
+}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+h1,h2,h3{font-family:var(--display);font-weight:700;text-wrap:balance;margin:0;letter-spacing:-.02em}
+
+header.top{padding-block:40px 24px;display:grid;gap:14px;max-width:800px}
+.eyebrow::before{content:"";display:inline-block;width:9px;height:9px;background:var(--accent);margin-right:8px;vertical-align:-1px}
+header.top h1{font-size:clamp(40px,6.4vw,68px);line-height:.98;font-weight:800;letter-spacing:-.035em}
+header.top h1 .red{color:var(--accent)}
+header.top p{margin:0;color:var(--ink2);font-size:17px;max-width:64ch}
+.steps b{font:600 12px var(--mono);color:var(--accent)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:22px clamp(16px,3vw,28px);display:grid;gap:14px;margin-bottom:28px;min-width:0;border-top:4px solid var(--ink)}
+.panel h2{font-size:26px}
+.panel .lead{margin:0;color:var(--ink2);max-width:72ch}
+.sentence{font-size:clamp(16px,2vw,19px);line-height:2.3;margin:0}
+.chip{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;vertical-align:middle;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:3px;padding:4px 9px 3px;margin:0 1px;font-weight:600}
+.chip small{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+
+/* same brand, every kind of logo */
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:500 13.5px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:3px;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.brief{font:500 12px var(--mono);color:var(--ink3);letter-spacing:.04em}
+.brief b{color:var(--ink);font-weight:500}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.vcell{background:var(--plate);border:1px solid var(--line);border-radius:3px;padding:10px;display:grid;gap:6px;align-content:start}
+.vcell a{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.1em;text-decoration:none;color:var(--accent)}
+.vcell svg{width:100%;height:auto;display:block}
+
+.xt{border-collapse:collapse;width:100%;min-width:860px;font-size:14px}
+.xt th,.xt td{text-align:left;vertical-align:top;padding:10px 10px;border-top:1px solid var(--line)}
+.xt tbody th{font-weight:600;width:15%}
+.xt td a{display:inline-block;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:3px;padding:2px 7px;margin:0 2px 4px 0;font-weight:500;font-size:13.5px}
+
+.layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:12px}
+.search{width:100%;font:15px var(--body);padding:9px 12px;border-radius:3px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.index nav{display:grid;gap:2px}
+.index nav a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink2);padding:6px 10px;border-radius:3px;font-size:14px}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  .index{top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:10px;z-index:5;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+  .index nav{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .index nav a{white-space:nowrap;background:var(--panel);border:1px solid var(--line);padding:5px 10px}
+}
+
+.ghead{display:grid;gap:4px;margin-bottom:16px;max-width:72ch}
+.ghead h2{font-size:30px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;counter-reset:plate}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:100px;transition:box-shadow .3s;min-width:0;counter-increment:plate}
+.card.picked{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.cbody h3{font-size:21px;line-height:1.15}
+.ref b{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-right:5px}
+.ref.not b{color:var(--accent)}
+.phrase code{display:block;font:12.5px/1.5 var(--mono);background:var(--bg);border:1px dashed var(--line);border-radius:3px;padding:8px 10px;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.btn{font:600 13px var(--body);border-radius:3px;padding:7px 12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btn.add[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.foot{border-top:1px solid var(--line);margin-top:12px;padding-block:20px;color:var(--ink3);font-size:13px;max-width:72ch}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px;margin-bottom:32px}
+.tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden;text-decoration:none;color:var(--ink);transition:border-color .2s,transform .2s}
+.tbody h3{font-size:24px}
+.tnum{font:600 12px var(--mono);color:var(--accent);letter-spacing:.08em}
+.subhead{padding-block:28px 20px;display:grid;gap:8px;max-width:780px}
+.subhead h1{font-size:clamp(34px,5vw,52px);line-height:1.02;font-weight:800;letter-spacing:-.03em}
+@media (max-width:900px){.subhead{padding-block:20px 8px}}
+
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:3px solid var(--ink);box-shadow:0 -8px 24px rgba(0,0,0,.08);padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:10}
+.tray-bar .count small{display:block;font-weight:400;color:var(--ink2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tray-body{display:grid;gap:10px;max-height:62vh;overflow:auto}
+.tray-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.tray-body label{font-size:13px;color:var(--ink2);display:block;margin-bottom:3px}
+.tray-body input{width:100%;font:15px var(--body);padding:9px 12px;border-radius:3px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.fmt{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fmt button{font:600 13px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:3px;padding:6px 11px;cursor:pointer}
+.fmt button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.fmt small{color:var(--ink3);font-size:12.5px}
+.tray-body pre{margin:0;max-height:34vh;overflow:auto;background:var(--bg);border-radius:3px;padding:12px;font:13px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* ======================================================
+   PLATE KIT. Every example is a numbered plate: an SVG
+   drawn for a fictional brand on a faint construction grid.
+   Fills and strokes come from classes so both themes work.
+   ====================================================== */
+.ex{background:var(--plate);border-bottom:1px solid var(--line);padding:12px 12px 10px;min-height:190px;display:flex;flex-direction:column;justify-content:center;gap:6px;position:relative;min-width:0;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px;background-position:-1px -1px}
+.plate svg{width:100%;height:auto;display:block;overflow:visible}
+.slab{font:500 10px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);display:flex;justify-content:space-between;gap:8px}
+.slab b{color:var(--accent);font-weight:500}
+.card .slab::after{content:"Plate " counter(plate,decimal-leading-zero);color:var(--ink3)}
+.tile .slab::after,.vcell .slab::after{content:none}
+/* svg paint classes */
+.plate svg text{font-family:var(--display)}
+.k{fill:var(--ink)} .p{fill:var(--plate)} .w{fill:var(--panel)} .r{fill:var(--accent)} .m{fill:var(--ink3)} .l{fill:var(--line)}
+.b{fill:var(--c-blue)} .y{fill:var(--c-ochre)} .g{fill:var(--c-green)} .pk{fill:var(--c-pink)} .sky{fill:var(--c-sky)} .cr{fill:var(--c-cream)}
+.sk,.sr,.sm,.sb,.sw,.sy,.sg,.gl{fill:none}
+.sk{stroke:var(--ink)} .sr{stroke:var(--accent)} .sm{stroke:var(--ink3)} .sb{stroke:var(--c-blue)} .sw{stroke:var(--plate)} .sy{stroke:var(--c-ochre)} .sg{stroke:var(--c-green)}
+.gl{stroke:var(--accent);stroke-width:.6;stroke-dasharray:3 2;opacity:.75}
+.lbl{font:500 7px var(--mono)!important;letter-spacing:.08em;fill:var(--ink3);text-transform:uppercase}
+.fD{font-family:var(--display)!important} .fB{font-family:var(--body)!important} .fM{font-family:var(--mono)!important}
+.fFr{font-family:"Fraunces",Georgia,serif!important} .fBo{font-family:"Bodoni Moda","Didot",serif!important} .fJo{font-family:"Josefin Sans",Futura,sans-serif!important}
+.fNu{font-family:"Nunito","Arial Rounded MT Bold",sans-serif!important} .fYt{font-family:"Yellowtail","Brush Script MT",cursive!important} .fUf{font-family:"UnifrakturMaguntia","Old English Text MT",serif!important}
+.fZs{font-family:"Zilla Slab",Rockwell,serif!important} .fUb{font-family:"Unbounded","Arial Black",sans-serif!important} .fBb{font-family:"Bebas Neue",Impact,sans-serif!important}
+.fCv{font-family:"Caveat","Comic Sans MS",cursive!important} .fDs{font-family:"DM Serif Display",Georgia,serif!important}
+/* small html kit for design-system plates */
+.ds{font:13px/1.35 var(--body);color:var(--ink);display:grid;gap:6px}
+.ds .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ds .sw{width:28px;height:28px;border-radius:3px;border:1px solid var(--line);flex:none}
+.ds .tk{font:11px/1.3 var(--mono);color:var(--ink2)}
+.ds .tk b{color:var(--ink);font-weight:600}
+.ds .ar{color:var(--accent);font:600 11px var(--mono)}
+.ds .ub{font:600 12.5px var(--body);border-radius:4px;padding:6px 12px;border:1px solid var(--ink);background:var(--ink);color:var(--panel)}
+.ds .ub.o{background:transparent;color:var(--ink)}
+.ds .ub.r{background:var(--accent);border-color:var(--accent);color:#fff}
+.ds .ub.dis{opacity:.4}
+.ds .box{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:8px 10px}
+@media (prefers-reduced-motion: reduce){.ex *{animation:none!important}}

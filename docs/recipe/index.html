@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Prompt Recipe Builder</title>
+<meta name="description" content="Search every workbook card at once, pick a few, and copy one prompt brief.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../assets/base.css">
+<link rel="stylesheet" href="recipe.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="back" href="../">← All workbooks</a>
+    <div class="eyebrow" id="count">Workbooks</div>
+    <h1>Prompt Recipe Builder</h1>
+    <p>Search every card from every workbook at once, pick a few, and copy one brief that names exactly what you want. Save a brief as a style and reuse it for every prompt in that project.</p>
+  </header>
+
+  <section class="styles" aria-labelledby="stylesH">
+    <h2 id="stylesH">Your styles</h2>
+    <div class="srow" id="styles"></div>
+  </section>
+
+  <section class="presets" aria-labelledby="presetH">
+    <h2 id="presetH">Start from a recipe</h2>
+    <div class="prow" id="presets"></div>
+  </section>
+
+  <div class="layout">
+    <div class="browse">
+      <input class="search" id="q" type="search" placeholder="Search all cards, e.g. golden hour, bento, outbox, falsetto…" aria-label="Search all cards">
+      <div class="wbs" id="wbs" role="group" aria-label="Limit to one workbook"></div>
+      <p class="hint" id="hint"></p>
+      <div class="results" id="results"></div>
+      <button class="more" id="more" hidden>Show more</button>
+    </div>
+
+    <aside class="brief" id="brief" aria-labelledby="briefH">
+      <div class="bhead"><h2 id="briefH">Your brief</h2><span id="pcount">0 picks</span></div>
+      <div class="full">
+        <div><label for="subject">What are you making?</label><input id="subject" type="text" placeholder="e.g. a gig poster for a Friday folk show"></div>
+        <div><label id="tgL">Where will you paste it?</label><div class="targets" id="targets" role="group" aria-labelledby="tgL"></div></div>
+        <p class="active" id="active" hidden></p>
+        <ul class="picks" id="picks"></ul>
+        <pre id="out"></pre>
+        <div class="saveform" id="saveform" hidden>
+          <input id="sname" type="text" placeholder="Name this style, e.g. Lakeside festival poster" aria-label="Style name">
+          <button class="btn primary" id="sdo">Save</button>
+          <button class="btn" id="scancel">Cancel</button>
+        </div>
+        <div class="btns">
+          <button class="btn" id="save">Save as style</button>
+          <button class="btn" id="update" hidden>Update style</button>
+          <button class="btn" id="sheet">Copy style sheet</button>
+        </div>
+      </div>
+      <div class="btns">
+        <button class="btn drawer" id="toggle" aria-expanded="false">Show brief</button>
+        <button class="btn primary" id="copy">Copy brief</button>
+        <button class="btn" id="clear">Clear</button>
+      </div>
+    </aside>
+  </div>
+</div>
+<script src="data.js"></script>
+<script src="recipe.js"></script>
+</body>
+</html>

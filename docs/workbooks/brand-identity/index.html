@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Brand &amp; Identity Workbook</title>
+<meta name="description" content="The words for how a brand looks and behaves: kinds of logo and how they lock up, mark styles and wordmark builds, brand archetypes and positioning, the pieces of an identity system, and the design-system terms that carry it into product. Every card is a plate drawn for a made-up brand, with a phrase you can paste into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=Hanken+Grotesk:ital,wght@0,300..800;1,300..800&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Josefin+Sans:wght@300..700&family=Nunito:wght@400..900&family=Yellowtail&family=UnifrakturMaguntia&family=Zilla+Slab:wght@400;600;700&family=Unbounded:wght@300..900&family=Bebas+Neue&family=Caveat:wght@500..700&family=DM+Serif+Display:ital@0;1&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Brand &amp; Identity <span class="red">Workbook</span></h1>
+      <p>The words for how a brand looks and behaves: kinds of logo and how they lock up, mark styles and wordmark builds, brand archetypes and positioning, the pieces of an identity system, and the design-system terms that carry it into product. Every card is a plate drawn for a made-up brand, with a phrase you can paste into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Pick a section and browse until a plate looks like the brand in your head</li>
+        <li><b>2</b>Press Add on the logo type, style, archetype and system pieces that fit</li>
+        <li><b>3</b>Name the brand, then copy a one-off logo brief or a reusable brand guide</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="same" aria-labelledby="sameH">
+      <h2 id="sameH">Same brand, every kind of logo</h2>
+      <p class="lead">The kinds of logo are easiest to tell apart when the brand stays fixed. Pick a brand and read across: same name, same idea, seven different ways to sign it. Tap a label to open its card.</p>
+      <div class="seg" id="msgs" role="group" aria-label="Brand"></div>
+      <div class="brief" id="brief"></div>
+      <div class="vgrid" id="vgrid"></div>
+    </section>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a brand prompt</h2>
+      <p class="lead">A logo or identity prompt that lands names the kind of mark, a style, a personality to hit, a typeface direction and the places it has to work. Here is what that sounds like for three different jobs. Tap any word to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Say the kind of logo first</strong>"A lettermark" or "a combination mark with a pictorial symbol" removes more guesswork than any adjective about the brand.</li>
+        <li><strong>Give the mark a job and a size</strong>Say where it has to live: a 16px favicon, a van door, an embroidered cap. Small and rough uses force simpler, better marks.</li>
+        <li><strong>Pick an archetype, then say what it isn't</strong>"Explorer, not outdoorsy cliché" or "Sage, not stuffy" gives a direction and a fence.</li>
+        <li><strong>Ask for a system, not just a logo</strong>A color, a typeface, one graphic device and a few applications is what makes a mark feel like a brand.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Identity by kind of business</h2>
+      <p class="lead">Start from what the business is and read across: a kind of logo, a mark style, an archetype, a type direction and a system piece that usually suits it. Every name links to its card. These are starting points; breaking them on purpose is how brands stand out.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All sections</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the Visual Vocabulary, Color, Typography, UI Patterns and Voice &amp; Tone workbooks. Every brand on these plates is made up for this page; real companies appear only as names to look up, and none of their marks are reproduced.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt" role="group" aria-label="Prompt format">
+        <button type="button" data-fmt="brief" aria-pressed="true">Logo brief</button>
+        <button type="button" data-fmt="guide" aria-pressed="false">Brand guide</button>
+        <small id="fmtNote">A one-off ask for a mark or identity.</small>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="name-in">Brand name</label>
+          <input id="name-in" type="text" placeholder="e.g. Pine Lake Ferry Co.">
+        </div>
+        <div>
+          <label for="what-in">What it is (optional)</label>
+          <input id="what-in" type="text" placeholder="e.g. a small-batch coffee roaster">
+        </div>
+        <div>
+          <label for="aud-in">Who it's for (optional)</label>
+          <input id="aud-in" type="text" placeholder="e.g. commuters, indie music fans">
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

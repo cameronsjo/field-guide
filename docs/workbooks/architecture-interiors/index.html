@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Architecture &amp; Interiors Workbook</title>
+<meta name="description" content="Names for the buildings, rooms and places in your head, from ziggurats to solarpunk towers. Every card has a small picture, a plain explanation, the tells that give it away, and a phrase you can paste into a prompt, so you can ask for “a shou sugi ban boathouse with clerestory windows” instead of “a cool dark cabin by the water”.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif&family=Caveat:wght@600&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <filter id="grainF" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0"/></filter>
+  <radialGradient id="vigF" cx=".5" cy=".5" r=".72"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></radialGradient>
+</defs></svg>
+
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Architecture &amp; Interiors</h1>
+      <p>Names for the buildings, rooms and places in your head, from ziggurats to solarpunk towers. Every card has a small picture, a plain explanation, the tells that give it away, and a phrase you can paste into a prompt, so you can ask for “a shou sugi ban boathouse with clerestory windows” instead of “a cool dark cabin by the water”.</p>
+      <ol class="steps">
+        <li><b>1</b>Open a subject, or start from a mood in the table below</li>
+        <li><b>2</b>Press Add on a style, a material, a space and a setting</li>
+        <li><b>3</b>Say what you're picturing, then copy the prompt from the tray</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every subject…" aria-label="Search every subject">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="recipe" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a place prompt</h2>
+      <p class="lead">A believable place is built in layers: a style, what it's made of, the space you're standing in, and what's around it. Here are three sentences built that way. Tap any word to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>One style, then materials</strong>“Desert modernism in board-formed concrete and travertine” beats three style names. Materials do most of the work in an image.</li>
+        <li><strong>Put the camera in a room</strong>Name the space and one element (“a reading nook under clerestory windows”) so the model knows where you are standing.</li>
+        <li><strong>Add the tells</strong>Style names are shortcuts. The tray adds each card's Spot it traits, so models that ignore names still get the look.</li>
+        <li><strong>Describe architects, then build new</strong>“In the manner of Barragán” works best with the traits spelled out, for a new building rather than a copy of a famous one.</li>
+      </ul>
+    </section>
+
+    <section class="mood" id="mood" aria-labelledby="moodH">
+      <h2 id="moodH">Same mood, every layer</h2>
+      <p class="lead">A place feels a certain way because every layer agrees. Find the feeling on the left and read across for a style, a material, an interior, a space and a setting that all push the same way. Dashed links open the Photography workbook for the light.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+
+    <section class="timeline" id="timeline" aria-labelledby="timelineH"></section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All subjects</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this subject…" aria-label="Search this subject">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A sibling of the Visual Vocabulary, Photography &amp; Lighting and Illustration &amp; Art Movements workbooks. Classical, Gothic, Art Deco, Modernist, Brutalist, mid-century, Postmodern, Deconstructivist, parametric and traditional Japanese architecture already have cards in <a href="../visual-vocabulary/" target="_blank" rel="noopener">Visual Vocabulary</a>, so they appear here only as dashed entries on the timeline. For light, lenses and camera angles, use <a href="../photography-lighting/" target="_blank" rel="noopener">Photography &amp; Lighting</a>. Pictures are small originals drawn to show each term's tells, not copies of real buildings.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">No cards picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="row2">
+        <div>
+          <label for="subject-in">What are you picturing?</label>
+          <input id="subject-in" type="text" placeholder="e.g. a boathouse on a pine-dark lake at dusk">
+        </div>
+        <div>
+          <label id="outputL">Where will it end up?</label>
+          <div class="chips" id="outputs" role="group" aria-labelledby="outputL"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

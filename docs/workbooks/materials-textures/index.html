@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Materials &amp; Textures Workbook</title>
+<meta name="description" content="The names for what things are made of and how they were finished: woods, stones, cloth, metals, glass, sheens, wear, and the print processes and papers that give a poster or a book its feel. Each card has a drawn swatch, how to recognize it, and a phrase you can paste into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fraunces:opsz,wght@9..144,400..900&family=Bebas+Neue&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Materials &amp; Textures</h1>
+      <p>The names for what things are made of and how they were finished: woods, stones, cloth, metals, glass, sheens, wear, and the print processes and papers that give a poster or a book its feel. Each card has a drawn swatch, how to recognize it, and a phrase you can paste into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Browse a family until a swatch matches the surface in your head</li>
+        <li><b>2</b>Press Add on the material, finish, wear and print that fit</li>
+        <li><b>3</b>Say what the object is, then copy the assembled prompt</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every material…" aria-label="Search every material">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a material prompt</h2>
+      <p class="lead">A surface is described in layers: what it is, how it was finished, what time and hands have done to it, and the light that shows it off. For printed things, add the process and the paper. Tap any word to jump to its card.</p>
+      <div class="formula" aria-label="Prompt order"><span>Object</span><i>+</i><span>Material</span><i>+</i><span>Finish</span><i>+</i><span>Wear</span><i>+</i><span>Light that shows it</span><i>+</i><span>Print process</span><i>+</i><span>Paper</span></div>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Name the species, not the category</strong>"Rift-sawn white oak" and "Calacatta marble" each carry a color, a grain and a price point. "Wood" and "marble" leave all three to chance.</li>
+        <li><strong>Say the sheen separately</strong>The same walnut can be matte oiled or mirror lacquered. Image models guess gloss from the material unless you tell them.</li>
+        <li><strong>Raking light sells texture</strong>A low light skimming across the surface is what makes linen, plaster and letterpress read as real. Ask for it by name.</li>
+        <li><strong>Imperfection is the realism</strong>Misregistration on a riso print or edge wear on a brass handle tells the eye the thing was made, not rendered. Ask for a little, in a specific place.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Same feeling, every surface</h2>
+      <p class="lead">A mood comes from several surface choices pushing the same way. Find the feeling on the left and read across for a material, finish, wear and print that agree with each other.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All families</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the Visual Vocabulary, Color &amp; Palettes and Photography &amp; Lighting workbooks. The swatches are drawn with SVG noise and lighting rather than photographed, so read them for pattern, sheen and wear rather than exact color.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What is it?</label>
+          <input id="subject-in" type="text" placeholder="e.g. a pour-over coffee set on a kitchen counter">
+        </div>
+        <div>
+          <label for="medium-in">What kind of image? (optional)</label>
+          <input id="medium-in" type="text" placeholder="e.g. product photo">
+          <div class="stacks" id="mediums"></div>
+        </div>
+      </div>
+      <div class="btns" style="align-items:center">
+        <div class="seg" role="group" aria-label="Prompt format">
+          <button type="button" id="fmt-list" aria-pressed="true">Detailed, for Claude</button>
+          <button type="button" id="fmt-line" aria-pressed="false">One line, for image models</button>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

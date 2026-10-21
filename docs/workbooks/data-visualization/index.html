@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Data Visualization Workbook</title>
+<meta name="description" content="The words for showing data: chart types, the visual channels that carry a number, scales, color schemes, dashboard layouts, annotation and storytelling, and the styles of the people who shaped the field. Every card draws the thing it names from real numbers and gives you a phrase to paste into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:ital,wght@0,400..900;1,400..700&family=Source+Sans+3:ital,wght@0,400..700;1,400..600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="hl">
+        <div class="eyebrow" id="homeCount">Workbook</div>
+        <h1>Data <em>Visualization</em> Workbook</h1>
+        <p>The words for showing data: chart types, the visual channels that carry a number, scales, color schemes, dashboard layouts, annotation and storytelling, and the styles of the people who shaped the field. Every card draws the thing it names from real numbers and gives you a phrase to paste into a prompt.</p>
+        <ol class="steps">
+          <li><b>1</b>Start from your question, or browse a topic</li>
+          <li><b>2</b>Press Add on the chart, scales, colors and notes that fit, and on mistakes to avoid</li>
+          <li><b>3</b>Describe your data and audience, then copy a chart request, a dashboard brief or house rules</li>
+        </ol>
+        <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+      </div>
+      <figure class="hero" id="hero" aria-hidden="true" style="margin:0"></figure>
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="same" aria-labelledby="sameH">
+      <h2 id="sameH">One dataset, every chart</h2>
+      <p class="lead">Four cafés, twelve months of cups sold. Every chart below draws exactly the same 48 numbers, and each one makes a different question easy to answer. Pick a chart to see what it is good at. Tap its name to open the card.</p>
+      <div class="seg" id="sameSeg" role="group" aria-label="Chart type"></div>
+      <div class="same">
+        <div class="stage" id="sameStage"></div>
+        <div class="read" id="sameRead"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a chart prompt</h2>
+      <p class="lead">A chart prompt that lands says what question the chart answers, names the chart and what each axis and color stands for, says how the scale works, and asks for the one annotation that makes the point. Here is what that looks like for three different jobs. Tap any word to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Lead with the question</strong>"Which channel grew fastest since 2023?" picks the chart for you. "Visualize this data" gets a default bar chart and a legend.</li>
+        <li><strong>Map every column</strong>Say which field goes on x, which on y, which sets color and which splits the panels. Ambiguity here is where most bad charts come from.</li>
+        <li><strong>Ask for the title as a sentence</strong>"Airport sales nearly triple every summer" beats "Sales by location, 2025". The headline is the first thing anyone reads.</li>
+        <li><strong>Name what to avoid</strong>"No dual axis, no 3D, no rainbow scale." Saying the failure out loud is quicker than describing the fix.</li>
+        <li><strong>Say where it will live</strong>A slide, a phone, a printed report and a live dashboard each want different sizes, fonts and amounts of detail.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Question to chart</h2>
+      <p class="lead">Start from the question your reader is asking and read across: a chart that answers it, the scale or transform that keeps it honest, a color approach, the annotation that makes the point, and the mistake people usually make. Every name links to its card.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All topics</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the Visual Vocabulary, UI Patterns, Color, Typography, Photography, Art Movements, Voice &amp; Tone, Motion, Software Architecture, Architecture &amp; Interiors and Music &amp; Sound workbooks. Every example is drawn live from small sample datasets, so the shapes are true to their numbers; the style cards describe a look in plain words so you can ask for it without copying anyone's work. Picks are saved in this browser only.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt" role="group" aria-label="Prompt format">
+        <button type="button" data-fmt="chart" aria-pressed="true">Chart request</button>
+        <button type="button" data-fmt="dash" aria-pressed="false">Dashboard brief</button>
+        <button type="button" data-fmt="rules" aria-pressed="false">House style</button>
+        <small id="fmtNote"></small>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="data-in">What's the data, and what question should it answer?</label>
+          <input id="data-in" type="text" placeholder="e.g. monthly signups by channel since 2023: which channel is growing?">
+        </div>
+        <div>
+          <label for="aud-in">Audience and where it will live (optional)</label>
+          <input id="aud-in" type="text" placeholder="e.g. one slide for the leadership review">
+          <div class="stacks" id="auds"></div>
+        </div>
+        <div>
+          <label for="tool-in">Tool or library (optional)</label>
+          <input id="tool-in" type="text" placeholder="e.g. Observable Plot, matplotlib, Excel">
+          <div class="stacks" id="tools"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

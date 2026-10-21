@@ -1,0 +1,17 @@
+{
+  "name": "field-guide",
+  "private": true,
+  "type": "module",
+  "description": "Visual workbooks that name the looks, sounds, layouts and voices you can picture but can't describe.",
+  "scripts": {
+    "dev": "python3 -m http.server 8000 -d docs",
+    "vocab": "node scripts/extract-vocabulary.mjs",
+    "cheatsheets": "node scripts/cheat-sheets.mjs",
+    "build": "python3 scripts/build.py",
+    "check": "python3 scripts/check_links.py",
+    "all": "npm run vocab && npm run build && npm run cheatsheets && npm run check"
+  },
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cheat Sheets</title>
+<meta name="description" content="Every workbook term and its prompt phrase, one printable PDF per workbook.">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,760&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+:root{--bg:#F2F4F7;--panel:#FFFFFF;--ink:#161C27;--ink2:#4B5466;--line:#DCE1E8;--accent:#2B50D8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141B;--panel:#181D26;--ink:#E8ECF2;--ink2:#A9B1BF;--line:#2A313D;--accent:#86A2FF;color-scheme:dark}}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:40px max(16px,env(safe-area-inset-right,0px)) 64px max(16px,env(safe-area-inset-left,0px))}
+.back{font:500 13px "IBM Plex Mono",ui-monospace,monospace;text-decoration:none;color:var(--accent)}
+h1{font:760 clamp(36px,6vw,52px)/1 "Bricolage Grotesque",system-ui,sans-serif;margin:14px 0 8px;letter-spacing:-.01em}
+p{color:var(--ink2);margin:0 0 24px}
+ul{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+a.sheet{display:flex;justify-content:space-between;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--ink);font-weight:600}
+a.sheet span{font:500 12px "IBM Plex Mono",ui-monospace,monospace;color:var(--ink2)}
+a.sheet:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="../">← All workbooks</a>
+  <h1>Cheat Sheets</h1>
+  <p>Every term and its prompt phrase, one printable PDF per workbook.</p>
+  <ul id="sheets"></ul>
+</main>
+<script src="../assets/catalog.js"></script>
+<script>
+document.getElementById("sheets").innerHTML = window.CATALOG.workbooks
+  .map(b => `<li><a class="sheet" href="${b.slug}.pdf">${b.title}<span>PDF</span></a></li>`).join("");
+</script>
+</body>
+</html>

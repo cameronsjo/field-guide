@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Prompting &amp; AI Workbook</title>
+<meta name="description" content="The words for how to ask a model for something: roles and context, prompt structure, examples, reasoning techniques, guardrails, output control, and the phrasing that makes evals trustworthy. Every card shows a tiny transcript with the technique marked, plus a phrase you can paste straight into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=Public+Sans:ital,wght@0,300..800;1,300..800&family=Martian+Mono:wght@300..600&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Prompting &amp; AI <span class="cur">Workbook</span></h1>
+      <p>The words for how to ask a model for something: roles and context, prompt structure, examples, reasoning techniques, guardrails, output control, and the phrasing that makes evals trustworthy. Every card shows a tiny transcript with the technique marked, plus a phrase you can paste straight into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Pick a topic and read until a transcript looks like the problem you have</li>
+        <li><b>2</b>Press Add on the roles, structures and checks that fit</li>
+        <li><b>3</b>Say what the task is, then copy a prompt scaffold or a request for Claude to write the prompt</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="same" aria-labelledby="sameH">
+      <h2 id="sameH">Same task, every technique</h2>
+      <p class="lead">Techniques are easiest to compare when the job stays fixed. Pick a task and read across: each cell shows the part of the prompt that technique adds, and what it buys you. Tap a technique to open its card.</p>
+      <div class="seg" id="msgs" role="group" aria-label="Task"></div>
+      <div class="brief" id="brief"></div>
+      <div class="vgrid" id="vgrid"></div>
+    </section>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a prompt that works</h2>
+      <p class="lead">Most prompts that hold up in production have the same parts: a role, the goal and the reader, the inputs fenced off in tags, an example or two, room to think, a defined output, and a way to check the result. Here is how that reads for three different jobs. Tap any phrase to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Explain it like a new hire</strong>Write the prompt you would give a smart colleague on their first day: what the task is, who it's for, why it matters, and what good looks like. Missing context causes more bad output than missing tricks.</li>
+        <li><strong>Show, then tell</strong>Two or three well-chosen examples steer format and judgment harder than a paragraph of adjectives. Vary them so the model copies the pattern, not the content.</li>
+        <li><strong>Make room to think, then check</strong>On anything with steps, ask for reasoning before the answer, and keep it in its own tags so you can strip it. Then grade outputs against criteria written down in advance.</li>
+        <li><strong>Change one thing at a time</strong>Keep a small test set and rerun it after every edit. A prompt that only gets read, never tested, drifts the moment the inputs change.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Technique by job</h2>
+      <p class="lead">Start from what you need the model to do and read across: a role and context, a structure, an example strategy, a reasoning technique, and how to control and check the output. Every name links to its card.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All topics</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the Voice &amp; Tone, Software Architecture and Visual Vocabulary workbooks. The techniques hold across current chat models; the transcripts are short illustrations written for this page, trimmed to show the move, not full production prompts. "Look up" points at the paper or guide where a technique was named or is best explained.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt" role="group" aria-label="Prompt format">
+        <button type="button" data-fmt="scaffold" aria-pressed="true">Prompt scaffold</button>
+        <button type="button" data-fmt="request" aria-pressed="false">Ask Claude to write it</button>
+        <small id="fmtNote">A ready-to-edit prompt with your picks in place.</small>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What should the model do?</label>
+          <input id="subject-in" type="text" placeholder="e.g. summarize support tickets for the on-call engineer">
+        </div>
+        <div>
+          <label for="aud-in">What does it work on? (optional)</label>
+          <input id="aud-in" type="text" placeholder="e.g. a customer email, a diff, a PDF report">
+        </div>
+        <div>
+          <label for="len-in">What should it return? (optional)</label>
+          <input id="len-in" type="text" placeholder="e.g. JSON with summary and urgency">
+          <div class="stacks" id="lens"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

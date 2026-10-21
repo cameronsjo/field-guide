@@ -1,0 +1,3028 @@
+/* =========================================================
+   SOUND SKETCH ENGINE. Plain Web Audio, no samples.
+   Plucked strings are Karplus-Strong; everything else is
+   oscillators, filtered noise and generated reverb tails.
+   ========================================================= */
+const AU = { c: null, out: null, bus: null, timers: [], btn: null, cache: {}, onstop: null };
+function actx() {
+  if (!AU.c) {
+    const C = window.AudioContext || window.webkitAudioContext;
+    AU.c = new C();
+    const comp = AU.c.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = .004; comp.release.value = .2;
+    AU.out = AU.c.createGain(); AU.out.gain.value = .75;
+    AU.out.connect(comp); comp.connect(AU.c.destination);
+  }
+  if (AU.c.state === 'suspended') AU.c.resume();
+  return AU.c;
+}
+function newBus() { const b = AU.c.createGain(); b.connect(AU.out); AU.bus = b; return b; }
+function stopSound() {
+  if (AU.bus && AU.c) {
+    const b = AU.bus, t = AU.c.currentTime;
+    b.gain.setValueAtTime(b.gain.value, t); b.gain.linearRampToValueAtTime(0, t + .06);
+    setTimeout(() => { try { b.disconnect(); } catch (e) { } }, 150);
+  }
+  AU.bus = null;
+  AU.timers.forEach(clearTimeout); AU.timers = [];
+  if (AU.onstop) { const f = AU.onstop; AU.onstop = null; f(); }
+}
+const NT = s => { const m = /^([A-G])(#|b)?(-?\d)$/.exec(s); if (!m) return null; return { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (+m[3] + 1) * 12; };
+const FQ = m => 440 * Math.pow(2, (m - 69) / 12);
+const NS = s => s.trim().split(/\s+/).map(x => x === '-' ? null : NT(x));
+const NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const nm = m => NAMES[m % 12] + (Math.floor(m / 12) - 1);
+
+function noiseBuf(color = 'white', sec = 3) {
+  const key = 'n' + color + sec; if (AU.cache[key]) return AU.cache[key];
+  const c = AU.c, len = Math.floor(c.sampleRate * sec), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+  let l = 0, b0 = 0, b1 = 0, b2 = 0;
+  for (let i = 0; i < len; i++) {
+    const w = Math.random() * 2 - 1;
+    if (color === 'brown') { l = (l + .02 * w) / 1.02; d[i] = l * 3.5; }
+    else if (color === 'pink') { b0 = .99765 * b0 + w * .099; b1 = .963 * b1 + w * .2965; b2 = .57 * b2 + w * 1.0527; d[i] = (b0 + b1 + b2 + w * .1848) * .2; }
+    else d[i] = w;
+  }
+  return AU.cache[key] = b;
+}
+function src(buf, t, dur, dest, o = {}) {
+  const s = AU.c.createBufferSource(); s.buffer = buf; s.loop = !!o.loop; if (o.rate) s.playbackRate.value = o.rate;
+  s.connect(dest); s.start(t, o.offset || 0); if (dur) s.stop(t + dur); return s;
+}
+function gainEnv(dest, t, v, a, d, hold = 0) {
+  const g = AU.c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + a);
+  if (hold) g.gain.setValueAtTime(v, t + a + hold);
+  g.gain.setTargetAtTime(0, t + a + hold, d / 4); g.connect(dest); return g;
+}
+function filt(type, f, q = .7, dest) { const x = AU.c.createBiquadFilter(); x.type = type; x.frequency.value = f; x.Q.value = q; if (dest) x.connect(dest); return x; }
+function panTo(dest, p) { const c = AU.c; if (!c.createStereoPanner) return dest; const x = c.createStereoPanner(); x.pan.value = p; x.connect(dest); return x; }
+function lfo(rate, depth, param, t, dur, type = 'sine') { const c = AU.c, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = rate; g.gain.value = depth; o.connect(g); g.connect(param); o.start(t); o.stop(t + dur); return o; }
+function impulse(sec, bright = .6, kind = '') {
+  const key = 'ir' + sec + bright + kind; if (AU.cache[key]) return AU.cache[key];
+  const c = AU.c, sr = c.sampleRate, len = Math.floor(sr * sec), b = c.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch); let lp = 0;
+    for (let i = 0; i < len; i++) {
+      const x = i / len, w = Math.random() * 2 - 1;
+      const k = bright * (1 - x * .8); lp += (w - lp) * Math.max(.04, k);
+      let v = lp * Math.pow(1 - x, kind === 'gate' ? .2 : 2.2);
+      if (kind === 'spring') v *= 1 + .9 * Math.sin(2 * Math.PI * i / sr * (300 + 1800 * Math.exp(-x * 6)));
+      if (kind === 'gate' && x > .55) v = 0;
+      if (i < sr * .008 && kind !== 'spring') v *= i / (sr * .008);
+      d[i] = v;
+    }
+  }
+  return AU.cache[key] = b;
+}
+function verb(dest, sec, mix = .4, bright = .6, kind = '') {
+  const c = AU.c, inp = c.createGain(), cv = c.createConvolver(), w = c.createGain();
+  cv.buffer = impulse(sec, bright, kind); w.gain.value = mix; inp.connect(cv); cv.connect(w); w.connect(dest); return inp;
+}
+function shaper(amount, kind = 'soft') {
+  const key = 'ws' + amount + kind; const c = AU.c, ws = c.createWaveShaper();
+  if (!AU.cache[key]) {
+    const n = 2048, cv = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = i * 2 / n - 1;
+      cv[i] = kind === 'hard' ? Math.max(-.7, Math.min(.7, x * amount)) / .7
+        : kind === 'crush' ? Math.round(x * amount) / amount
+          : (1 + amount) * x / (1 + amount * Math.abs(x));
+    }
+    AU.cache[key] = cv;
+  }
+  ws.curve = AU.cache[key]; ws.oversample = kind === 'crush' ? 'none' : '2x'; return ws;
+}
+
+/* ---------- voices ---------- */
+function ksBuf(m, bright = .5) {
+  const key = 'ks' + m + '_' + bright; if (AU.cache[key]) return AU.cache[key];
+  const c = AU.c, sr = c.sampleRate, len = Math.floor(sr * 2.6), b = c.createBuffer(1, len, sr), d = b.getChannelData(0);
+  const p = Math.max(2, Math.round(sr / FQ(m))), r = new Float32Array(p);
+  let prev = 0; for (let i = 0; i < p; i++) { const w = Math.random() * 2 - 1; prev += (w - prev) * (.15 + bright * .85); r[i] = prev; }
+  const decay = .9935 + bright * .0055; let j = 0;
+  for (let i = 0; i < len; i++) { const n = (j + 1) % p; d[i] = r[j]; r[j] = decay * .5 * (r[j] + r[n]); j = n; }
+  return AU.cache[key] = b;
+}
+function pluck(dest, t, m, o = {}) {
+  const v = o.v ?? .5, dur = o.dur ?? 1.6, g = AU.c.createGain();
+  g.gain.setValueAtTime(v, t); g.gain.setValueAtTime(v, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + .08);
+  g.connect(o.pan ? panTo(dest, o.pan) : dest); src(ksBuf(m, o.bright ?? .5), t, dur + .1, g);
+}
+function tone(dest, t, m, dur, o = {}) {
+  const c = AU.c, g = c.createGain(), f = filt('lowpass', o.cut || 5000, o.q || .7);
+  f.connect(g); g.connect(o.pan ? panTo(dest, o.pan) : dest);
+  const rel = o.rel ?? .15, end = t + dur + rel * 3 + .05;
+  const oscs = (o.det || [0]).map(dt => {
+    const x = c.createOscillator(); x.type = o.type || 'triangle'; x.detune.value = dt;
+    if (o.glideFrom != null) { x.frequency.setValueAtTime(FQ(o.glideFrom), t); x.frequency.exponentialRampToValueAtTime(FQ(m), t + (o.glide || .15)); }
+    else x.frequency.setValueAtTime(FQ(m), t);
+    if (o.bend) x.frequency.exponentialRampToValueAtTime(FQ(m + o.bend), t + dur);
+    x.connect(f); x.start(t); x.stop(end); return x;
+  });
+  if (o.vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = o.vib[0]; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(o.vib[1], t + (o.vibDelay ?? .25)); l.connect(lg); oscs.forEach(x => lg.connect(x.detune)); l.start(t); l.stop(end); }
+  if (o.sweep) { f.frequency.setValueAtTime(o.sweep[0], t); f.frequency.exponentialRampToValueAtTime(o.sweep[1], t + (o.sweep[2] || dur)); }
+  const v = o.v ?? .2, a = o.a ?? .01;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + a);
+  if (o.d) g.gain.setTargetAtTime(v * (o.s ?? 0), t + a, o.d / 3);
+  g.gain.setTargetAtTime(0, t + Math.max(dur, a), rel / 3);
+}
+function fm(dest, t, m, dur, o = {}) {
+  const c = AU.c, car = c.createOscillator(), mod = c.createOscillator(), mg = c.createGain(), g = c.createGain();
+  const f = FQ(m); car.frequency.value = f; mod.frequency.value = f * (o.ratio || 3.5);
+  mg.gain.setValueAtTime(f * (o.index || 3), t); mg.gain.exponentialRampToValueAtTime(f * .05 + 1, t + (o.md || 1.2));
+  mod.connect(mg); mg.connect(car.frequency); car.connect(g); g.connect(o.pan ? panTo(dest, o.pan) : dest);
+  const v = o.v ?? .18; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .004); g.gain.setTargetAtTime(0, t + .004, (o.decay || 1.4) / 3);
+  const end = t + (o.decay || 1.4) * 2 + .1; car.start(t); mod.start(t); car.stop(end); mod.stop(end);
+  if (o.trem) lfo(o.trem, .5, g.gain, t, end - t);
+}
+function breath(dest, t, dur, v = .03, f = 2500) { const g = gainEnv(dest, t, v, .05, .1, dur); const bp = filt('bandpass', f, 1.2, g); src(noiseBuf('white'), t, dur + .2, bp); }
+const VOX = {
+  guitar: (d, t, m, dur, v = .45, p) => pluck(d, t, m, { v, bright: .55, dur: Math.max(dur, .3) + .5, pan: p }),
+  nylon: (d, t, m, dur, v = .5, p) => pluck(d, t, m, { v, bright: .22, dur: Math.max(dur, .3) + .6, pan: p }),
+  banjo: (d, t, m, dur, v = .4, p) => pluck(d, t, m, { v, bright: .95, dur: .45, pan: p }),
+  mando: (d, t, m, dur, v = .35, p) => pluck(d, t, m, { v, bright: .85, dur: .35, pan: p }),
+  upright: (d, t, m, dur, v = .8) => pluck(d, t, m, { v, bright: .18, dur: Math.max(dur, .25) + .2 }),
+  harp: (d, t, m, dur, v = .45, p) => pluck(d, t, m, { v, bright: .35, dur: 2.2, pan: p }),
+  keys: (d, t, m, dur, v = .22, p) => { tone(d, t, m, dur, { type: 'sine', v, a: .004, d: 1.6, s: .25, rel: .35, pan: p }); tone(d, t, m + 12, dur, { type: 'sine', v: v * .3, a: .002, d: .25, s: 0, rel: .1, pan: p }); tone(d, t, m + 28, .05, { type: 'sine', v: v * .08, a: .001, d: .05, s: 0, rel: .03, pan: p }); },
+  wurli: (d, t, m, dur, v = .16) => { tone(d, t, m, dur, { type: 'triangle', v, a: .004, d: 1.1, s: .3, rel: .25, cut: 2600 }); tone(d, t, m, dur, { type: 'square', v: v * .25, a: .002, d: .25, s: 0, rel: .1, cut: 1800 }); },
+  piano: (d, t, m, dur, v = .2) => { tone(d, t, m, dur, { type: 'triangle', v, a: .003, d: 1.8, s: .15, rel: .4, cut: 3200 }); tone(d, t, m + 12, dur, { type: 'sine', v: v * .35, a: .002, d: .6, s: 0, rel: .2 }); },
+  tack: (d, t, m, dur, v = .14) => { tone(d, t, m, dur, { type: 'sawtooth', v, a: .002, d: .7, s: .05, rel: .2, cut: 4200, det: [-14, 12] }); },
+  organ: (d, t, m, dur, v = .07) => [[0, 1], [12, .8], [19, .6], [24, .5], [-12, .7]].forEach(([iv, k]) => tone(d, t, m + iv, dur, { type: 'sine', v: v * k, a: .012, rel: .06 })),
+  pipe: (d, t, m, dur, v = .06) => [[0, 1], [12, .7], [19, .5], [24, .45], [31, .25], [-12, .8]].forEach(([iv, k]) => tone(d, t, m + iv, dur, { type: iv === 0 ? 'triangle' : 'sine', v: v * k, a: .08, rel: .5 })),
+  reed: (d, t, m, dur, v = .1) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .12, rel: .2, cut: 1500, det: [-5, 5] }),
+  accordion: (d, t, m, dur, v = .08) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .04, rel: .12, cut: 2600, det: [-9, 0, 11] }),
+  harmonica: (d, t, m, dur, v = .11) => { tone(d, t, m, dur, { type: 'square', v, a: .05, rel: .1, cut: 1900, q: 2, vib: [5, 18], glideFrom: m - 1, glide: .08 }); breath(d, t, dur, .02, 1800); },
+  pad: (d, t, m, dur, v = .07) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .6, rel: 1.2, cut: 1300, det: [-11, 0, 9] }),
+  strings: (d, t, m, dur, v = .07) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .3, rel: .7, cut: 2400, det: [-8, 7], vib: [5.4, 10], vibDelay: .4 }),
+  cello: (d, t, m, dur, v = .12) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .18, rel: .5, cut: 1500, q: 1.5, vib: [5.2, 14], vibDelay: .3 }),
+  fiddle: (d, t, m, dur, v = .09) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .04, rel: .12, cut: 3200, q: 2, vib: [6, 16], vibDelay: .2 }),
+  brass: (d, t, m, dur, v = .1) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .05, rel: .2, det: [-4, 4], sweep: [500, 2600, .12] }),
+  horn: (d, t, m, dur, v = .12) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .12, rel: .4, cut: 900, q: 1.2 }),
+  muted: (d, t, m, dur, v = .1) => tone(d, t, m, dur, { type: 'square', v, a: .03, rel: .15, cut: 1300, q: 6 }),
+  sax: (d, t, m, dur, v = .1) => { tone(d, t, m, dur, { type: 'sawtooth', v, a: .05, rel: .15, cut: 1700, q: 3, vib: [5, 14], glideFrom: m - 1, glide: .06 }); breath(d, t, dur, .015, 1500); },
+  clarinet: (d, t, m, dur, v = .13) => tone(d, t, m, dur, { type: 'square', v, a: .05, rel: .15, cut: 2000, vib: [5, 8] }),
+  flute: (d, t, m, dur, v = .16) => { tone(d, t, m, dur, { type: 'sine', v, a: .06, rel: .15, vib: [5, 12] }); breath(d, t, dur, .025, 3000); },
+  whistle: (d, t, m, dur, v = .16) => { tone(d, t, m, dur, { type: 'sine', v, a: .05, rel: .1, vib: [5.5, 22], glideFrom: m - 1, glide: .07 }); breath(d, t, dur, .012, 4000); },
+  saw: (d, t, m, dur, v = .16) => tone(d, t, m, dur, { type: 'sine', v, a: .35, rel: .4, vib: [5.5, 45], vibDelay: .5, glideFrom: m - 2, glide: .45 }),
+  theremin: (d, t, m, dur, v = .16) => tone(d, t, m, dur, { type: 'sine', v, a: .25, rel: .3, vib: [6.5, 30], glideFrom: m - 5, glide: .35 }),
+  steel: (d, t, m, dur, v = .13) => tone(d, t, m, dur, { type: 'triangle', v, a: .22, rel: .6, cut: 2800, vib: [4.5, 9], vibDelay: .5, glideFrom: m - 2, glide: .25 }),
+  dobro: (d, t, m, dur, v = .4) => { pluck(d, t, m, { v, bright: .8, dur: dur + .5 }); tone(d, t, m, dur, { type: 'triangle', v: .05, glideFrom: m - 2, glide: .12, cut: 3000, rel: .3 }); },
+  bell: (d, t, m, dur, v = .14, p) => fm(d, t, m, dur, { v, ratio: 3.5, index: 2.5, decay: 2.4, pan: p }),
+  church: (d, t, m, dur, v = .2) => fm(d, t, m, dur, { v, ratio: 2.76, index: 4, md: 2, decay: 4 }),
+  music: (d, t, m, dur, v = .12, p) => fm(d, t, m, dur, { v, ratio: 5, index: 1.4, md: .3, decay: .9, pan: p }),
+  celesta: (d, t, m, dur, v = .12, p) => fm(d, t, m, dur, { v, ratio: 4, index: 1, md: .4, decay: 1.3, pan: p }),
+  vibes: (d, t, m, dur, v = .12) => fm(d, t, m, dur, { v, ratio: 4, index: .6, md: .5, decay: 2.2, trem: 5 }),
+  marimba: (d, t, m, dur, v = .25) => { tone(d, t, m, .05, { type: 'sine', v, a: .002, d: .35, s: 0, rel: .1 }); tone(d, t, m + 24, .02, { type: 'sine', v: v * .25, a: .001, d: .05, s: 0, rel: .03 }); },
+  kalimba: (d, t, m, dur, v = .22) => { tone(d, t, m, .05, { type: 'sine', v, a: .002, d: .7, s: 0, rel: .2 }); tone(d, t, m + 31, .02, { type: 'sine', v: v * .2, a: .001, d: .04, s: 0, rel: .03 }); },
+  toy: (d, t, m, dur, v = .12) => fm(d, t, m, dur, { v, ratio: 7.1, index: 1.8, md: .2, decay: .6 }),
+  lead: (d, t, m, dur, v = .08) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .01, rel: .1, cut: 2400, q: 4, glideFrom: m, glide: .02 }),
+  moog: (d, t, m, dur, v = .12) => tone(d, t, m, dur, { type: 'sawtooth', v, a: .005, rel: .12, q: 8, sweep: [3500, 400, .35] }),
+  chip: (d, t, m, dur, v = .06) => tone(d, t, m, dur * .85, { type: 'square', v, a: .002, rel: .02, cut: 9000 }),
+  chipbass: (d, t, m, dur, v = .2) => tone(d, t, m, dur * .9, { type: 'triangle', v, a: .002, rel: .02, cut: 9000 }),
+  bass: (d, t, m, dur, v = .32) => tone(d, t, m, dur, { type: 'triangle', v, a: .005, d: .5, s: .5, rel: .08, cut: 900 }),
+  sub: (d, t, m, dur, v = .4) => tone(d, t, m, dur, { type: 'sine', v, a: .005, rel: .1 }),
+  choir: (d, t, m, dur, v = .06) => { tone(d, t, m, dur, { type: 'sawtooth', v, a: .4, rel: .8, cut: 900, q: 4, det: [-12, 0, 13], vib: [5, 8] }); tone(d, t, m, dur, { type: 'sawtooth', v: v * .5, a: .4, rel: .8, cut: 2600, q: 6, det: [-6, 7] }); },
+  timp: (d, t, m, dur, v = .6) => { tone(d, t, m, .05, { type: 'sine', v, a: .003, d: 1.6, s: 0, rel: .4, glideFrom: m + 2, glide: .06 }); const g = gainEnv(d, t, .2, .002, .08); src(noiseBuf('brown'), t, .2, filt('lowpass', 600, .7, g)); }
+};
+
+/* ---------- drums ---------- */
+function hitNoise(dest, t, v, type, f, q, a, d, color = 'white') { const g = gainEnv(dest, t, v, a, d); src(noiseBuf(color), t, a + d + .05, filt(type, f, q, g)); }
+function pitchHit(dest, t, v, f0, f1, d, type = 'sine') {
+  const c = AU.c, o = c.createOscillator(), g = c.createGain(); o.type = type;
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d * .4);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(g); g.connect(dest); o.start(t); o.stop(t + d + .02);
+}
+const DR = {
+  k: (d, t, v) => pitchHit(d, t, .95 * v, 150, 45, .38),
+  s: (d, t, v) => { hitNoise(d, t, .45 * v, 'bandpass', 1900, .6, .001, .18); pitchHit(d, t, .28 * v, 230, 170, .11, 'triangle'); },
+  h: (d, t, v) => hitNoise(d, t, .16 * v, 'highpass', 7500, .5, .001, .045),
+  o: (d, t, v) => hitNoise(d, t, .13 * v, 'highpass', 7000, .5, .001, .32),
+  y: (d, t, v) => { hitNoise(d, t, .09 * v, 'highpass', 5200, .4, .001, .9); hitNoise(d, t, .05 * v, 'bandpass', 3400, 4, .001, .5); },
+  c: (d, t, v) => [0, .011, .022].forEach((dt, i) => hitNoise(d, t + dt, (i === 2 ? .5 : .32) * v, 'bandpass', 1300, 1.2, .001, i === 2 ? .14 : .02)),
+  r: (d, t, v) => { pitchHit(d, t, .3 * v, 1700, 1500, .035, 'square'); hitNoise(d, t, .15 * v, 'bandpass', 2500, 3, .001, .03); },
+  b: (d, t, v) => hitNoise(d, t, .12 * v, 'bandpass', 3200, .5, .025, .22),
+  w: (d, t, v) => hitNoise(d, t, .08 * v, 'bandpass', 2600, .4, .12, .08),
+  p: (d, t, v) => hitNoise(d, t, .09 * v, 'highpass', 5200, .7, .018, .07),
+  t: (d, t, v) => pitchHit(d, t, .6 * v, 120, 82, .4),
+  f: (d, t, v) => pitchHit(d, t, .6 * v, 90, 62, .5),
+  j: (d, t, v) => { hitNoise(d, t, .1 * v, 'highpass', 8000, .6, .002, .16); hitNoise(d, t, .07 * v, 'bandpass', 6200, 8, .002, .2); },
+  m: (d, t, v) => { pitchHit(d, t, .9 * v, 95, 48, .32); hitNoise(d, t, .25 * v, 'lowpass', 500, .7, .002, .12, 'brown'); },
+  n: (d, t, v) => hitNoise(d, t, .14 * v, 'bandpass', 3000, 2.5, .001, .05),
+  g: (d, t, v) => { const g = gainEnv(d, t, .14 * v, .01, .1, .1); const bp = filt('bandpass', 3500, 2, g); src(noiseBuf('white'), t, .3, bp); lfo(45, .12, g.gain, t, .3, 'square'); },
+  8: (d, t, v) => pitchHit(d, t, .9 * v, 72, 48, 1.4),
+  q: (d, t, v) => { pitchHit(d, t, .45 * v, 420, 330, .12); pitchHit(d, t, .2 * v, 640, 600, .08); },
+  e: (d, t, v) => { const g = gainEnv(d, t, .35 * v, .002, 1.2); const cv = AU.c.createConvolver(); cv.buffer = impulse(1.6, .7, 'gate'); cv.connect(g); hitNoise(cv, t, 1, 'bandpass', 1800, .6, .001, .15); hitNoise(d, t, .4 * v, 'bandpass', 1900, .6, .001, .16); pitchHit(d, t, .25 * v, 220, 170, .1, 'triangle'); }
+};
+const ROW = { k: 'Kick', s: 'Snare', h: 'Hat', o: 'Open hat', y: 'Ride', c: 'Clap', r: 'Rim', b: 'Brush', w: 'Sweep', p: 'Shaker', t: 'Tom', f: 'Floor', j: 'Tamb', m: 'Stomp', n: 'Knock', g: 'Güiro', 8: '808', q: 'Conga', e: 'Gated', B: 'Bass', C: 'Chord', L: 'Lead', M: 'Click' };
+
+function chordNotes(name) {
+  const m = /^([A-G])(#|b)?(.*)$/.exec(name); const q = m[3];
+  const pc = ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + 12) % 12;
+  const IV = { '': [0, 4, 7, 12], m: [0, 3, 7, 12], 7: [0, 4, 7, 10], maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], sus4: [0, 5, 7, 12], sus2: [0, 2, 7, 12], add9: [0, 4, 7, 14], dim: [0, 3, 6, 9], 9: [0, 4, 10, 14], m9: [0, 3, 10, 14], 6: [0, 4, 7, 9], m6: [0, 3, 7, 9], 5: [0, 7, 12], 13: [0, 4, 10, 21], maj9: [0, 4, 11, 14], m7b5: [0, 3, 6, 10], '+': [0, 4, 8, 12] }[q] || [0, 4, 7];
+  const off = (pc - 4 + 12) % 12;
+  return { bass: 40 + off, notes: IV.map(i => 52 + off + i) };
+}
+
+/* ---------- players ---------- */
+function playSeq(dest, sp, t0) {
+  const res = sp.res || 4, steps = sp.steps || res * 4, spb = 60 / sp.bpm / res, bars = sp.bars || 2;
+  const counters = {};
+  for (let b = 0; b < bars; b++) for (let i = 0; i < steps; i++) {
+    let t = t0 + (b * steps + i) * spb;
+    if (sp.swing && i % 2 === 1) t += spb * sp.swing;
+    for (const [row, pat] of Object.entries(sp.p)) {
+      const ch = pat[i % pat.length]; if (!ch || ch === '.' || ch === ' ') continue;
+      const v = ch === 'X' ? 1 : ch === 'g' ? .3 : .7;
+      if (row === 'B') { const k = counters.B = (counters.B ?? -1) + 1; const list = sp.bn || [sp.root || 43]; VOX[sp.bv || 'upright'](dest, t, list[k % list.length], spb * (sp.bl || 2), sp.bv ? .3 : .8); }
+      else if (row === 'C') { const k = counters.C = (counters.C ?? -1) + 1; const chs = sp.chords || [sp.chord || [55, 59, 62, 67]]; const cn = chs[Math.floor(k / (sp.cper || 1e9)) % chs.length]; cn.forEach((n, j) => VOX[sp.cv || 'guitar'](dest, t + j * (sp.cv && sp.cv !== 'guitar' ? 0 : .012), n, spb * (sp.cl || 1.5), (sp.cvv || .22) * v)); }
+      else if (row === 'L') { const k = counters.L = (counters.L ?? -1) + 1; VOX[sp.lv || 'guitar'](dest, t, sp.ln[k % sp.ln.length], spb * 2, .35); }
+      else if (row === 'M') DR.r(dest, t, ch === 'X' ? 1 : .5);
+      else DR[row](dest, t + (row === 's' && sp.late ? spb * sp.late : 0), v);
+    }
+  }
+  return bars * steps * spb;
+}
+function playMel(dest, mel, bpm, voice, t0, o = {}) {
+  let t = t0; const beat = 60 / bpm;
+  mel.forEach(([m, b]) => { if (m != null) VOX[voice](dest, t, m, b * beat * (o.legato || .95), o.v); t += b * beat; });
+  return t - t0;
+}
+function playProg(dest, sp, t0) {
+  const beat = 60 / sp.bpm, per = sp.per || 4, style = sp.style || 'strum';
+  let t = t0;
+  sp.ch.split(/\s+/).forEach((name, ci) => {
+    const { bass, notes } = chordNotes(name);
+    const len = per * beat;
+    AU.timers.push(setTimeout(() => markChord(ci), Math.max(0, (t - AU.c.currentTime) * 1000)));
+    if (style === 'strum') {
+      for (let b = 0; b < per; b++) {
+        const tt = t + b * beat; const down = b % 2 === 0;
+        (down ? [bass + 12, ...notes] : [...notes].reverse()).forEach((n, j) => VOX.guitar(dest, tt + j * .014, n, beat * .9, (b === 0 ? .32 : .2)));
+      }
+    } else if (style === 'arp') {
+      const seq = [bass + 12, ...notes, notes[1]]; for (let k = 0; k < per * 2; k++) VOX[sp.v || 'nylon'](dest, t + k * beat / 2, seq[k % seq.length], beat, .4);
+    } else {
+      const v = VOX[sp.v || (style === 'pad' ? 'pad' : 'keys')];
+      notes.forEach(n => v(dest, t, n, len * .95));
+      VOX.bass(dest, t, bass, len * .9);
+    }
+    if (style === 'strum' || style === 'arp') VOX.bass(dest, t, bass, beat * 1.8, .25);
+    t += len;
+  });
+  return t - t0;
+}
+let markChord = () => { };
+
+/* ---------- effect chains ---------- */
+function chain(kind, dest, t, dur) {
+  const c = AU.c, inp = c.createGain();
+  const dry = g => { const x = c.createGain(); x.gain.value = g; inp.connect(x); x.connect(dest); return x; };
+  const wetDelay = (time, fb, mix, cut = 3000, pan) => { const dl = c.createDelay(2); dl.delayTime.value = time; const f = filt('lowpass', cut); const fbG = c.createGain(); fbG.gain.value = fb; const w = c.createGain(); w.gain.value = mix; inp.connect(dl); dl.connect(f); f.connect(fbG); fbG.connect(dl); f.connect(w); w.connect(pan != null ? panTo(dest, pan) : dest); return dl; };
+  const bed = (color, v, type, f, q = .7) => { const g = c.createGain(); g.gain.value = v; g.connect(dest); src(noiseBuf(color), t, dur + 1.5, filt(type, f, q, g), { loop: true }); return g; };
+  const crackle = (rate, v) => { for (let x = 0; x < dur * rate; x++) hitNoise(dest, t + Math.random() * dur, v * (.3 + Math.random()), 'highpass', 2000 + Math.random() * 3000, .7, .0005, .004); };
+  switch (kind) {
+    case 'dry': dry(1); break;
+    case 'room': dry(.85); inp.connect(verb(dest, .7, .45, .5)); break;
+    case 'plate': dry(.75); inp.connect(verb(dest, 2.4, .6, .95)); break;
+    case 'hall': dry(.65); inp.connect(verb(dest, 4.2, .7, .55)); break;
+    case 'cathedral': dry(.5); inp.connect(verb(dest, 7.5, .9, .4)); break;
+    case 'spring': dry(.75); inp.connect(verb(dest, 2.2, .55, .8, 'spring')); break;
+    case 'slap': dry(.9); wetDelay(.105, 0, .55, 5000); break;
+    case 'tapeecho': dry(.85); { const dl = wetDelay(.36, .5, .5, 2200); lfo(.6, .0015, dl.delayTime, t, dur + 6); } break;
+    case 'pingpong': dry(.85); wetDelay(.3, 0, .5, 4000, -.9); wetDelay(.6, 0, .35, 3000, .9); wetDelay(.9, 0, .22, 2500, -.9); break;
+    case 'chorus': { dry(.7); const dl = c.createDelay(); dl.delayTime.value = .022; lfo(.8, .005, dl.delayTime, t, dur + 2); const w = c.createGain(); w.gain.value = .7; inp.connect(dl); dl.connect(w); w.connect(dest); } break;
+    case 'flanger': { dry(.7); const dl = c.createDelay(); dl.delayTime.value = .004; lfo(.25, .0032, dl.delayTime, t, dur + 2); const fb = c.createGain(); fb.gain.value = .75; dl.connect(fb); fb.connect(dl); const w = c.createGain(); w.gain.value = .7; inp.connect(dl); dl.connect(w); w.connect(dest); } break;
+    case 'phaser': { dry(.6); let n = inp; for (let i = 0; i < 4; i++) { const ap = filt('allpass', 900, .6); n.connect(ap); lfo(.45, 700, ap.frequency, t, dur + 2); n = ap; } const w = c.createGain(); w.gain.value = .7; n.connect(w); w.connect(dest); } break;
+    case 'tremolo': { const g = c.createGain(); g.gain.value = .55; inp.connect(g); g.connect(dest); lfo(6, .45, g.gain, t, dur + 2, 'triangle'); } break;
+    case 'leslie': { const g = c.createGain(); g.gain.value = .7; const dl = c.createDelay(); dl.delayTime.value = .003; lfo(6.6, .0009, dl.delayTime, t, dur + 2); lfo(6.6, .25, g.gain, t, dur + 2); inp.connect(dl); dl.connect(g); g.connect(dest); inp.connect(verb(dest, .8, .3, .5)); } break;
+    case 'wobble': { const dl = c.createDelay(); dl.delayTime.value = .02; lfo(.55, .006, dl.delayTime, t, dur + 2); lfo(7, .0004, dl.delayTime, t, dur + 2); const f = filt('lowpass', 5000); inp.connect(dl); dl.connect(f); f.connect(dest); } break;
+    case 'cassette': { const dl = c.createDelay(); dl.delayTime.value = .02; lfo(.7, .0025, dl.delayTime, t, dur + 2); const hp = filt('highpass', 90); const lp = filt('lowpass', 4500); const ws = shaper(2.5); inp.connect(dl); dl.connect(ws); ws.connect(hp); hp.connect(lp); lp.connect(dest); bed('pink', .02, 'highpass', 3000); } break;
+    case 'gramophone': { const hp = filt('highpass', 450, 1.2), lp = filt('lowpass', 3200, 1.5), ws = shaper(4); inp.connect(hp); hp.connect(lp); lp.connect(ws); ws.connect(dest); bed('pink', .025, 'bandpass', 2500, .6); crackle(14, .25); } break;
+    case 'mono60s': { const lp = filt('lowpass', 7000); const pk = filt('peaking', 1500); pk.gain.value = 4; inp.connect(lp); lp.connect(pk); pk.connect(dest); inp.connect(verb(dest, 2, .4, .8)); } break;
+    case 'vinyl': { const lp = filt('lowpass', 9000); inp.connect(lp); lp.connect(dest); crackle(9, .16); bed('brown', .03, 'lowpass', 120); } break;
+    case 'saturate': { const ws = shaper(3); const lp = filt('lowpass', 7000); const g = c.createGain(); g.gain.value = .8; inp.connect(ws); ws.connect(lp); lp.connect(g); g.connect(dest); } break;
+    case 'overdrive': { const pre = c.createGain(); pre.gain.value = 3; const ws = shaper(12); const lp = filt('lowpass', 3800); const g = c.createGain(); g.gain.value = .35; inp.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g); g.connect(dest); } break;
+    case 'fuzz': { const pre = c.createGain(); pre.gain.value = 9; const ws = shaper(40, 'hard'); const lp = filt('lowpass', 3000); const g = c.createGain(); g.gain.value = .16; inp.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g); g.connect(dest); } break;
+    case 'bitcrush': { const ws = shaper(5, 'crush'); const g = c.createGain(); g.gain.value = .7; inp.connect(ws); ws.connect(g); g.connect(dest); } break;
+    case 'nextroom': { const lp = filt('lowpass', 380, 1); const g = c.createGain(); g.gain.value = 1.3; inp.connect(lp); lp.connect(g); g.connect(dest); lp.connect(verb(dest, 1, .35, .2)); } break;
+    case 'telephone': { const hp = filt('highpass', 500, 1), lp = filt('lowpass', 2600, 1.4), ws = shaper(5); const g = c.createGain(); g.gain.value = .7; inp.connect(hp); hp.connect(lp); lp.connect(ws); ws.connect(g); g.connect(dest); } break;
+    case 'radio': { const hp = filt('highpass', 400, 1), lp = filt('lowpass', 3000, 1.2), ws = shaper(4); const g = c.createGain(); g.gain.value = .7; inp.connect(hp); hp.connect(lp); lp.connect(ws); ws.connect(g); g.connect(dest); const s = bed('white', .03, 'bandpass', 2500, .5); lfo(.3, .02, s.gain, t, dur + 2); } break;
+    case 'wide': { dry(0); const l = panTo(dest, -1), r = panTo(dest, 1); inp.connect(l); const dl = c.createDelay(); dl.delayTime.value = .018; lfo(.3, .002, dl.delayTime, t, dur + 2); inp.connect(dl); dl.connect(r); inp.connect(verb(dest, 1.8, .3, .7)); } break;
+    case 'double': { const l = panTo(dest, -.7), r = panTo(dest, .7); inp.connect(l); const dl = c.createDelay(); dl.delayTime.value = .03; lfo(.4, .003, dl.delayTime, t, dur + 2); inp.connect(dl); dl.connect(r); } break;
+    case 'warm': { const lp = filt('lowpass', 2600); const ls = filt('lowshelf', 250); ls.gain.value = 6; const ws = shaper(1.5); inp.connect(ws); ws.connect(ls); ls.connect(lp); lp.connect(dest); } break;
+    case 'bright': { const hs = filt('highshelf', 3500); hs.gain.value = 12; const hp = filt('highpass', 180); inp.connect(hp); hp.connect(hs); hs.connect(dest); } break;
+    case 'dark': { const lp = filt('lowpass', 800, .9); const g = c.createGain(); g.gain.value = 1.2; inp.connect(lp); lp.connect(g); g.connect(dest); } break;
+    case 'airy': { const hs = filt('highshelf', 9000); hs.gain.value = 14; inp.connect(hs); hs.connect(dest); inp.connect(verb(dest, 3, .3, 1)); bed('white', .006, 'highpass', 9000); } break;
+    case 'hollow': { const n = filt('notch', 900, .4); const n2 = filt('notch', 2400, .5); const pk = filt('peaking', 500, 3); pk.gain.value = 8; inp.connect(n); n.connect(n2); n2.connect(pk); pk.connect(dest); } break;
+    case 'metallic': { dry(.5); const dl = c.createDelay(); dl.delayTime.value = .0031; const fb = c.createGain(); fb.gain.value = .86; dl.connect(fb); fb.connect(dl); const w = c.createGain(); w.gain.value = .35; inp.connect(dl); dl.connect(w); w.connect(dest); } break;
+    case 'lush': { dry(.5); const dl = c.createDelay(); dl.delayTime.value = .025; lfo(.6, .006, dl.delayTime, t, dur + 2); const w = c.createGain(); w.gain.value = .6; inp.connect(dl); dl.connect(w); w.connect(panTo(dest, .6)); inp.connect(verb(dest, 4, .7, .6)); } break;
+    case 'thin': { const hp = filt('highpass', 1100, .9); inp.connect(hp); hp.connect(dest); } break;
+    case 'gritty': { const pre = c.createGain(); pre.gain.value = 4; const ws = shaper(20); const g = c.createGain(); g.gain.value = .3; inp.connect(pre); pre.connect(ws); ws.connect(g); g.connect(dest); bed('white', .01, 'bandpass', 4000); } break;
+    case 'glassy': { dry(.6); const hs = filt('highshelf', 4000); hs.gain.value = 8; inp.connect(hs); hs.connect(verb(dest, 2.6, .6, 1)); } break;
+    case 'upfront': { const pk = filt('peaking', 3000, 1); pk.gain.value = 5; const g = c.createGain(); g.gain.value = 1.2; inp.connect(pk); pk.connect(g); g.connect(dest); } break;
+    case 'buried': { const lp = filt('lowpass', 1500); const g = c.createGain(); g.gain.value = .45; inp.connect(lp); lp.connect(g); g.connect(dest); inp.connect(verb(dest, 3.5, .9, .5)); } break;
+    case 'mono': { const lp = filt('lowpass', 8000); inp.connect(lp); lp.connect(dest); } break;
+    default: dry(1);
+  }
+  return inp;
+}
+
+/* ---------- sound design ---------- */
+const SFX = {
+  riser(d, t) { const g = AU.c.createGain(); g.gain.setValueAtTime(.001, t); g.gain.exponentialRampToValueAtTime(.5, t + 4); g.gain.linearRampToValueAtTime(0, t + 4.05); g.connect(d); const bp = filt('bandpass', 300, 3, g); bp.frequency.exponentialRampToValueAtTime(7000, t + 4); src(noiseBuf('white'), t, 4.1, bp); tone(d, t, 40, 3.9, { type: 'sawtooth', v: .07, a: 3.5, rel: .02, cut: 3000, bend: 24 }); return 4.4; },
+  subdrop(d, t) { pitchHit(d, t, 1, 110, 32, 2.2); return 2.4; },
+  impact(d, t) { pitchHit(d, t, 1, 90, 30, 2); const v = verb(d, 3, .8, .4); hitNoise(v, t, .9, 'lowpass', 1800, .7, .002, .4); hitNoise(d, t, .5, 'lowpass', 2500, .7, .002, .3); return 3; },
+  whoosh(d, t) { const g = gainEnv(d, t, .5, .55, .5); const bp = filt('bandpass', 400, 2); bp.frequency.exponentialRampToValueAtTime(3500, t + .6); bp.frequency.exponentialRampToValueAtTime(600, t + 1.2); const p = AU.c.createStereoPanner ? AU.c.createStereoPanner() : null; if (p) { p.pan.setValueAtTime(-1, t); p.pan.linearRampToValueAtTime(1, t + 1.2); bp.connect(p); p.connect(g); } else bp.connect(g); src(noiseBuf('white'), t, 1.4, bp); return 1.6; },
+  stinger(d, t) { const v = verb(d, 2.5, .6, .6); NS('C3 G3 C4 Eb4 G4').forEach(n => tone(v, t, n, .5, { type: 'sawtooth', v: .07, a: .01, rel: .5, sweep: [3000, 700, .4], det: [-8, 8] })); NS('C3 G3 C4 Eb4 G4').forEach(n => tone(d, t, n, .4, { type: 'sawtooth', v: .05, a: .01, rel: .3, sweep: [3000, 700, .4] })); pitchHit(d, t, .8, 120, 40, .8); return 2.8; },
+  reverse(d, t) { const c = AU.c, g = c.createGain(); g.gain.setValueAtTime(.001, t); g.gain.exponentialRampToValueAtTime(.5, t + 2); g.gain.linearRampToValueAtTime(0, t + 2.03); g.connect(d); NS('D3 A3 D4 F#4').forEach(n => tone(g, t, n, 2, { type: 'sawtooth', v: .08, a: 1.9, rel: .02, cut: 2500, det: [-7, 7] })); const hp = filt('highpass', 4000, .7, g); src(noiseBuf('white'), t, 2.05, hp); VOX.guitar(d, t + 2.03, 50, 1.5, .5); VOX.guitar(d, t + 2.03, 62, 1.5, .4); return 3.6; },
+  drone(d, t) { const lp = filt('lowpass', 500, 4, d); lfo(.15, 350, lp.frequency, t, 6); [[38, 0], [45, 4], [50, -6], [38, 9]].forEach(([n, dt]) => tone(lp, t, n, 5, { type: 'sawtooth', v: .1, a: 1.2, rel: 1, det: [dt], cut: 5000 })); return 6.2; },
+  shepard(d, t) { const c = AU.c, dur = 6; for (let k = 0; k < 6; k++) { const o = c.createOscillator(), g = c.createGain(); const f0 = 40 * Math.pow(2, k); o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 2, t + dur); const w = Math.sin(Math.PI * k / 6) * .09 + .005; g.gain.setValueAtTime(k === 0 ? 0 : w, t); g.gain.linearRampToValueAtTime(k === 5 ? 0 : Math.sin(Math.PI * (k + 1) / 6) * .09 + .005, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + .2); o.connect(g); g.connect(d); o.start(t); o.stop(t + dur + .3); } return 6.3; },
+  glitch(d, t) { const seq = [62, 62, 62, 65, 69, 69, 57, 74, 74, 74, 74, 62]; let tt = t; seq.forEach((n, i) => { const len = [.06, .03, .12, .045][i % 4]; VOX.lead(d, tt, n, len, .09); if (i % 3 === 0) DR.n(d, tt, 1); tt += len + (i % 5 === 0 ? .09 : 0); }); DR.k(d, tt, 1); return tt - t + .5; },
+  heartbeat(d, t) { for (let i = 0; i < 4; i++) { pitchHit(d, t + i * .9, .9, 70, 40, .2); pitchHit(d, t + i * .9 + .22, .6, 65, 38, .18); } return 3.8; },
+  wind(d, t) { const g = AU.c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.5, t + 1.2); g.gain.setValueAtTime(.5, t + 4.5); g.gain.linearRampToValueAtTime(0, t + 5.8); g.connect(d); const bp = filt('bandpass', 600, 2.5, g); lfo(.23, 400, bp.frequency, t, 6); lfo(.11, .25, g.gain, t, 6); src(noiseBuf('pink'), t, 6, bp, { loop: true }); const hp = filt('highpass', 3000, .7, g); const g2 = AU.c.createGain(); g2.gain.value = .15; src(noiseBuf('white'), t, 6, g2, { loop: true }); g2.connect(hp); return 6; },
+  lake(d, t) { for (let i = 0; i < 9; i++) { const tt = t + i * .62 + Math.random() * .2; const g = gainEnv(d, tt, .14 + Math.random() * .1, .08, .35); src(noiseBuf('pink'), tt, .6, filt('bandpass', 500 + Math.random() * 700, 1.5, g)); } const g = AU.c.createGain(); g.gain.value = .05; g.connect(d); src(noiseBuf('brown'), t, 6, filt('lowpass', 300, .7, g), { loop: true }); SFX.loonish(d, t + 2.5, .35); return 6.2; },
+  loonish(d, t, k = 1) { const v = verb(d, 4, .9, .4); tone(v, t, 76, 1.6, { type: 'sine', v: .12 * k, a: .3, rel: .5, glideFrom: 69, glide: .5, vib: [5, 15] }); tone(v, t + 1.9, 81, 1.4, { type: 'sine', v: .1 * k, a: .2, rel: .6, glideFrom: 76, glide: .3, vib: [6, 25] }); tone(v, t + 3.4, 76, 1.2, { type: 'sine', v: .09 * k, a: .1, rel: .8, vib: [6, 25] }); },
+  loon(d, t) { SFX.loonish(d, t, 1.4); const g = AU.c.createGain(); g.gain.value = .03; g.connect(d); src(noiseBuf('pink'), t, 5.5, filt('lowpass', 600, .7, g), { loop: true }); return 5.6; },
+  crickets(d, t) { const c = AU.c; for (let i = 0; i < 18; i++) { const tt = t + i * .32; for (let k = 0; k < 3; k++) { const o = c.createOscillator(), g = c.createGain(); o.frequency.value = 4600 + (i % 2) * 300; g.gain.setValueAtTime(0, tt + k * .045); g.gain.linearRampToValueAtTime(.03, tt + k * .045 + .008); g.gain.linearRampToValueAtTime(0, tt + k * .045 + .03); o.connect(g); g.connect(panTo(d, i % 2 ? .5 : -.4)); o.start(tt); o.stop(tt + .2); } } const g = c.createGain(); g.gain.value = .04; g.connect(d); src(noiseBuf('brown'), t, 6, filt('lowpass', 400, .7, g), { loop: true }); return 6; },
+  rain(d, t) { const g = AU.c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.25, t + 1); g.gain.setValueAtTime(.25, t + 5); g.gain.linearRampToValueAtTime(0, t + 6); g.connect(d); src(noiseBuf('pink'), t, 6.1, filt('highpass', 900, .5, g), { loop: true }); for (let i = 0; i < 60; i++) hitNoise(d, t + .5 + Math.random() * 5, .08 * Math.random(), 'bandpass', 2000 + Math.random() * 4000, 4, .001, .02); const v = verb(d, 4, 1, .3); pitchHit(v, t + 2.5, .7, 60, 30, 2.5); hitNoise(v, t + 2.5, .4, 'lowpass', 200, .7, .3, 2.2, 'brown'); return 6.2; },
+  fire(d, t) { const g = AU.c.createGain(); g.gain.value = .1; g.connect(d); src(noiseBuf('brown'), t, 6, filt('lowpass', 500, .7, g), { loop: true }); for (let i = 0; i < 70; i++) { const tt = t + Math.random() * 5.8; hitNoise(d, tt, .25 * Math.random(), 'highpass', 1500 + Math.random() * 3000, .7, .0005, .006 + Math.random() * .02); } return 6; },
+  surf(d, t) { for (let i = 0; i < 3; i++) { const tt = t + i * 2.1; const g = AU.c.createGain(); g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(.4, tt + 1.1); g.gain.linearRampToValueAtTime(0, tt + 2.6); g.connect(d); const lp = filt('lowpass', 400, .5, g); lp.frequency.linearRampToValueAtTime(2200, tt + 1.1); lp.frequency.linearRampToValueAtTime(500, tt + 2.6); src(noiseBuf('pink'), tt, 2.7, lp); } return 7; },
+  train(d, t) { const v = verb(d, 3, .8, .4); const g = AU.c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.18, t + .3); g.gain.setValueAtTime(.18, t + 2.2); g.gain.linearRampToValueAtTime(0, t + 2.6); g.connect(v); g.connect(d); NS('B3 D#4 F#4 G#4').forEach(n => tone(g, t, n, 2.3, { type: 'sawtooth', v: .25, a: .2, rel: .3, cut: 1500, bend: -.8 })); for (let i = 0; i < 16; i++) { const tt = t + i * .3; hitNoise(d, tt, .14, 'bandpass', 700, 1, .01, .08); hitNoise(d, tt + .15, .08, 'bandpass', 900, 1, .01, .06); } return 5.2; },
+  static(d, t) { const g = AU.c.createGain(); g.gain.value = .22; g.connect(d); const bp = filt('bandpass', 2000, .4, g); src(noiseBuf('white'), t, 5, bp, { loop: true }); lfo(.4, .15, g.gain, t, 5, 'square'); const r = chain('radio', d, t + 1.6, 2); playMel(r, [[67, .5], [71, .5], [74, 1], [72, .5], [71, .5], [67, 1]], 140, 'keys', t + 1.6); tone(d, t + .8, 88, .5, { type: 'sine', v: .03, bend: -12 }); return 5; },
+  roomtone(d, t) { const g = AU.c.createGain(); g.gain.value = .12; g.connect(d); src(noiseBuf('brown'), t, 5, filt('lowpass', 300, .7, g), { loop: true }); tone(d, t, 35, 4.6, { type: 'sine', v: .05, a: .5, rel: .5 }); tone(d, t, 47, 4.6, { type: 'sine', v: .015, a: .5, rel: .5 }); const g2 = AU.c.createGain(); g2.gain.value = .008; g2.connect(d); src(noiseBuf('white'), t, 5, filt('highpass', 6000, .7, g2)); return 5; },
+  wave(d, t, type) { tone(d, t, 57, 1.4, { type, v: type === 'sine' ? .3 : type === 'triangle' ? .28 : .1, a: .02, rel: .1, cut: 18000 }); return 1.7; },
+  noises(d, t) { ['white', 'pink', 'brown'].forEach((c, i) => { const g = gainEnv(d, t + i * 1.3, c === 'brown' ? .5 : .2, .05, .1, 1); src(noiseBuf(c), t + i * 1.3, 1.3, g); }); return 4; },
+  fmbell(d, t) { NS('E5 B5 G#5 E6').forEach((n, i) => VOX.bell(d, t + i * .45, n, 1, .14)); return 4; },
+  granular(d, t) { const c = AU.c, v = verb(d, 3, .6, .6); for (let i = 0; i < 90; i++) { const tt = t + i * .05 + Math.random() * .03; const s = c.createBufferSource(); s.buffer = ksBuf([55, 59, 62, 66, 69][i % 5], .4); s.playbackRate.value = [.5, 1, 1, 2, 1.5][Math.floor(Math.random() * 5)]; const g = c.createGain(); g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(.2, tt + .04); g.gain.linearRampToValueAtTime(0, tt + .12); s.connect(g); g.connect(panTo(v, Math.random() * 2 - 1)); s.start(tt, Math.random() * .8); s.stop(tt + .15); } return 5.5; },
+  supersaw(d, t) { const v = verb(d, 3, .5, .7); ['D3 F#3 A3 D4', 'B2 D3 F#3 B3', 'G2 B2 D3 G3', 'A2 C#3 E3 A3'].forEach((ch, i) => NS(ch).forEach(n => tone(v, t + i * 1.2, n, 1.15, { type: 'sawtooth', v: .035, a: .05, rel: .2, cut: 3500, det: [-18, -7, 0, 8, 17] }))); return 5.6; }
+};
+
+/* ---------- named instrument sketches ---------- */
+const G3 = 'G2 B2 D3 G3 B3 G4', C3 = 'C3 E3 G3 C4 E4', D3 = 'D3 A3 D4 F#4';
+const INST = {
+  strum(d, t) { return playProg(d, { ch: 'G C D G', bpm: 120, per: 2, style: 'strum' }, t); },
+  twelve(d, t) { const p = playProg(d, { ch: 'D G A D', bpm: 120, per: 2, style: 'strum' }, t); playProg(d, { ch: 'D G A D', bpm: 120, per: 2, style: 'arp', v: 'mando' }, t + .01); return p; },
+  travis(d, t) { const pat = [[43, 0], [62, .5], [50, 1], [59, 1.5], [43, 2], [62, 2.5], [50, 3], [59, 3.5]]; const pat2 = [[48, 0], [64, .5], [52, 1], [60, 1.5], [48, 2], [64, 2.5], [52, 3], [60, 3.5]]; [pat, pat2, pat, pat].forEach((p, bar) => p.forEach(([n, b]) => VOX.guitar(d, t + (bar * 4 + b) * .27, n, .5, b % 1 ? .3 : .45))); return 16 * .27 + .6; },
+  nylon(d, t) { return playProg(d, { ch: 'Am7 Dm7 G7 Cmaj7', bpm: 110, per: 2, style: 'arp', v: 'nylon' }, t); },
+  claw(d, t) { const s = .19, seq = [[55, 'X'], [null], [62, ''], [67, 'g'], [59, 'X'], [null], [62, ''], [67, 'g']]; for (let r = 0; r < 4; r++) seq.forEach(([n, a], i) => { if (n) VOX.banjo(d, t + (r * 8 + i) * s, n, s, a === 'g' ? .28 : .4); }); return 32 * s + .5; },
+  scruggs(d, t) { const s = .11, roll = [55, 59, 67, 62, 55, 67, 59, 62]; for (let r = 0; r < 5; r++) roll.forEach((n, i) => VOX.banjo(d, t + (r * 8 + i) * s, r > 2 ? n + 2 : n, s, i % 4 ? .3 : .45)); return 40 * s + .5; },
+  mandolin(d, t) { const mel = [[74, 2], [76, 1], [79, 3], [76, 2]]; let tt = t; mel.forEach(([n, b]) => { for (let i = 0; i < b * 6; i++) VOX.mando(d, tt + i * .075, n, .07, .25); VOX.mando(d, tt, n - 12, .1, .2); tt += b * 6 * .075; }); return tt - t + .4; },
+  upright(d, t) { return playMel(d, NS('G2 B2 D3 E3 C3 E3 G3 A3 D3 F#3 A3 C4 G2 D3 G2 -').map(n => [n, 1]), 140, 'upright', t); },
+  fiddle(d, t) { return playMel(d, [[67, .5], [69, .5], [71, 1], [74, .5], [71, .5], [69, 1], [67, .5], [64, .5], [62, 2]].map(([n, b]) => [n + 7, b]), 132, 'fiddle', t); },
+  steel(d, t) { const v = verb(d, 2.6, .5, .7); [[71, 1.4], [74, 1], [76, 2.2], [74, 1.4]].reduce((tt, [n, len]) => { VOX.steel(v, tt, n, len); VOX.steel(d, tt, n, len, .1); VOX.steel(d, tt, n - 4, len, .06); return tt + len; }, t); return 6.6; },
+  dobro(d, t) { return playMel(d, NS('D4 F4 F#4 A4 - D5 C5 A4').map(n => [n, .5]), 120, 'dobro', t) + .8; },
+  harp(d, t) { const sc = NS('C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 F5 G5 A5 B5 C6'); sc.forEach((n, i) => VOX.harp(d, t + i * .07, n, 1.5, .3)); NS('C3 G3 C4 E4').forEach((n, i) => VOX.harp(d, t + 1.4 + i * .05, n, 2, .4)); return 3.8; },
+  autoharp(d, t) { ['G', 'C', 'D', 'G'].forEach((ch, i) => { const { notes } = chordNotes(ch); const all = [...notes.map(n => n - 12), ...notes, ...notes.map(n => n + 12)].sort((a, b) => a - b); all.forEach((n, j) => VOX.harp(d, t + i * 1.1 + j * .03, n, 1, .2)); }); return 5; },
+  dulcimer(d, t) { [[62, 1], [64, .5], [66, .5], [67, 1], [69, 1], [67, .5], [66, .5], [64, 1], [62, 2]].reduce((tt, [n, b]) => { VOX.guitar(d, tt, n, b * .4, .35); VOX.guitar(d, tt, 50, b * .4, .2); VOX.guitar(d, tt, 57, b * .4, .15); return tt + b * .42; }, t); return 4.4; },
+  hammered(d, t) { const seq = NS('D5 A4 F#4 A4 D5 A4 F#4 A4 E5 A4 G4 A4 F#5 D5 A4 D5'); seq.forEach((n, i) => VOX.mando(d, t + i * .14, n, .8, .3)); return seq.length * .14 + 1; },
+  harmonica(d, t) { return playMel(d, NS('G4 Bb4 C5 C#5 D5 - Bb4 G4').map((n, i) => [n, i === 4 ? 1.5 : .5]), 100, 'harmonica', t); },
+  accordion(d, t) { playMel(d, NS('A4 C5 E5 D5 C5 B4 A4 E4').map(n => [n, .5]), 150, 'accordion', t); [0, 1, 2, 3].forEach(b => { VOX.bass(d, t + b * .8, 45, .3); NS('A3 C4 E4').forEach(n => VOX.accordion(d, t + b * .8 + .4, n, .3, .05)); }); return 3.4; },
+  washboard(d, t) { return playSeq(d, { bpm: 120, p: { w: 'x.x.x.xxx.x.x.xx', n: '....x.......x...' }, bars: 2 }, t); },
+  tele(d, t) { const c = chain('slap', d, t, 3); return playMel(c, [[67, .5], [69, .25], [71, .25], [74, .5], [76, .5], [74, .5], [71, .5], [67, 1]], 120, 'banjo', t) + .3; },
+  tremguitar(d, t) { const c = chain('tremolo', chain('spring', d, t, 6), t, 6); return playMel(c, [[40, 1], [47, 1], [52, 2], [50, 1], [47, 1], [45, 2]], 90, 'guitar', t) + 1; },
+  fuzzg(d, t) { const c = chain('fuzz', d, t, 4); return playMel(c, [[40, .5], [40, .5], [43, .5], [45, .5], [40, .5], [48, .5], [47, 1]], 120, 'guitar', t) + .4; },
+  jangle(d, t) { const c = chain('chorus', d, t, 4); playProg(c, { ch: 'D Dsus4 D Dsus2', bpm: 132, per: 2, style: 'arp', v: 'mando' }, t); return 3.8; },
+  rhodes(d, t) { return playProg(d, { ch: 'Dm9 G13 Cmaj9 A7', bpm: 80, per: 2, style: 'keys', v: 'keys' }, t); },
+  wurli(d, t) { const c = chain('tremolo', d, t, 5); return playProg(c, { ch: 'C Am F G', bpm: 100, per: 2, style: 'keys', v: 'wurli' }, t); },
+  hammond(d, t) { const c = chain('leslie', d, t, 5); return playProg(c, { ch: 'C F C G', bpm: 96, per: 2, style: 'keys', v: 'organ' }, t); },
+  honkytonk(d, t) { return playSeq(d, { bpm: 150, res: 2, steps: 8, bars: 2, p: { B: 'x.x.x.x.', C: '.x.x.x.x' }, bn: [36, 43, 41, 43], bv: 'tack', bl: 1.5, chords: [NS('E4 G4 C5')], cv: 'tack', cvv: .7 }, t) + .3; },
+  grand(d, t) { return playProg(d, { ch: 'C G Am F', bpm: 76, per: 2, style: 'arp', v: 'piano' }, t) + .5; },
+  mellotron(d, t) { const c = chain('wobble', d, t, 5); return playProg(c, { ch: 'Am F C G', bpm: 80, per: 2, style: 'pad', v: 'flute' }, t); },
+  moog(d, t) { return playMel(d, NS('C3 C3 Eb3 C3 G3 F3 Eb3 Bb2').map(n => [n, .5]), 120, 'moog', t) + .3; },
+  synthpad(d, t) { const v = verb(d, 3, .6, .6); return playProg(v, { ch: 'Am F C G', bpm: 70, per: 2, style: 'pad' }, t); },
+  brushes(d, t) { return playSeq(d, { bpm: 110, swing: .33, p: { w: 'x.......x.......', b: '....x.......x...', k: 'x.......x.......', y: 'x..xx..xx..xx..x' }, bars: 2 }, t); },
+  tribal(d, t) { return playSeq(d, { bpm: 100, p: { f: 'x..x..x.x..x..x.', t: '..x...x...x.x...', m: 'x.......x.......' }, bars: 2 }, t); },
+  strings(d, t) { return playProg(d, { ch: 'Dm Bb F C', bpm: 70, per: 2, style: 'pad', v: 'strings' }, t); },
+  cello(d, t) { const v = verb(d, 2.6, .4, .5); return playMel(v, [[50, 1.5], [52, .5], [53, 2], [57, 1], [55, 1], [53, 2]], 72, 'cello', t); },
+  harpgl(d, t) { return INST.harp(d, t); },
+  horn(d, t) { const v = verb(d, 3, .5, .5); return playMel(v, [[55, 1], [60, 1], [64, 2], [62, 1], [60, 1], [67, 2]], 84, 'horn', t); },
+  mutedtpt(d, t) { const v = verb(d, 1.5, .4, .5); return playMel(v, [[67, 1.5], [70, .5], [72, 1], [70, .5], [67, .5], [65, 2]], 76, 'muted', t); },
+  sax(d, t) { const v = verb(d, 2, .4, .6); return playMel(v, [[62, 1], [65, .5], [67, .5], [70, 1.5], [69, .5], [67, 1], [65, 2]], 72, 'sax', t); },
+  clarinet(d, t) { return playMel(d, [[69, .5], [70, .5], [73, .5], [74, 1.5], [73, .5], [70, .5], [69, 2]], 110, 'clarinet', t); },
+  flute(d, t) { const v = verb(d, 2, .4, .6); return playMel(v, [[79, .5], [81, .5], [83, 1], [86, 1], [83, .5], [81, .5], [79, 2]], 96, 'flute', t); },
+  timpani(d, t) { for (let i = 0; i < 14; i++) VOX.timp(d, t + i * .09, 43, .1, .1 + i * .03); VOX.timp(d, t + 1.4, 43, .1, .8); VOX.timp(d, t + 2.1, 38, .1, .9); return 4; },
+  celesta(d, t) { return playMel(d, NS('E6 D6 C6 D6 E6 E6 E6').map((n, i) => [n, i === 6 ? 2 : .5]), 120, 'celesta', t) + 1; },
+  harmonium(d, t) { return playProg(d, { ch: 'D G D A', bpm: 70, per: 2, style: 'pad', v: 'reed' }, t); },
+  pipeorgan(d, t) { const v = verb(d, 6, .8, .45); return playProg(v, { ch: 'Dm A Dm Gm', bpm: 60, per: 2, style: 'pad', v: 'pipe' }, t) + 2; },
+  whistling(d, t) { const v = verb(d, 3.5, .7, .5); return playMel(v, [[69, 1], [76, 2], [74, .5], [72, .5], [71, 1], [69, 3]], 84, 'whistle', t) + 1; },
+  musicalsaw(d, t) { const v = verb(d, 3, .7, .5); return playMel(v, [[72, 2], [76, 2], [74, 1.5], [71, 2.5]], 70, 'saw', t) + 1; },
+  theremin(d, t) { const v = verb(d, 2.5, .6, .5); return playMel(v, [[69, 2], [74, 1.5], [72, 1], [69, 2.5]], 70, 'theremin', t) + 1; },
+  musicbox(d, t) { const v = verb(d, 1.6, .5, .7); return playMel(v, NS('C6 E6 G6 C7 B6 G6 A6 E6 F6 D6 G6 G5').map(n => [n, .5]), 120, 'music', t) + 1; },
+  toypiano(d, t) { return playMel(d, NS('E5 D5 C5 D5 E5 E5 E5 - D5 D5 D5').map(n => [n, .5]), 140, 'toy', t) + .6; },
+  vibes(d, t) { return playProg(d, { ch: 'Fmaj7 Em7 Dm7 Cmaj7', bpm: 90, per: 2, style: 'arp', v: 'vibes' }, t) + 1; },
+  kalimba(d, t) { return playMel(d, NS('C5 E5 G5 E5 A5 G5 E5 D5 C5 E5 D5 G4').map(n => [n, .5]), 130, 'kalimba', t) + .6; },
+  bells(d, t) { [67, 64, 60, 55].forEach((n, i) => VOX.church(d, t + i * .7, n - 12, 2)); return 6; },
+  stomps(d, t) { return playSeq(d, { bpm: 104, res: 2, steps: 8, p: { m: 'x.x.x.x.', c: '..x...x.' }, bars: 2 }, t); },
+  tamb(d, t) { return playSeq(d, { bpm: 118, p: { j: 'x.x.X.x.x.x.X.x.', k: 'x.......x.......' }, bars: 2 }, t); },
+  sleigh(d, t) { for (let i = 0; i < 16; i++) { DR.j(d, t + i * .25, i % 4 ? .5 : 1); DR.j(d, t + i * .25 + .06, .3); } return 4.2; },
+  choirooh(d, t) { const v = verb(d, 4, .7, .5); return playProg(v, { ch: 'D Bm G A', bpm: 66, per: 2, style: 'pad', v: 'choir' }, t) + 1; },
+  chip(d, t) { playMel(d, NS('E5 E5 - E5 - C5 E5 - G5 - - - G4').map(n => [n, .5]), 200, 'chip', t); playMel(d, NS('D3 D3 - D3 - D3 D3 - G3 - - - G2').map(n => [n, .5]), 200, 'chipbass', t); return 2.2; },
+  e808(d, t) { return playSeq(d, { bpm: 140, res: 4, p: { 8: 'x......x..x.....', h: 'x.x.x.x.x.xxx.x.', s: '........x.......' }, bars: 2 }, t); }
+};
+
+/* ---------- dispatcher ---------- */
+const FOLKTUNE = [[67, .5], [71, .5], [74, 1], [76, .5], [74, .5], [71, 1], [69, .5], [67, .5], [64, .5], [67, .5], [69, 2]];
+const MELS = {
+  folk: { label: 'Folk tune', voice: 'guitar', bpm: 116, notes: FOLKTUNE, under: [43, 48, 43, 50] },
+  waltz: { label: 'Waltz', voice: 'keys', bpm: 132, notes: [[62, 1], [66, 1], [69, 1], [74, 2], [73, 1], [71, 2], [69, 1], [66, 3]], under: [38, 45, 38, 45] },
+  blues: { label: 'Blues lick', voice: 'guitar', bpm: 96, notes: [[64, .5], [67, .5], [69, .5], [70, .25], [69, .25], [67, .5], [64, .5], [62, .5], [64, 2]], under: [40, 40, 45, 40] },
+  hymn: { label: 'Hymn chords', voice: 'organ', prog: 'G C G D G', bpm: 72 }
+};
+function playThrough(kind, melId, dest, t) {
+  const M = MELS[melId] || MELS.folk; const dur = M.prog ? 6.7 : 4.6;
+  const inp = chain(kind, dest, t, dur + 1);
+  if (M.prog) return playProg(inp, { ch: M.prog, bpm: M.bpm, per: 2, style: 'keys', v: M.voice }, t) + 1.5;
+  const d = playMel(inp, M.notes, M.bpm, M.voice, t);
+  (M.under || []).forEach((n, i) => VOX.upright(inp, t + i * d / 4, n, .6, .45));
+  return d + 1.2;
+}
+function render(sp, dest, t) {
+  switch (sp.k) {
+    case 'seq': return playSeq(dest, sp, t);
+    case 'click': { const beats = sp.beats || 8, b = 60 / sp.bpm; for (let i = 0; i < beats; i++) DR.r(dest, t + i * b, i % (sp.meter || 4) === 0 ? 1 : .45); return beats * b; }
+    case 'scale': { const n = NS(sp.n); const all = sp.down === false ? n : [...n, ...n.slice(0, -1).reverse()]; if (sp.drone) VOX.organ(dest, t, NT(sp.drone), all.length * 60 / (sp.bpm || 200) + .2, .05); return playMel(dest, all.map(x => [x, 1]), sp.bpm || 200, sp.v || 'guitar', t) + .6; }
+    case 'prog': return playProg(dest, sp, t) + .6;
+    case 'mel': { const inp = sp.fx ? chain(sp.fx, dest, t, 8) : dest; return playMel(inp, sp.n, sp.bpm, sp.v, t, { legato: sp.legato }) + (sp.tail || .6); }
+    case 'fx': return playThrough(sp.fx, sp.mel || 'folk', dest, t);
+    case 'sfx': return SFX[sp.s](dest, t, sp.arg);
+    case 'inst': return INST[sp.i](dest, t);
+    case 'multi': { let tt = t; sp.parts.forEach(p => { tt += render(p, dest, tt) + (p.gap ?? .15); }); return tt - t; }
+    case 'layer': return Math.max(...sp.parts.map(p => render(p, p.fx && p.k !== 'mel' && p.k !== 'fx' ? chain(p.fx, dest, t, 8) : dest, t)));
+  }
+  return 1;
+}
+function playSpec(sp, btn, onstop) {
+  const was = AU.btn === btn; stopSound();
+  if (was) return;
+  actx(); const bus = newBus();
+  const t = AU.c.currentTime + .06;
+  let dur = 1;
+  try { dur = render(sp, bus, t); } catch (e) { console.error(e); }
+  AU.btn = btn; btn.setAttribute('aria-pressed', 'true'); btn.textContent = 'Stop';
+  const card = btn.closest('.card, .tcell'); if (card) card.classList.add('playing');
+  document.getElementById('vu').classList.add('on');
+  AU.onstop = () => { btn.setAttribute('aria-pressed', 'false'); btn.textContent = btn.dataset.label || 'Play'; if (card) card.classList.remove('playing'); document.getElementById('vu').classList.remove('on'); if (onstop) onstop(); AU.btn = null; };
+  AU.timers.push(setTimeout(stopSound, (dur + 1.2) * 1000));
+  return { t, dur };
+}
+
+/* =========================================================
+   VISUAL KIT
+   ========================================================= */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const mtr = (label, n) => `<div class="mtr">${label}<i>${[1, 2, 3, 4, 5].map(k => `<u class="${k <= n ? 'on' : ''}${k <= n && k >= 4 ? ' hot' : ''}"></u>`).join('')}</i></div>`;
+/* J-card: tempo, feel, instruments, voice, era + meters for energy, grit, space */
+const J = (bpm, feel, inst, vox, era, [e, g, s]) => `<div class="jc"><div class="jl">
+  ${bpm === '—' ? '' : `<div class="jrow"><b>Tempo</b><span>${bpm}</span></div>`}
+  <div class="jrow"><b>Feel</b><span>${feel}</span></div>
+  <div class="jrow"><b>Lineup</b><span>${inst}</span></div>
+  <div class="jrow"><b>Voice</b><span>${vox}</span></div>
+  <div class="jrow"><b>Era</b><span>${era}</span></div></div>
+  <div class="jr">${mtr('Energy', e)}${mtr('Grit', g)}${mtr('Space', s)}</div></div>`;
+/* step grid from a sequence spec */
+const GRID = (sp, note = '') => {
+  const res = sp.res || 4, steps = sp.steps || res * 4;
+  const rows = Object.entries(sp.p).map(([r, pat]) => `<div class="grow"><b>${ROW[r] || r}</b><div class="gtrack" style="--n:${steps}">${Array.from({ length: steps }, (_, i) => { const ch = pat[i % pat.length]; const cls = [i % res === 0 ? 'bt' : '', ch === 'X' ? 'ac' : ch === 'g' ? 'gh' : ch && ch !== '.' && ch !== ' ' ? 'on' : ''].join(' '); return `<u class="${cls}"></u>`; }).join('')}</div></div>`).join('');
+  const meta = `${sp.meterLabel || (steps / res) + '/4'} · ${sp.bpm} BPM${sp.swing ? ' · swung' : ''}`;
+  return `<div class="grid" data-bar="${(60 / sp.bpm) * steps / res}" data-loops="${sp.bars || 2}">${rows}<div class="grow"><b></b><div class="gtrack" style="--n:1;height:0"><span class="ph"></span></div></div><div class="gmeta"><span>${meta}</span><span>${note}</span></div></div>`;
+};
+/* two-octave keyboard from C4 with highlighted pitch classes (or exact notes) */
+const KB = (notes, rootPc, o = {}) => {
+  const set = new Set(NS(notes).map(n => o.exact ? n : n % 12)); const start = o.start || 60, octs = o.octs || 2;
+  const W = [0, 2, 4, 5, 7, 9, 11], B = [[1, 0], [3, 1], [6, 3], [8, 4], [10, 5]];
+  let w = '', b = '', x = 0;
+  for (let oc = 0; oc < octs; oc++) {
+    W.forEach((pc, i) => { const m = start + oc * 12 + pc; const on = o.exact ? set.has(m) : set.has(pc); const rt = on && pc === rootPc && (!o.exact || true); w += `<rect class="w${on ? (rt ? ' rt' : ' on') : ''}" x="${(oc * 7 + i) * 20}" y="0" width="20" height="64" rx="2"/>`; if (on && !o.nolabel) w += `<text x="${(oc * 7 + i) * 20 + 10}" y="58" text-anchor="middle">${NAMES[pc]}</text>`; });
+    B.forEach(([pc, after]) => { const m = start + oc * 12 + pc; const on = o.exact ? set.has(m) : set.has(pc); const rt = on && pc === rootPc; const bx = (oc * 7 + after) * 20 + 14; b += `<rect class="${on ? (rt ? 'rt' : 'on') : 'b'}" x="${bx}" y="0" width="12" height="40" rx="1.5"/>`; });
+  }
+  const width = octs * 140;
+  return `<svg class="kb" viewBox="-1 -1 ${width + 2} 66" role="img" aria-label="Keyboard showing ${esc(notes)}">${w}${b}</svg>`;
+};
+const SCALE = (notes, rootName, formula) => `${KB(notes, NT(rootName + '4') % 12)}<div class="notes">${NS(notes).map((n, i) => `<span class="${i === 0 ? 'rt' : ''}">${NAMES[n % 12]}</span>`).join('')}</div>${formula ? `<div class="slab">${formula}</div>` : ''}`;
+/* chord boxes: numerals and chord names */
+const PROG = (numerals, chords, label = '') => { const n = numerals.split(' '), c = chords.split(' '); return `<div class="prog">${n.map((x, i) => `<div data-ci="${i}"><b>${x}</b><small>${c[i]}</small></div>`).join('')}</div>${label ? `<div class="slab">${label}</div>` : ''}`; };
+/* arrangement strip: "intro:4 verse:8 chorus:8" with a focus section */
+const KIND = { intro: 'k3', outro: 'k3', verse: 'k1', pre: 'k1', chorus: 'k2', post: 'k2', bridge: 'k3', solo: 'k1', break: 'k3', drop: 'k2', build: 'k1', a: 'k1', b: 'k3', tag: 'k2', spoken: 'k3', gap: 'q', end: 'k3' };
+const ARR = (s, focus = [], levels) => {
+  const parts = s.split(/\s+/).map(x => { const [k, n] = x.split(':'); return { k, n: +n || 4 }; });
+  const f = [].concat(focus);
+  const strip = `<div class="arr">${parts.map((p, i) => `<div class="${f.includes(p.k) || f.includes(i) ? 'f' : KIND[p.k] || 'k1'}" style="flex:${p.n}">${p.k === 'gap' ? '' : p.k}</div>`).join('')}</div>`;
+  const lv = levels ? `<div class="arrlv">${parts.map((p, i) => `<i style="flex:${p.n};height:${levels[i] * 20}%"></i>`).join('')}</div>` : '';
+  const bars = parts.reduce((a, p) => a + p.n, 0);
+  return `${lv}${strip}<div class="gmeta"><span>${bars} bars</span><span>${levels ? 'energy above' : ''}</span></div>`;
+};
+/* signal chain and knobs */
+const CHAIN = (from, fx, to, knobs = []) => `<div class="chain"><span>${from}</span><i></i><span class="fx">${fx}</span><i></i><span>${to}</span></div>${knobs.length ? `<div class="knobs">${knobs.map(([l, v, f]) => `<div class="knob"><i style="--v:${f}"></i><em>${v}</em>${l}</div>`).join('')}</div>` : ''}`;
+/* waveforms drawn from formulas */
+function rnd(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+const WAVES = {
+  sine: x => Math.sin(x * 2 * Math.PI * 3),
+  square: x => Math.sign(Math.sin(x * 2 * Math.PI * 3)) * .8,
+  saw: x => ((x * 3) % 1) * 2 - 1,
+  tri: x => 1 - 4 * Math.abs(((x * 3 + .25) % 1) - .5),
+  noise: (x, r) => (r() * 2 - 1) * .9,
+  pluck: (x, r) => Math.sin(x * 2 * Math.PI * 14) * Math.exp(-x * 5),
+  swell: (x, r) => (r() * 2 - 1) * Math.pow(x, 2.2),
+  riser: (x, r) => Math.sin(x * x * 2 * Math.PI * 30) * (.15 + x * .8),
+  drop: x => Math.sin((1 - Math.pow(1 - x, 2)) * 2 * Math.PI * 8) * Math.exp(-x * 1.2),
+  impact: (x, r) => (r() * 2 - 1) * Math.exp(-x * 9) * .6 + Math.sin(x * 2 * Math.PI * 6) * Math.exp(-x * 3) * .5,
+  whoosh: (x, r) => (r() * 2 - 1) * Math.sin(Math.PI * x) ** 2,
+  pulse: x => { const p = x * 4 % 1; return (p < .06 ? Math.sin(p / .06 * Math.PI) : 0) + (p > .18 && p < .23 ? .6 * Math.sin((p - .18) / .05 * Math.PI) : 0); },
+  gate: (x, r) => (x % .25 < .14 ? (r() * 2 - 1) * Math.exp(-(x % .25) * 6) : 0),
+  duck: x => Math.sin(x * 2 * Math.PI * 40) * (1 - Math.exp(-((x * 4) % 1) * 5)) * .9,
+  wobble: x => Math.sin(x * 2 * Math.PI * (6 + Math.sin(x * 2 * Math.PI * 1.5) * .8)),
+  crackle: (x, r) => (r() > .97 ? (r() * 2 - 1) : (r() * 2 - 1) * .06),
+  wind: (x, r) => (r() * 2 - 1) * (.3 + .5 * Math.sin(x * 5) ** 2),
+  drone: x => (Math.sin(x * 2 * Math.PI * 8) + Math.sin(x * 2 * Math.PI * 8.6)) * .45,
+  shepard: x => Math.sin(x * 2 * Math.PI * (4 + (x * 3 % 1) * 6)) * (.5 + .3 * Math.sin(x * 3 * 2 * Math.PI)),
+  glitch: (x, r) => { const blk = Math.min(13, Math.floor(x * 14)); return [.8, -.3, 0, .5, -.7, .2, 0, .9, -.5, .3, 0, .6, -.8, .1][blk] * (x * 140 % 1 > .5 ? 1 : -1); },
+  heartbeat: x => WAVES.pulse(x) * .9,
+  waves: (x, r) => (r() * 2 - 1) * Math.pow(Math.sin(Math.PI * (x * 2.4 % 1)), 3),
+  trem: x => Math.sin(x * 2 * Math.PI * 30) * (.55 + .45 * Math.sin(x * 2 * Math.PI * 5)),
+  clip: x => Math.max(-.55, Math.min(.55, Math.sin(x * 2 * Math.PI * 4) * 1.4)) / .6,
+  crush: x => Math.round(Math.sin(x * 2 * Math.PI * 3) * 3) / 3,
+  echo: x => [0, .25, .5, .75].reduce((a, o, i) => a + (x >= o ? Math.sin((x - o) * 2 * Math.PI * 24) * Math.exp(-(x - o) * 14) * Math.pow(.55, i) : 0), 0),
+  tail: (x, r) => (x < .08 ? Math.sin(x * 2 * Math.PI * 60) * .9 : (r() * 2 - 1) * Math.exp(-(x - .08) * 3) * .45)
+};
+const WAVE = (kind, label = '', o = {}) => {
+  const r = rnd(7 + kind.length * 13), n = o.n || 300, f = WAVES[kind] || WAVES.sine;
+  const pts = Array.from({ length: n + 1 }, (_, i) => { const x = i / n; return `${(x * 600).toFixed(1)},${(60 - f(x, r) * 48).toFixed(1)}`; }).join(' ');
+  return `<svg class="wv" viewBox="0 0 600 120" preserveAspectRatio="none" role="img" aria-label="${esc(label || kind)} waveform"><line class="ax" x1="0" y1="60" x2="600" y2="60"/><polyline class="ln" points="${pts}"/></svg>${label ? `<div class="slab">${label}</div>` : ''}`;
+};
+/* EQ curve over log frequency, gains in dB at 9 bands */
+const EQF = [30, 60, 120, 250, 500, 1000, 2500, 5000, 10000, 16000];
+const EQ = (gains, label = '') => {
+  const X = f => (Math.log10(f) - Math.log10(20)) / (Math.log10(20000) - Math.log10(20)) * 600, Y = db => 60 - db * 3.6;
+  const pts = []; for (let i = 0; i <= 120; i++) { const lf = Math.log10(20) + i / 120 * 3; const f = 10 ** lf; let k = 0; while (k < EQF.length - 2 && f > EQF[k + 1]) k++; const a = Math.log10(Math.max(f, EQF[0])), a0 = Math.log10(EQF[k]), a1 = Math.log10(EQF[k + 1]); const tt = Math.min(1, Math.max(0, (a - a0) / (a1 - a0))); const s = tt * tt * (3 - 2 * tt); const db = gains[k] + (gains[k + 1] - gains[k]) * s; pts.push(`${X(f).toFixed(1)},${Y(db).toFixed(1)}`); }
+  const grid = [100, 1000, 10000].map(f => `<line class="ax" x1="${X(f)}" y1="8" x2="${X(f)}" y2="112"/><text x="${X(f) + 4}" y="112">${f >= 1000 ? f / 1000 + 'k' : f}</text>`).join('');
+  return `<svg class="wv" viewBox="0 0 600 120" preserveAspectRatio="none" role="img" aria-label="EQ curve">${grid}<line class="ax" x1="0" y1="60" x2="600" y2="60"/><polygon class="ar" points="0,60 ${pts.join(' ')} 600,60"/><polyline class="ln" points="${pts.join(' ')}"/><text x="4" y="14">+dB</text><text x="4" y="104">−dB</text></svg>${label ? `<div class="slab">${label}</div>` : ''}`;
+};
+/* pitch range on an 88-key span */
+const RNG = (lo, hi, words = [], label = '') => {
+  const a = NT(lo), b = NT(hi), P = m => ((m - 21) / 87 * 100).toFixed(2);
+  const labs = [24, 36, 48, 60, 72, 84, 96].map(m => `<span style="left:${P(m)}%">C${m / 12 - 1}</span>`).join('');
+  return `<div class="rng"><div class="rnote"><span>${lo}</span><span>${label || 'range'}</span><span>${hi}</span></div><div class="rtrack"><span class="band" style="left:${P(a)}%;width:${(P(b) - P(a)).toFixed(2)}%"></span><span class="mc" style="left:${P(60)}%" title="middle C"></span></div><div class="rlab">${labs}</div></div>${words.length ? `<div class="tags">${words.map((w, i) => `<span class="${i === 0 ? 'k' : ''}">${w}</span>`).join('')}</div>` : ''}`;
+};
+/* vocal: range + meters */
+const VX = (lo, hi, [br, gr, vb], words = []) => `${RNG(lo, hi, [], 'typical range')}<div class="knobs" style="gap:18px">${[['Breath', br], ['Grit', gr], ['Vibrato', vb]].map(([l, v]) => `<div class="knob"><i style="--v:${v / 5}"></i><em>${v}/5</em>${l}</div>`).join('')}<div class="tags" style="align-self:center;flex:1;min-width:120px">${words.map((w, i) => `<span class="${i === 0 ? 'k' : ''}">${w}</span>`).join('')}</div></div>`;
+/* tempo dial */
+const TEMPO = (bpm, name, feel, meter = 4) => `<div class="tp" data-beat="${60 / bpm}"><div class="big">${bpm}<small>BPM · ${name}</small></div><div class="scale"><i style="left:${Math.min(100, Math.max(0, (bpm - 40) / 160 * 100))}%"></i></div><div class="tl"><span>40</span><span>80</span><span>120</span><span>160</span><span>200</span></div><div class="beats">${Array.from({ length: meter }, (_, i) => `<i class="${i === 0 ? 'a' : ''}" style="animation-delay:calc(var(--tb) * ${i})"></i>`).join('')}</div><div class="slab">${feel}</div></div>`;
+const TAGS = (words, label = '') => `<div class="tags">${words.map((w, i) => `<span class="${i === 0 ? 'k' : ''}">${w}</span>`).join('')}</div>${label ? `<div class="slab">${label}</div>` : ''}`;
+
+/* ---------- workbook content ----------
+   Each section is a group pushed into pool.groups:
+   { id, title, slot, intro, terms:[{ id, name, aka, desc, hear?, ref?, prompt, tag?, ex, play? }] }
+   prompt = a descriptive phrase for prose prompts; tag = a short style tag for a music generator's style box.
+*/
+const pool = { groups: [] };
+const CH = s => s.split('|').map(x => NS(x));
+
+/* ===== Folk & roots ===== */
+pool.groups.push({
+  id: 'roots', title: 'Folk, country & Americana', slot: 'Genre',
+  intro: 'The roots of American music, from mountain ballads to cosmic country. Each J-card lists a typical tempo, feel, lineup and voice; the meters show how much energy, grit and space the style usually carries.',
+  terms: [
+    { id: 'appalachian', name: 'Appalachian old-time', aka: 'old-time, mountain music, string band',
+      desc: 'Fiddle and clawhammer banjo playing dance tunes and old ballads carried over from the British Isles. Modal melodies, plain voices, no polish. The source of most of what follows on this page.',
+      hear: 'fiddle and banjo in unison on the tune, drone strings, unaccompanied ballads',
+      ref: 'Jean Ritchie, Dock Boggs, Roscoe Holcomb, Harry Smith\'s Anthology of American Folk Music (1952)',
+      prompt: 'Appalachian old-time folk: fiddle and clawhammer banjo in unison, modal melody, a plain unvarnished voice, recorded close and dry on a porch',
+      tag: 'appalachian old-time folk, fiddle, clawhammer banjo',
+      ex: J('90–130', 'driving two-beat; free-time ballads', 'fiddle · clawhammer banjo · guitar', 'plain, nasal, often solo', '1700s roots, recorded 1920s–', [2, 3, 1]),
+      play: { k: 'inst', i: 'claw' } },
+    { id: 'bluegrass', name: 'Bluegrass', aka: 'high lonesome sound',
+      desc: 'Acoustic string band music played fast and clean: banjo rolls, mandolin chop on the offbeat, fiddle and dobro taking turns on breaks. No drums; the bass and mandolin keep time.',
+      hear: 'three-finger banjo rolls, the mandolin "chop" on 2 and 4, tight high harmony',
+      ref: 'Bill Monroe, Flatt & Scruggs, the Stanley Brothers, Alison Krauss & Union Station, Billy Strings',
+      prompt: 'traditional bluegrass: fast three-finger banjo rolls, mandolin chop on the offbeat, fiddle and dobro breaks, upright bass, high lonesome three-part harmony, no drums',
+      tag: 'bluegrass, banjo, mandolin, fiddle, high lonesome harmony',
+      ex: J('110–160', 'fast cut-time 2/4, offbeat chop', 'banjo · mandolin · fiddle · dobro · upright bass', 'high lonesome tenor, 3-part harmony', '1945–', [4, 2, 2]),
+      play: { k: 'inst', i: 'scruggs' } },
+    { id: 'americana', name: 'Americana', aka: 'roots rock, alt-folk, roots music',
+      desc: 'A catch-all for modern roots music that borrows from country, folk, blues and rock. Usually a band with acoustic and electric guitars, warm and slightly worn, with the song and the story at the center.',
+      hear: 'acoustic strumming under a loose backbeat, organ pads, pedal steel swells',
+      ref: 'Jason Isbell, Lucinda Williams, Gillian Welch, The Band, Brandi Carlile',
+      prompt: 'Americana: strummed acoustic guitar and organ over a loose backbeat, pedal steel swells, a weathered storytelling vocal, warm analog production',
+      tag: 'americana, roots, acoustic guitar, pedal steel, warm analog',
+      ex: J('80–120', 'loose backbeat', 'acoustic + electric guitar · organ · pedal steel · drums', 'weathered, conversational', '1990s– (roots in late 60s)', [3, 3, 3]),
+      play: { k: 'seq', bpm: 96, p: { k: 'x.......x.x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', C: 'x..x..x.x..x..x.' }, chords: CH('G3 B3 D4 G4|G3 C4 E4 G4'), cper: 6, bars: 2 } },
+    { id: 'cosmic', name: 'Cosmic Americana', aka: 'cosmic country, psychedelic country, western noir',
+      desc: 'Country songcraft played inside a huge reverb. Tremolo guitar, pedal steel and organ hang in the air like a night sky over the desert; harmonies sound far away. The lane that Lord Huron lives in.',
+      hear: 'reverb tails longer than the notes, tremolo on the guitar, harmonies placed far back',
+      ref: 'Gram Parsons, Lord Huron "Strange Trails" and "Long Lost", Sturgill Simpson "Metamodern Sounds", Kacey Musgraves "Golden Hour"',
+      prompt: 'cosmic Americana: country songwriting drenched in reverb, tremolo electric guitar and pedal steel swells, distant layered harmonies, a wide-open night-sky feeling',
+      tag: 'cosmic americana, reverb-drenched, tremolo guitar, pedal steel, dreamy',
+      ex: J('68–100', 'slow sway, often 6/8', 'tremolo guitar · pedal steel · organ · soft drums', 'dreamy baritone, distant harmonies', '1969–; revived 2010s', [2, 2, 5]),
+      play: { k: 'inst', i: 'steel' } },
+    { id: 'altcountry', name: 'Alt-country', aka: 'insurgent country, No Depression',
+      desc: 'Country songs played by people raised on punk and indie rock. Twang and pedal steel, but ragged, loud in places, and suspicious of Nashville gloss.',
+      hear: 'slightly distorted jangly guitars next to pedal steel, unpolished vocals',
+      ref: 'Uncle Tupelo, Whiskeytown, Son Volt, Drive-By Truckers, Neko Case',
+      prompt: 'alt-country: country instrumentation played with indie-rock looseness, jangly slightly distorted electric guitar, pedal steel, a ragged honest vocal',
+      tag: 'alt-country, twangy, ragged, pedal steel',
+      ex: J('80–140', 'ragged backbeat', 'Telecaster · pedal steel · fiddle · loose drums', 'plainspoken, ragged', '1990s', [3, 4, 2]) },
+    { id: 'cowboy', name: 'Cowboy ballad', aka: 'western song, gunfighter ballad, singing cowboy',
+      desc: 'Story songs of the old West sung by a smooth baritone over a loping clip-clop rhythm, with Spanish-tinged guitar and harmony "ooh"s behind. Often tragic, always cinematic.',
+      hear: 'clip-clop horse rhythm, nylon-string runs, close backing harmonies',
+      ref: 'Marty Robbins "Gunfighter Ballads and Trail Songs", Sons of the Pioneers, Gene Autry, Ian Tyson',
+      prompt: 'classic cowboy ballad: loping clip-clop rhythm, Spanish-tinged nylon guitar, a smooth baritone telling a tragic story of the old West, harmony "ooh"s behind',
+      tag: 'western cowboy ballad, nylon guitar, baritone, clip-clop rhythm',
+      ex: J('90–110', 'loping clip-clop in 2', 'nylon guitar · upright bass · harmonica · backing trio', 'smooth baritone narrator', '1930s–1960s', [2, 1, 3]),
+      play: { k: 'seq', bpm: 104, res: 2, steps: 8, p: { q: 'x.xx.xx.', B: 'x...x...', C: '..x...x.' }, bn: [43, 38], chords: [NS('B3 D4 G4')], cv: 'nylon', cvv: .5, bars: 3 } },
+    { id: 'spaghetti', name: 'Spaghetti western score', aka: 'Morricone western, Italian western',
+      desc: 'The 1960s Italian take on the Western: twangy reverb guitar, a lonely whistle, mariachi trumpet, wordless choir, whip cracks and church bells. Operatic, dusty and slightly absurd.',
+      hear: 'reverbed baritone twang, whistled melody, shouted choir hits, galloping rhythm',
+      ref: 'Ennio Morricone: "The Good, the Bad and the Ugly", "Once Upon a Time in the West", "A Fistful of Dollars"',
+      prompt: 'spaghetti western score: twangy reverb-soaked electric guitar, a lonely whistled melody, mariachi trumpet, wordless choir and galloping rhythm, sun-bleached drama',
+      tag: 'spaghetti western, twang guitar, whistling, trumpet, choir',
+      ex: J('—', 'slow build, then gallop', 'twang guitar · whistle · trumpet · choir · jaw harp · bells', 'wordless choir, solo whistle', '1964–1972', [3, 2, 5]),
+      play: { k: 'inst', i: 'whistling' } },
+    { id: 'outlaw', name: 'Outlaw country', aka: 'Texas country, red dirt',
+      desc: '1970s country that walked out on Nashville production: long hair, small bands, honest songs. Telecaster twang, a steady train beat and a gruff baritone.',
+      hear: 'stripped-down band, phaser-y Telecaster, no strings or choirs',
+      ref: 'Waylon Jennings, Willie Nelson "Red Headed Stranger", Billy Joe Shaver, Chris Stapleton, Sturgill Simpson',
+      prompt: 'outlaw country: stripped-down band, twangy Telecaster, steady train-beat drums, a gruff unpolished baritone, 1970s Texas grit',
+      tag: 'outlaw country, 1970s, telecaster twang, gruff baritone',
+      ex: J('90–130', 'train beat or shuffle', 'Telecaster · bass · drums · harmonica', 'gruff, unpolished baritone', '1972–1980', [3, 4, 2]),
+      play: { k: 'inst', i: 'tele' } },
+    { id: 'honkytonk', name: 'Honky-tonk', aka: 'hard country, barroom country',
+      desc: 'Country for dance halls and jukeboxes: a two-step shuffle, crying steel guitar, fiddle fills and a tinny barroom piano behind songs about drinking and heartbreak.',
+      hear: 'boom-chick bass and piano, steel guitar crying between lines',
+      ref: 'Hank Williams, Lefty Frizzell, Ernest Tubb, George Jones, Dwight Yoakam',
+      prompt: 'honky-tonk country: two-step shuffle, crying pedal steel, fiddle fills, a tinny barroom piano and a twangy heartbroken vocal',
+      tag: 'honky-tonk, two-step, pedal steel, barroom piano, twang',
+      ex: J('100–140', 'two-step shuffle', 'fiddle · steel guitar · tack piano · walking bass', 'nasal twang, heartbreak', '1945–1960', [3, 3, 2]),
+      play: { k: 'inst', i: 'honkytonk' } },
+    { id: 'murder', name: 'Murder ballad', aka: 'Southern gothic folk, dark folk',
+      desc: 'Old story songs where someone dies, usually by the river. Minor modes, droning banjo, hushed voices, and a slow tale that ends badly. A deep vein in Appalachian music and in modern folk-noir.',
+      hear: 'minor or modal tune, drone, a narrator who sounds too calm',
+      ref: '"Pretty Polly", "Omie Wise", Nick Cave & Kylie Minogue "Where the Wild Roses Grow", The Handsome Family, Gillian Welch',
+      prompt: 'southern gothic murder ballad: sparse fingerpicked guitar and droning banjo in a minor mode, a hushed haunted vocal, a slow story that ends badly',
+      tag: 'murder ballad, southern gothic, dark folk, minor, sparse',
+      ex: J('60–90', 'slow, often 3/4', 'fingerpicked guitar · banjo drone · fiddle · low cello', 'hushed, close, haunted', 'timeless; revived 1990s–', [1, 3, 3]),
+      play: { k: 'scale', n: 'D3 E3 F3 G3 A3 C4 D4', drone: 'D2', v: 'banjo', bpm: 160 } },
+    { id: 'laurel', name: 'Laurel Canyon folk-rock', aka: 'California folk-rock, singer-songwriter 70s',
+      desc: 'Folk songs plugged into a California band: 12-string jangle, piano, stacked harmonies and warm 1970s tape. Sunny on the surface and bittersweet underneath.',
+      hear: 'three-part harmonies, 12-string chime, soft-focus analog warmth',
+      ref: 'Crosby, Stills & Nash, Joni Mitchell "Blue", The Byrds, Fleetwood Mac "Rumours", Jackson Browne',
+      prompt: 'Laurel Canyon folk-rock: jangly 12-string guitars, piano, stacked three-part harmonies, sunny but bittersweet, warm 1970s analog production',
+      tag: '1970s laurel canyon folk-rock, 12-string, harmonies, warm analog',
+      ex: J('80–120', 'easy rolling backbeat', '12-string · electric · piano · bass · drums', 'stacked close harmonies', '1965–1977', [3, 2, 3]),
+      play: { k: 'inst', i: 'twelve' } },
+    { id: 'indiefolk', name: 'Indie folk', aka: 'stomp-clap folk, modern folk',
+      desc: 'Acoustic songs recorded with indie-rock ears: fingerpicking, reverb-rich rooms, banjo and glockenspiel, and big gang-vocal choruses. Ranges from hushed and wintry to stomping festival anthems.',
+      hear: 'room reverb on everything, harmonies that bloom in the chorus, stomps and claps',
+      ref: 'Fleet Foxes, Bon Iver "For Emma, Forever Ago", Lord Huron "Lonesome Dreams", The Head and the Heart, Iron & Wine',
+      prompt: 'indie folk: fingerpicked acoustic guitar in a reverberant room, soaring layered harmonies, stomps and handclaps in the chorus, earnest and wistful',
+      tag: 'indie folk, fingerpicked guitar, layered harmonies, reverb, stomps',
+      ex: J('70–120', 'fingerpicked; stomp-clap chorus', 'acoustic · banjo · glockenspiel · floor tom · claps', 'earnest lead, gang choruses', '2005–', [3, 2, 4]),
+      play: { k: 'inst', i: 'travis' } },
+    { id: 'chamberfolk', name: 'Chamber folk', aka: 'orchestral folk, baroque folk',
+      desc: 'Intimate folk songs dressed with a small classical ensemble: string quartet, harp, woodwinds. Quiet, literary, beautifully arranged.',
+      hear: 'strings answering the vocal line, harp or piano instead of drums',
+      ref: 'Nick Drake "Bryter Layter", Sufjan Stevens "Illinois", Joanna Newsom "Ys", Vashti Bunyan',
+      prompt: 'chamber folk: intimate acoustic guitar and a delicate string quartet arrangement, harp and woodwinds, a quiet literate vocal',
+      tag: 'chamber folk, string quartet, harp, intimate',
+      ex: J('60–100', 'flowing, rubato in places', 'acoustic · string quartet · harp · clarinet', 'intimate, literate', '1968–', [2, 1, 3]),
+      play: { k: 'inst', i: 'cello' } },
+    { id: 'psychfolk', name: 'Psych folk', aka: 'freak folk, acid folk, wyrd folk',
+      desc: 'Folk that wandered into the woods and found something strange: drones, hand drums, recorders, wavering voices and songs that drift instead of resolving.',
+      hear: 'drones and modal melodies, odd instruments, loose time',
+      ref: 'The Incredible String Band, Vashti Bunyan, Devendra Banhart, Espers, "The Wicker Man" soundtrack',
+      prompt: 'psychedelic folk: droning acoustic textures, hand percussion and recorder, a wavering otherworldly vocal, pastoral and slightly uncanny',
+      tag: 'psych folk, drone, pastoral, otherworldly',
+      ex: J('free', 'drifting, loose', 'acoustic · drone · recorder · hand drums · harmonium', 'wavering, otherworldly', 'late 1960s; 2000s revival', [2, 2, 4]),
+      play: { k: 'inst', i: 'harmonium' } },
+    { id: 'gospel', name: 'Gospel & spirituals', aka: 'Southern gospel, church music, spirituals',
+      desc: 'Music of the Black church and its descendants: a lead voice called back by the choir, Hammond organ, handclaps on 2 and 4, building to a shout. Underneath almost every American genre.',
+      hear: 'call and response, organ swells, the key or tempo lifting near the end',
+      ref: 'Mahalia Jackson, Sister Rosetta Tharpe, The Staple Singers, the "O Brother, Where Art Thou?" soundtrack',
+      prompt: 'gospel: Hammond organ and piano, handclaps on two and four, a powerful lead vocal answered by a full choir, building to a joyful shout',
+      tag: 'gospel, choir, hammond organ, handclaps, call and response',
+      ex: J('60–130', 'swaying 12/8 or clap-along 4/4', 'Hammond · piano · choir · tambourine · bass', 'powerful lead, choir answers', '1930s–', [4, 2, 3]),
+      play: { k: 'inst', i: 'hammond' } },
+    { id: 'deltablues', name: 'Delta blues', aka: 'country blues, acoustic blues',
+      desc: 'Solo voice and guitar from the Mississippi Delta: slide on a resonator, a foot stomping time, moaning vocals, twelve bars bent to the singer\'s will.',
+      hear: 'slide guitar, irregular bar lengths, field-recording hiss',
+      ref: 'Robert Johnson, Son House, Skip James, Charley Patton, Mississippi Fred McDowell',
+      prompt: 'raw Delta blues: solo slide guitar on a resonator, a foot-stomp rhythm, a moaning untrained voice, scratchy 1930s recording',
+      tag: 'delta blues, slide guitar, resonator, raw, 1930s',
+      ex: J('free or slow shuffle', 'loose; stomp on the beat', 'resonator guitar with slide · foot stomp', 'raw, moaning, solo', '1920s–1940s', [2, 4, 1]),
+      play: { k: 'inst', i: 'dobro' } },
+    { id: 'celtic', name: 'Celtic folk', aka: 'Irish trad, Scottish folk',
+      desc: 'Jigs, reels and airs from Ireland and Scotland: fiddle and whistle on an ornamented tune, bodhrán and bouzouki driving underneath, or a slow air sung alone.',
+      hear: 'ornamented melody (cuts, rolls), 6/8 jigs, a lilting bounce',
+      ref: 'The Chieftains, Planxty, Altan, The Bothy Band, Loreena McKennitt',
+      prompt: 'Celtic folk: fiddle and tin whistle playing a lively jig in 6/8, bodhrán frame drum, bouzouki rhythm, ornamented melody',
+      tag: 'celtic folk, irish jig, fiddle, tin whistle, bodhran',
+      ex: J('110–130 (jig)', '6/8 jig; 4/4 reel', 'fiddle · tin whistle · bodhrán · bouzouki · pipes', 'clear, ornamented', 'traditional; revival 1970s', [4, 1, 3]),
+      play: { k: 'mel', v: 'flute', bpm: 120, n: [[74, 1 / 3], [71, 1 / 3], [67, 1 / 3], [71, 1 / 3], [74, 1 / 3], [79, 1 / 3], [76, 1 / 3], [74, 1 / 3], [71, 1 / 3], [69, 1 / 3], [71, 1 / 3], [72, 1 / 3], [74, 2 / 3], [71, 1 / 3], [67, 1]] } },
+    { id: 'shanty', name: 'Sea shanty', aka: 'work song, sea song',
+      desc: 'Work songs for hauling ropes: one voice calls a line, a rough chorus roars back, feet stomp the time. Built to be sung by people who are not singers.',
+      hear: 'call and response, stomps, a chorus everyone can learn in one pass',
+      ref: '"Wellerman", "Drunken Sailor", "Leave Her, Johnny", Fisherman\'s Friends',
+      prompt: 'sea shanty: a lead singer calls each line and a rough chorus of voices answers, foot stomps and concertina, bold and rhythmic',
+      tag: 'sea shanty, gang vocals, stomps, call and response',
+      ex: J('90–110', 'stomping 4/4 or 6/8', 'voices · stomps · concertina · fiddle', 'lead caller and gang chorus', '1800s; viral 2021', [3, 3, 2]),
+      play: { k: 'inst', i: 'stomps' } },
+    { id: 'cajun', name: 'Cajun & zydeco', aka: 'Louisiana French music, zydeco',
+      desc: 'Dance music from south Louisiana. Cajun is accordion and fiddle in waltzes and two-steps; zydeco is its Creole cousin, with rubboard and R&B drive.',
+      hear: 'accordion and fiddle in unison, the scrape of a rubboard, hollered French vocals',
+      ref: 'Clifton Chenier, the Balfa Brothers, BeauSoleil, Buckwheat Zydeco',
+      prompt: 'Cajun two-step: diatonic accordion and fiddle in unison, scraped rubboard and triangle, hollered vocals in Louisiana French',
+      tag: 'cajun, zydeco, accordion, fiddle, rubboard',
+      ex: J('110–150', 'two-step or waltz', 'accordion · fiddle · rubboard · triangle', 'high, hollered, French', '1920s–', [4, 2, 2]),
+      play: { k: 'inst', i: 'accordion' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'global', title: 'Global roots', slot: 'Genre',
+  intro: 'Traditions from outside the U.S. that show up in film scores, crossover records and prompts. Name the place along with the style; it changes the instruments a generator reaches for.',
+  terms: [
+    { id: 'reggae', name: 'Roots reggae', aka: 'reggae, one drop',
+      desc: 'Jamaican music built on the offbeat: a guitar skank on 2 and 4 (or every "and"), deep melodic bass, and the one-drop beat where the kick lands on 3, not 1.',
+      hear: 'chopped guitar on the offbeat, bass as the lead instrument, organ "bubble"',
+      ref: 'Bob Marley & the Wailers, Toots and the Maytals, Burning Spear, Culture',
+      prompt: 'roots reggae: one-drop drums, offbeat guitar skank, deep melodic bass, organ bubble, laid-back and warm',
+      tag: 'roots reggae, one drop, offbeat skank, deep bass',
+      ex: J('68–90', 'one drop; offbeat skank', 'drums · bass · skank guitar · organ', 'roots, conscious', '1968–', [3, 2, 3]),
+      play: { k: 'seq', bpm: 76, p: { k: '........x.......', r: '........x.......', h: 'x.x.x.x.x.x.x.x.', C: '..x...x...x...x.', B: 'x.....x.x...x...' }, bn: [45, 45, 52, 50], bv: 'bass', chords: [NS('A3 C4 E4')], cv: 'organ', cvv: 1.3, cl: .5, bars: 2 } },
+    { id: 'afrobeat', name: 'Afrobeat', aka: 'Fela-style afrobeat (not Afrobeats)',
+      desc: 'Lagos in the 1970s: interlocking funk guitars, a huge horn section, polyrhythmic drums and songs that run fifteen minutes. Different from modern Afrobeats pop.',
+      hear: 'two guitars in a tight lock, shekere and congas, long horn riffs',
+      ref: 'Fela Kuti & Africa 70, Tony Allen, Antibalas, Ebo Taylor',
+      prompt: 'Afrobeat: interlocking funky guitars, polyrhythmic drums and percussion, a big horn section riffing, long hypnotic groove',
+      tag: '1970s afrobeat, horns, interlocking guitars, polyrhythm',
+      ex: J('100–130', 'polyrhythmic, hypnotic', 'guitars · horns · bass · drums · shekere · congas', 'call and response', '1970s Lagos', [5, 2, 3]),
+      play: { k: 'seq', bpm: 112, p: { k: 'x..x..x...x..x..', h: 'x.xxx.xxx.xxx.xx', s: '....x.......x...', q: '..x..x.x..x..x.x', p: 'x.x.x.x.x.x.x.x.' }, bars: 2 } },
+    { id: 'flamenco', name: 'Flamenco', aka: 'cante jondo, Andalusian flamenco',
+      desc: 'Andalusian song, guitar and dance. Fierce rasgueado strums, palmas handclaps, cajón, Phrygian melodies and raw, wailing singing.',
+      hear: 'the Andalusian cadence (Am G F E), rapid strums, clapped accents in a 12-beat cycle',
+      ref: 'Paco de Lucía, Camarón de la Isla, Tomatito, Rosalía "El Mal Querer"',
+      prompt: 'flamenco: rasgueado guitar strums, palmas handclaps and cajón, Phrygian melodies, raw impassioned singing',
+      tag: 'flamenco, spanish guitar, palmas, phrygian',
+      ex: J('varies', '12-beat compás', 'flamenco guitar · palmas · cajón', 'cante jondo: raw, wailing', 'Andalusia, 1800s–', [4, 3, 2]),
+      play: { k: 'prog', ch: 'Am G F E', bpm: 140, per: 2, style: 'strum' } },
+    { id: 'fado', name: 'Fado', aka: 'Portuguese fado, saudade',
+      desc: 'Lisbon\'s song of longing. A single dramatic voice with a twelve-string Portuguese guitar and a classical guitar, slow and mournful, built around the feeling of saudade.',
+      hear: 'the bright chiming Portuguese guitar answering every vocal line',
+      ref: 'Amália Rodrigues, Mariza, Ana Moura, Carlos Paredes',
+      prompt: 'fado: twelve-string Portuguese guitar and classical guitar, a mournful dramatic vocal full of longing, slow and intimate',
+      tag: 'portuguese fado, mournful, portuguese guitar',
+      ex: J('60–90', 'slow, rubato', 'Portuguese guitar · classical guitar', 'dramatic, mournful', 'Lisbon, 1820s–', [1, 2, 3]),
+      play: { k: 'inst', i: 'mandolin' } },
+    { id: 'mariachi', name: 'Mariachi', aka: 'ranchera, Mexican mariachi',
+      desc: 'Trumpets and violins in bright unison, strummed vihuela and guitarrón bass, and a singer who sounds like an opera tenor at a wedding. Gritos (joyful shouts) optional but encouraged.',
+      hear: 'vibrato-heavy trumpets in thirds, the guitarrón\'s deep thump, gritos',
+      ref: 'Mariachi Vargas de Tecalitlán, Vicente Fernández, Linda Ronstadt "Canciones de Mi Padre", Calexico',
+      prompt: 'mariachi: bright trumpets and violins in harmony, strummed vihuela and guitarrón bass, a proud soaring vocal with gritos',
+      tag: 'mariachi, trumpets, violins, vihuela, ranchera',
+      ex: J('varies', 'waltz, huapango 6/8, polka', 'trumpets · violins · vihuela · guitarrón', 'operatic, proud, gritos', 'Jalisco, 1900s–', [4, 1, 3]),
+      play: { k: 'mel', v: 'brass', bpm: 132, n: [[67, .5], [71, .5], [74, 1], [72, .5], [71, .5], [69, 1], [67, .5], [66, .5], [67, 2]], fx: 'room' } },
+    { id: 'cumbia', name: 'Cumbia', aka: 'Colombian cumbia, chicha',
+      desc: 'A swaying dance rhythm from Colombia\'s coast that spread across Latin America. The güiro scrapes a steady pattern, the bass lopes, and an accordion or organ carries the tune.',
+      hear: 'the scraped güiro "chk-chk-chk", a bass that skips beats',
+      ref: 'Totó la Momposina, Los Ángeles Azules, Chicha Libre, Celso Piña',
+      prompt: 'cumbia: steady scraped güiro, loping bass, accordion or organ melody, a swaying dance groove',
+      tag: 'cumbia, guiro, accordion, swaying',
+      ex: J('85–110', 'two-beat sway', 'accordion · güiro · bass · congas', 'call and response', 'Colombia 1940s–', [4, 1, 2]),
+      play: { k: 'seq', bpm: 96, p: { g: 'x.xxx.xxx.xxx.xx', k: 'x.......x.......', B: 'x.....x.x.....x.', q: '....x..x....x..x' }, bn: [45, 52, 45, 40], bv: 'bass', bars: 2 } },
+    { id: 'klezmer', name: 'Klezmer', aka: 'Jewish folk dance music',
+      desc: 'Eastern European Jewish wedding music: a clarinet that laughs and sobs, violin and accordion, oom-pah bass, and dances that speed up until somebody falls over.',
+      hear: 'clarinet bends and sobs (krekhts), the Freygish mode with its augmented second',
+      ref: 'Naftule Brandwein, Dave Tarras, The Klezmatics, Golem',
+      prompt: 'klezmer: wailing clarinet with bends and sobs, violin and accordion, oom-pah tuba, a freylekhs dance rhythm in the freygish mode',
+      tag: 'klezmer, clarinet, accordion, freygish',
+      ex: J('100–180', 'freylekhs 2/4, speeding up', 'clarinet · violin · accordion · tuba · drum', 'mostly instrumental', 'Eastern Europe, 1800s–', [4, 2, 2]),
+      play: { k: 'inst', i: 'clarinet' } },
+    { id: 'gamelan', name: 'Gamelan', aka: 'Balinese or Javanese gamelan',
+      desc: 'Indonesian ensembles of tuned bronze metallophones and gongs. Interlocking parts shimmer because paired instruments are tuned slightly apart. Debussy heard it in Paris in 1889 and never got over it.',
+      hear: 'beating, shimmering bronze; a great gong marking each cycle',
+      ref: 'Gamelan Gong Kebyar of Peliatan, "Music of Bali" field recordings, Debussy "Pagodes"',
+      prompt: 'Balinese gamelan: shimmering interlocking bronze metallophones with beating tuning, gong cycles, kendang drums',
+      tag: 'gamelan, bronze metallophones, gongs, shimmering',
+      ex: J('—', 'cyclic, interlocking', 'metallophones · gongs · kendang drums', 'none', 'Java and Bali', [3, 1, 4]),
+      play: { k: 'mel', v: 'vibes', bpm: 200, n: NS('E5 F5 A5 B5 E5 F5 A5 C6 B5 A5 F5 E5').map(n => [n, 1]), tail: 2 } }
+  ]
+});
+
+/* ===== Genres ===== */
+pool.groups.push({
+  id: 'rock', title: 'Rock & indie', slot: 'Genre',
+  intro: 'Guitar music from surf to post-rock. Era words do a lot of work here: "1966 garage" and "2003 garage revival" are different records.',
+  terms: [
+    { id: 'surf', name: 'Surf rock', aka: 'surf instrumental, reverb rock',
+      desc: 'Early-60s California instrumentals: a Fender guitar soaked in spring reverb, rapid tremolo picking and pounding drums. The template for every "twang" sound since.',
+      hear: 'the drip of spring reverb, machine-gun tremolo picking, Middle Eastern scales',
+      ref: 'Dick Dale "Misirlou", The Ventures, The Chantays "Pipeline", Khruangbin (descendant)',
+      prompt: 'surf rock: twangy Fender guitar drenched in spring reverb, rapid tremolo picking, driving drums, instrumental',
+      tag: 'surf rock, spring reverb, twangy guitar, instrumental',
+      ex: J('150–175', 'driving straight eighths', 'Fender guitar · bass · drums · organ', 'mostly instrumental', '1961–1965', [5, 3, 3]),
+      play: { k: 'fx', fx: 'spring', mel: 'blues' } },
+    { id: 'rockabilly', name: 'Rockabilly', aka: 'Sun sound, hillbilly bop',
+      desc: 'Country meets rhythm and blues in a Memphis studio: slapped upright bass, a hollow-body guitar, and a hiccuping vocal with slapback echo on it.',
+      hear: 'the click-thump of slap bass, slapback echo on everything',
+      ref: 'Elvis Presley "The Sun Sessions", Carl Perkins, Wanda Jackson, Johnny Burnette, Stray Cats',
+      prompt: 'rockabilly: slapped upright bass, twangy hollow-body guitar, slapback echo on a hiccuping vocal, Sun Studio 1956',
+      tag: 'rockabilly, slap bass, slapback echo, 1950s',
+      ex: J('160–200', 'fast shuffle or straight 2', 'hollow-body guitar · upright bass · snare', 'hiccuping, echoed', '1954–1958', [5, 3, 2]),
+      play: { k: 'fx', fx: 'slap', mel: 'blues' } },
+    { id: 'garage', name: 'Garage rock', aka: '60s punk, garage revival',
+      desc: 'Teenagers with fuzz pedals and cheap organs, recorded loud and fast. Revived in the 2000s with the same rawness and better haircuts.',
+      hear: 'fuzz guitar, Farfisa organ, a snotty shouted vocal, cymbals everywhere',
+      ref: 'The Sonics, The Kingsmen "Louie Louie", The Stooges, The White Stripes, The Black Keys',
+      prompt: 'garage rock: fuzzed-out guitars, cheap combo organ, crashing drums, a raw shouted vocal, recorded loud and fast',
+      tag: 'garage rock, fuzz guitar, raw, combo organ',
+      ex: J('130–170', 'straight, pounding', 'fuzz guitar · Farfisa organ · bass · drums', 'snotty, shouted', '1964–1968; 2001 revival', [5, 5, 2]),
+      play: { k: 'inst', i: 'fuzzg' } },
+    { id: 'psychrock', name: 'Psychedelic rock', aka: 'acid rock, neo-psychedelia',
+      desc: 'Rock that tried to sound like an altered state: phased and backwards guitars, swirling organ, drones and long jams. Modern neo-psych keeps the haze with cleaner drums.',
+      hear: 'phaser and flanger, backwards tape, droning modal riffs',
+      ref: 'The Doors, Pink Floyd "The Piper at the Gates of Dawn", Jefferson Airplane, Tame Impala, Allah-Las',
+      prompt: 'psychedelic rock: phased guitars, swirling organ, backwards tape effects, dreamy vocals, hazy 1967 production',
+      tag: 'psychedelic rock, phaser, swirling organ, 1967',
+      ex: J('70–120', 'loose, jammy', 'fuzz + wah guitar · organ · sitar · bass · drums', 'dreamy, phased', '1966–1970; 2010s neo-psych', [3, 3, 4]),
+      play: { k: 'fx', fx: 'phaser', mel: 'blues' } },
+    { id: 'heartland', name: 'Heartland rock', aka: 'American heartland, highway rock',
+      desc: 'Big-hearted rock about small towns and open roads: chiming guitars, Hammond and piano, straight driving eighths and a raspy voice singing to the back row.',
+      hear: 'organ and piano under chiming guitar, a drum beat built for highways',
+      ref: 'Bruce Springsteen "Born to Run", Tom Petty, John Mellencamp, The War on Drugs, The Gaslight Anthem',
+      prompt: 'heartland rock: chiming guitars, Hammond organ and piano, driving straight eighths, a raspy anthemic vocal about small towns and open roads',
+      tag: 'heartland rock, driving, hammond organ, anthemic',
+      ex: J('110–150', 'driving straight eighths', 'Telecaster · Hammond · piano · sax · drums', 'raspy, anthemic', '1975–1990; revival 2010s', [4, 3, 3]),
+      play: { k: 'seq', bpm: 132, p: { k: 'x.......x.x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', B: 'x.x.x.x.x.x.x.x.' }, bn: [40, 40, 40, 40, 40, 40, 40, 40, 45, 45, 45, 45, 47, 47, 47, 47], bv: 'bass', bl: 1.5, bars: 2 } },
+    { id: 'desertnoir', name: 'Desert noir', aka: 'Western noir, desert rock (Americana side)',
+      desc: 'Slow, cinematic songs that sound like a motel sign buzzing at 2 a.m. in Arizona: baritone twang guitar with deep tremolo, mariachi trumpet, brushes and a low voice.',
+      hear: 'baritone guitar with tremolo and reverb, trumpet in the distance, brushed snare',
+      ref: 'Calexico, Giant Sand, Chris Isaak "Wicked Game", Lord Huron "Vide Noir", Angelo Badalamenti\'s "Twin Peaks"',
+      prompt: 'desert noir: slow baritone twang guitar with deep tremolo and reverb, distant mariachi trumpet, brushed drums, a low cinematic vocal',
+      tag: 'desert noir, baritone twang, tremolo, cinematic, brushes',
+      ex: J('60–90', 'slow sway, brushed', 'baritone guitar · trumpet · vibes · brushes · upright', 'low, cinematic', '1990s–', [2, 3, 5]),
+      play: { k: 'inst', i: 'tremguitar' } },
+    { id: 'desertrock', name: 'Desert rock', aka: 'stoner rock, Palm Desert scene',
+      desc: 'Heavy, hypnotic riffs played through down-tuned fuzz in the California desert. Repetition is the point; the heat haze is in the guitar tone.',
+      hear: 'one riff for six minutes, fat fuzz bass, a vocal floating on top',
+      ref: 'Kyuss "Blues for the Red Sun", Queens of the Stone Age, Earthless, Fu Manchu',
+      prompt: 'desert rock: down-tuned fuzz riffs, hypnotic repetition, heat-haze guitar tone, hazy vocals floating on top',
+      tag: 'desert rock, stoner, fuzz riffs, hypnotic',
+      ex: J('70–120', 'heavy, hypnotic', 'down-tuned fuzz guitar · fuzz bass · drums', 'hazy, chanted', '1990s–', [4, 5, 4]) },
+    { id: 'dreampop', name: 'Dream pop', aka: 'ethereal wave',
+      desc: 'Soft, shimmering songs where texture matters more than words: chorused guitars, synth pads, slow drum machines and a breathy voice half lost in reverb.',
+      hear: 'long reverb on the vocal, chorus on the guitar, slow tempo',
+      ref: 'Cocteau Twins "Heaven or Las Vegas", Beach House, Mazzy Star, Slowdive (gentler side)',
+      prompt: 'dream pop: shimmering chorused guitars, soft synth pads, a breathy reverb-soaked vocal, slow and hazy',
+      tag: 'dream pop, shimmering, breathy vocals, reverb',
+      ex: J('70–110', 'slow, floating', 'chorused guitar · synth pads · drum machine · bass', 'breathy, buried in reverb', '1983–', [2, 1, 5]),
+      play: { k: 'fx', fx: 'lush', mel: 'waltz' } },
+    { id: 'shoegaze', name: 'Shoegaze', aka: 'shoegazing, nugaze',
+      desc: 'Walls of distorted, pitch-bent guitar so loud and blurred that the vocals become one more texture. Named for players staring at their effects pedals.',
+      hear: 'whammy-bar bends on everything, reverse reverb, vocals inside the noise',
+      ref: 'My Bloody Valentine "Loveless", Slowdive "Souvlaki", Ride, Alvvays, Hum',
+      prompt: 'shoegaze: a wall of distorted pitch-bending guitars, vocals buried in the mix, washes of reverb, loud and blurry',
+      tag: 'shoegaze, wall of guitars, blurry, buried vocals',
+      ex: J('90–130', 'steady, swaying', 'layered fuzz guitars · bass · drums', 'buried, wordless', '1988–1993; revival', [4, 4, 5]) },
+    { id: 'postrock', name: 'Post-rock', aka: 'crescendo-core, instrumental rock',
+      desc: 'Long instrumental pieces that build from near silence to an enormous wall of sound. Tremolo-picked guitars, glockenspiel, swelling strings, very few words.',
+      hear: 'the quiet-to-loud crescendo, delay-drenched guitars, no singer',
+      ref: 'Explosions in the Sky, Sigur Rós, Godspeed You! Black Emperor, Mogwai',
+      prompt: 'post-rock: instrumental, a long crescendo from quiet tremolo-picked guitars to a cathartic wall of sound, cinematic',
+      tag: 'post-rock, instrumental, crescendo, cinematic',
+      ex: J('slow builds', 'patient, then huge', 'tremolo guitars · bass · drums · glockenspiel · strings', 'instrumental', '1994–', [3, 2, 5]),
+      play: { k: 'fx', fx: 'tapeecho', mel: 'folk' } },
+    { id: 'postpunk', name: 'Post-punk', aka: 'cold wave, post-punk revival',
+      desc: 'Punk\'s energy pointed somewhere colder: melodic bass up front, angular chorused guitar, mechanical drums and a baritone that refuses to emote.',
+      hear: 'the bass playing the melody, chorus on the guitar, tight dry drums',
+      ref: 'Joy Division "Unknown Pleasures", The Cure, Siouxsie and the Banshees, Interpol, Fontaines D.C.',
+      prompt: 'post-punk: driving melodic bass up front, angular chorused guitar, mechanical drums, a cold baritone vocal',
+      tag: 'post-punk, melodic bass, chorus guitar, cold',
+      ex: J('120–160', 'driving, mechanical', 'bass · chorused guitar · drums · synth', 'cold baritone', '1978–1984; 2000s revival', [4, 3, 3]),
+      play: { k: 'fx', fx: 'chorus', mel: 'blues' } },
+    { id: 'indierock', name: 'Indie rock', aka: '2000s indie, college rock',
+      desc: 'Guitar bands from the 2000s indie boom: jangly interlocking guitars, tight drums, a casual voice and production that sounds a little homemade even when it isn\'t.',
+      hear: 'two guitars playing different parts, a bright snare, an unpolished lead',
+      ref: 'The Strokes "Is This It", The Shins, Modest Mouse, Arcade Fire "Funeral", Vampire Weekend',
+      prompt: 'indie rock: jangly interlocking guitars, tight bright drums, a casual earnest vocal, 2000s indie production',
+      tag: '2000s indie rock, jangly guitars, upbeat',
+      ex: J('110–150', 'tight, upbeat', 'two guitars · bass · drums', 'casual, earnest', '2001–2010', [4, 3, 2]),
+      play: { k: 'inst', i: 'jangle' } },
+    { id: 'grunge', name: 'Grunge', aka: 'Seattle sound',
+      desc: 'Quiet verses that explode into sludgy distorted choruses. Anguished vocals, drop-D riffs and early-90s Seattle rain in the guitar tone.',
+      hear: 'the loud-quiet-loud dynamic, heavy distortion, a howled chorus',
+      ref: 'Nirvana "Nevermind", Soundgarden, Alice in Chains, Pearl Jam "Ten"',
+      prompt: 'grunge: quiet clean verses that explode into sludgy distorted choruses, anguished vocals, raw early-90s production',
+      tag: 'grunge, loud-quiet-loud, distorted, 1990s',
+      ex: J('90–130', 'loud-quiet-loud', 'distorted guitar · bass · heavy drums', 'anguished, howled', '1989–1995', [4, 5, 2]) },
+    { id: 'krautrock', name: 'Krautrock', aka: 'kosmische, motorik rock',
+      desc: '1970s German bands who swapped blues for repetition: a steady motorik beat, droning synths and grooves that run forward like an autobahn.',
+      hear: 'the motorik beat (steady kick, hats on every eighth), drones, no big chorus',
+      ref: 'Neu! "Hallogallo", Can "Tago Mago", Kraftwerk, Harmonia, Stereolab',
+      prompt: 'krautrock: hypnotic motorik beat, repetitive bass, droning analog synths, long and forward-driving',
+      tag: 'krautrock, motorik, hypnotic, analog synth',
+      ex: J('120–150', 'motorik, never stops', 'bass · drums · analog synth · guitar', 'detached or none', '1970–1978', [3, 2, 3]),
+      play: { k: 'seq', bpm: 138, p: { k: 'x.x.x.x.x.x.x.x.', s: '....x.......x...', h: 'xxxxxxxxxxxxxxxx', B: 'x.x.x.x.x.x.x.x.' }, bn: [45], bv: 'bass', bl: 1.5, bars: 2 } }
+  ]
+});
+
+pool.groups.push({
+  id: 'pop', title: 'Pop, soul & R&B', slot: 'Genre',
+  intro: 'Vocal-led music from doo-wop to modern R&B. Production era is most of the sound here, so pair each with a recording-era card from Production.',
+  terms: [
+    { id: 'doowop', name: 'Doo-wop', aka: '1950s vocal group',
+      desc: 'Street-corner vocal groups: a falsetto lead, a bass voice singing nonsense syllables, close harmony "oohs", triplet piano and the I–vi–IV–V changes.',
+      hear: 'bass "bom-bom" syllables, a soaring falsetto, slow 12/8 triplets',
+      ref: 'The Platters "Only You", The Penguins "Earth Angel", Dion and the Belmonts, The Flamingos',
+      prompt: '1950s doo-wop: a vocal group with a falsetto lead and a bass voice singing nonsense syllables, triplet piano, I–vi–IV–V changes',
+      tag: '1950s doo-wop, vocal harmony, falsetto, triplet piano',
+      ex: J('60–120', 'slow 12/8 triplets', 'vocal group · piano · sax · bass · brushes', 'falsetto lead, bass voice', '1952–1962', [2, 1, 3]),
+      play: { k: 'prog', ch: 'C Am F G', bpm: 72, per: 2, style: 'arp', v: 'piano' } },
+    { id: 'wallofsound', name: 'Wall of Sound pop', aka: '60s girl group, Spector sound',
+      desc: 'Pop records stacked with everything at once: doubled pianos and guitars, castanets, strings, timpani, all poured into an echo chamber until it sounds like one huge instrument.',
+      hear: 'castanets and timpani, massive echo, a teenage heartbreak lead',
+      ref: 'The Ronettes "Be My Baby", The Crystals, The Shangri-Las, Phil Spector productions',
+      prompt: '1960s girl-group pop with a Wall of Sound: layered pianos and guitars, castanets, strings and timpani, huge echo-chamber reverb',
+      tag: '1960s girl group, wall of sound, castanets, echo chamber',
+      ex: J('120–140', 'big "Be My Baby" beat', 'doubled pianos · guitars · strings · castanets · timpani', 'girl-group lead and backing', '1962–1966', [4, 2, 5]),
+      play: { k: 'seq', bpm: 128, p: { k: 'x...x..xx...x...', s: '....x.......x...', c: '....X.......X...', j: 'x.x.x.x.x.x.x.x.', C: 'x...x...x...x...' }, chords: [NS('C4 E4 G4')], cv: 'piano', cvv: .8, bars: 2 } },
+    { id: 'motown', name: 'Motown soul', aka: 'the Detroit sound, Hitsville',
+      desc: 'Detroit\'s hit factory: tambourine on every beat, a busy melodic bass line, vibes and horn stabs, gospel-rooted leads and call-and-response backups.',
+      hear: 'four-on-the-floor tambourine and snare, the bass playing counter-melodies',
+      ref: 'The Supremes, Marvin Gaye, Four Tops "Reach Out", The Temptations, the Funk Brothers',
+      prompt: 'Motown soul: four-on-the-floor tambourine and snare, a busy melodic bass line, horn stabs, call-and-response backing vocals, bright 1965 mix',
+      tag: '1960s motown soul, tambourine, melodic bass, horns',
+      ex: J('110–130', 'four-on-the-floor', 'tambourine · bass · drums · vibes · horns · strings', 'gospel lead + backups', '1961–1971', [4, 1, 2]),
+      play: { k: 'seq', bpm: 124, p: { k: 'x...x...x...x...', s: 'x...x...x...x...', j: 'x.x.x.x.x.x.x.x.', B: 'x..x.x..x..x.x..' }, bn: [36, 40, 43, 45, 43, 40], bv: 'bass', bars: 2 } },
+    { id: 'southernsoul', name: 'Southern soul', aka: 'Memphis soul, Stax, Muscle Shoals',
+      desc: 'Grittier than Motown: a tight rhythm section in Memphis or Alabama, Hammond organ, punchy horns and a singer pleading from the bottom of their heart.',
+      hear: 'horns punching on the offbeats, organ pads, a voice cracking on the high notes',
+      ref: 'Otis Redding, Aretha Franklin at Muscle Shoals, Al Green, Booker T. & the M.G.\'s, Leon Bridges',
+      prompt: 'Southern soul: a tight rhythm section, Hammond organ, punchy horn section, a raw pleading vocal, warm 1968 analog recording',
+      tag: 'southern soul, stax, horns, hammond, raw vocal',
+      ex: J('80–110', 'tight, deep pocket', 'Hammond · horns · Telecaster · bass · drums', 'raw, pleading', '1962–1975', [3, 3, 2]),
+      play: { k: 'inst', i: 'hammond' } },
+    { id: 'disco', name: 'Disco', aka: 'nu-disco (modern)',
+      desc: 'Dance music built on a four-on-the-floor kick with open hi-hats on the offbeats, an octave-jumping bass, string sweeps and scratchy funk guitar.',
+      hear: 'the "tss" of the open hat on every "and", octave bass, strings swooping in',
+      ref: 'Chic "Good Times", Donna Summer "I Feel Love", Bee Gees, Giorgio Moroder, Dua Lipa "Future Nostalgia"',
+      prompt: 'disco: four-on-the-floor kick, open hi-hats on the offbeat, octave-jumping bass, lush string sweeps, chicken-scratch guitar',
+      tag: 'disco, four on the floor, octave bass, strings',
+      ex: J('115–130', 'four-on-the-floor', 'drums · octave bass · strings · funk guitar · horns', 'diva lead, falsetto', '1974–1980', [5, 1, 3]),
+      play: { k: 'seq', bpm: 120, p: { k: 'x...x...x...x...', o: '..x...x...x...x.', c: '....x.......x...', B: 'x.x.x.x.x.x.x.x.' }, bn: [33, 45], bv: 'bass', bl: 1, bars: 2 } },
+    { id: 'synthpop', name: 'Synth-pop', aka: 'new wave, 80s synth-pop',
+      desc: 'Pop songs played on analog synths and drum machines: sequenced arpeggios, gated snares, glossy pads and a cool, emotive singer.',
+      hear: 'sequenced synth bass, a huge gated snare, bright synth hooks',
+      ref: 'Depeche Mode, Pet Shop Boys, Tears for Fears, The Human League, Yazoo',
+      prompt: '80s synth-pop: analog synth arpeggios, drum machine with a gated-reverb snare, glossy pads, a cool emotive vocal',
+      tag: '1980s synth-pop, analog synths, gated snare, drum machine',
+      ex: J('110–130', 'straight, mechanical', 'analog synths · drum machine · bass synth', 'cool, emotive', '1980–1987', [4, 1, 3]),
+      play: { k: 'seq', bpm: 118, p: { k: 'x.......x.......', e: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', L: 'xxxxxxxxxxxxxxxx' }, lv: 'moog', ln: NS('A2 A3 E3 A3 C3 A3 E3 A3 F2 F3 C3 F3 G2 G3 D3 G3'), bars: 2 } },
+    { id: 'citypop', name: 'City pop', aka: 'Japanese city pop',
+      desc: 'Late-70s and 80s Japanese pop made for driving through Tokyo at night: slap bass, Rhodes, bright brass and immaculate studio gloss. Rediscovered online in the 2010s.',
+      hear: 'slap bass, jazzy major-seventh chords, a breezy chorus',
+      ref: 'Tatsuro Yamashita "Ride on Time", Mariya Takeuchi "Plastic Love", Anri, Taeko Ohnuki',
+      prompt: 'Japanese city pop: slap bass, Rhodes electric piano, bright brass, glossy late-70s production, a breezy nighttime-city mood',
+      tag: 'japanese city pop, slap bass, rhodes, glossy, 1980s',
+      ex: J('100–120', 'smooth, funky', 'slap bass · Rhodes · brass · clean guitar · drums', 'smooth, breezy', '1977–1989', [3, 1, 3]),
+      play: { k: 'inst', i: 'rhodes' } },
+    { id: 'yacht', name: 'Yacht rock', aka: 'West Coast AOR, soft rock',
+      desc: 'Smooth late-70s LA soft rock made by session aces: jazzy Rhodes chords, clean guitar, a sax solo and a soft blue-eyed soul voice.',
+      hear: 'immaculate playing, jazz chords, a saxophone that arrives right on cue',
+      ref: 'Steely Dan "Aja", Michael McDonald, Christopher Cross "Sailing", Hall & Oates, Toto',
+      prompt: 'yacht rock: smooth jazzy chords on Rhodes, clean session guitar, saxophone solo, a soft blue-eyed soul vocal, polished late-70s LA production',
+      tag: 'yacht rock, smooth, rhodes, saxophone, 1970s',
+      ex: J('90–110', 'smooth, laid-back', 'Rhodes · clean guitar · sax · bass · drums', 'soft blue-eyed soul', '1976–1984', [2, 1, 2]),
+      play: { k: 'inst', i: 'sax' } },
+    { id: 'powerballad', name: '80s power ballad', aka: 'arena ballad',
+      desc: 'A slow song that starts on piano or clean guitar and ends with exploding drums, distorted guitars, a key change and a singer belting to the cheap seats.',
+      hear: 'the soft-to-huge arc, a big drum fill into the chorus, a final key change',
+      ref: 'Journey "Faithfully", Heart "Alone", Bonnie Tyler "Total Eclipse of the Heart", Whitney Houston',
+      prompt: '80s power ballad: soft piano opening, explosive drums and distorted guitars in the chorus, a belted climactic key change, huge reverb',
+      tag: '1980s power ballad, piano, big drums, belting, key change',
+      ex: J('60–80', 'slow, then huge', 'piano · distorted guitar · big drums · synth pads', 'belted climax', '1983–1991', [4, 3, 4]),
+      play: { k: 'inst', i: 'grand' } },
+    { id: 'bedroompop', name: 'Bedroom pop', aka: 'lo-fi pop, DIY pop',
+      desc: 'Pop recorded at home on a laptop: soft clean guitar, cheap synths, drum machines and a quiet double-tracked voice that sounds like it\'s trying not to wake anyone.',
+      hear: 'close, quiet vocals, slightly wonky timing, room noise left in',
+      ref: 'Clairo, Rex Orange County, Beabadoobee, Boy Pablo, Mac DeMarco',
+      prompt: 'bedroom pop: lo-fi home recording, soft clean guitar and cheap synths, a quiet intimate double-tracked vocal',
+      tag: 'bedroom pop, lo-fi, intimate, soft guitar',
+      ex: J('80–110', 'gentle, lazy', 'clean guitar · cheap synths · drum machine', 'soft, double-tracked', '2015–', [2, 2, 2]),
+      play: { k: 'fx', fx: 'cassette', mel: 'folk' } },
+    { id: 'neosoul', name: 'Neo-soul', aka: 'nu soul',
+      desc: 'Late-90s soul with hip-hop drums laid way behind the beat, warm Rhodes chords, round bass and a jazzy, conversational voice.',
+      hear: 'drums that drag, extended chords, ad-libs that feel improvised',
+      ref: 'D\'Angelo "Voodoo", Erykah Badu "Baduizm", Lauryn Hill, Jill Scott, Hiatus Kaiyote',
+      prompt: 'neo-soul: warm Rhodes chords, drums laid way behind the beat, round bass, a jazzy relaxed vocal',
+      tag: 'neo-soul, rhodes, laid-back drums, jazzy vocal',
+      ex: J('70–95', 'behind the beat', 'Rhodes · bass · lazy drums · guitar', 'jazzy, conversational', '1995–', [2, 2, 2]),
+      play: { k: 'seq', bpm: 84, swing: .25, late: .25, p: { k: 'x......x..x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', C: 'x.........x.....' }, chords: [NS('F3 A3 C4 E4'), NS('E3 G3 B3 D4')], cper: 1, cv: 'keys', cvv: 1, cl: 6, bars: 2 } },
+    { id: 'baroquepop', name: 'Baroque pop', aka: 'chamber pop',
+      desc: 'Pop songs arranged like small classical pieces: harpsichord, string quartet, French horn and lush layered harmonies. Melancholy and ornate.',
+      hear: 'harpsichord or strings where a guitar would be, harmonies stacked like a choir',
+      ref: 'The Beach Boys "Pet Sounds", The Left Banke "Walk Away Renée", Belle and Sebastian, Father John Misty',
+      prompt: 'baroque pop: harpsichord and string quartet, French horn, lush layered harmonies, melancholy and ornate',
+      tag: 'baroque pop, harpsichord, strings, lush harmonies',
+      ex: J('90–120', 'stately', 'harpsichord · string quartet · French horn · bass', 'lush, melancholy', '1965–', [3, 1, 3]),
+      play: { k: 'inst', i: 'strings' } },
+    { id: 'rnb', name: 'Modern R&B', aka: 'alternative R&B, contemporary R&B',
+      desc: 'Spacious late-night R&B: deep sub bass and crisp 808s, airy pads, silky stacked vocals and ad-libs panned around the head.',
+      hear: 'a lot of space between sounds, sub bass you feel, vocal stacks',
+      ref: 'Frank Ocean "Blonde", SZA "Ctrl", The Weeknd, Daniel Caesar, H.E.R.',
+      prompt: 'modern R&B: deep sub bass and crisp 808s, airy synth pads, silky stacked vocals and ad-libs, intimate and spacious',
+      tag: 'modern r&b, 808, airy pads, silky vocals',
+      ex: J('60–100', 'half-time, spacious', '808 · sub bass · pads · guitar', 'silky, stacked ad-libs', '2011–', [2, 1, 3]),
+      play: { k: 'inst', i: 'synthpad' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'elec', title: 'Electronic & hip-hop', slot: 'Genre',
+  intro: 'Machine-made music, where the tempo, drum pattern and bass sound define the genre. Give the BPM; electronic genres are separated by a few beats per minute.',
+  terms: [
+    { id: 'ambient', name: 'Ambient', aka: 'ambient drone, environmental music',
+      desc: 'Music meant to be "as ignorable as it is interesting" (Brian Eno): beatless pads and drones, sparse piano, field recordings and long reverb tails that evolve slowly.',
+      hear: 'no beat, very slow change, sounds fading in and out',
+      ref: 'Brian Eno "Music for Airports", Stars of the Lid, Hiroshi Yoshimura "Music for Nine Postcards", Grouper',
+      prompt: 'ambient: beatless, slowly evolving pads and drones, sparse piano notes, long reverb tails, calm and spacious',
+      tag: 'ambient, beatless, drones, pads, spacious',
+      ex: J('beatless', 'floating, slow change', 'pads · drones · piano · field recordings', 'none', '1975–', [1, 1, 5]),
+      play: { k: 'sfx', s: 'drone' } },
+    { id: 'synthwave', name: 'Synthwave', aka: 'retrowave, outrun',
+      desc: 'A 2010s love letter to 80s movie soundtracks: pulsing analog arpeggios, gated drums, neon saw leads. The music for night drives that never happened.',
+      hear: 'sixteenth-note synth bass, big gated snare, nostalgic minor chords',
+      ref: 'Kavinsky "Nightcall", The Midnight, Carpenter Brut, the "Drive" (2011) soundtrack',
+      prompt: 'synthwave: pulsing analog synth arpeggios, gated-reverb snare, neon saw leads, retro 1980s night-drive mood',
+      tag: 'synthwave, retro 80s, analog arpeggios, gated snare',
+      ex: J('80–118', 'driving, steady', 'analog synths · drum machine · saw leads', 'often instrumental', '2010–', [4, 2, 4]),
+      play: { k: 'seq', bpm: 100, p: { k: 'x.......x.......', e: '....x.......x...', h: '..x...x...x...x.', L: 'xxxxxxxxxxxxxxxx' }, lv: 'moog', ln: NS('D2 D3 D2 D3 D2 D3 D2 D3 Bb1 Bb2 Bb1 Bb2 C2 C3 C2 C3'), bars: 2 } },
+    { id: 'house', name: 'House', aka: 'deep house, Chicago house',
+      desc: 'Chicago club music from the mid-80s: four-on-the-floor kick around 122 BPM, offbeat open hats, warm chord stabs, a rolling bassline and a soulful vocal sample.',
+      hear: 'kick on every beat, the open hat between, piano or organ stabs',
+      ref: 'Frankie Knuckles, Larry Heard "Can You Feel It", Masters at Work, Disclosure',
+      prompt: 'deep house: four-on-the-floor kick, offbeat open hi-hats, warm chord stabs, rolling bassline, 122 BPM',
+      tag: 'deep house, four on the floor, 122 bpm, chord stabs',
+      ex: J('118–126', 'four-on-the-floor', 'drum machine · bass · piano or organ stabs', 'soulful diva or chopped', '1984–', [4, 1, 3]),
+      play: { k: 'seq', bpm: 122, p: { k: 'x...x...x...x...', o: '..x...x...x...x.', c: '....x.......x...', C: '...x.....x......' }, chords: [NS('A3 C4 E4 G4')], cv: 'keys', cvv: 1.2, bars: 2 } },
+    { id: 'techno', name: 'Techno', aka: 'Detroit techno, Berlin techno',
+      desc: 'Relentless, hypnotic machine music: a hard kick on every beat, 909 hats, repeating synth lines that mutate slowly. Detroit invented it; Berlin built warehouses for it.',
+      hear: 'nothing but kick, hats and one line changing for minutes',
+      ref: 'Jeff Mills, Underground Resistance, Robert Hood, Ben Klock',
+      prompt: 'techno: relentless four-on-the-floor kick, hypnotic 909 hi-hats, a repetitive modular synth line, dark warehouse atmosphere, 132 BPM',
+      tag: 'techno, 132 bpm, hypnotic, dark warehouse',
+      ex: J('125–140', 'relentless', 'kick · 909 hats · modular synth', 'none', '1985–', [5, 3, 3]),
+      play: { k: 'seq', bpm: 132, p: { k: 'x...x...x...x...', h: '..x...x...x...x.', r: '...x..x....x..x.', L: 'x.xx.x.xx.x..x.x' }, lv: 'moog', ln: NS('A2 A2 C3 A2 E3 A2 G2 A2'), bars: 2 } },
+    { id: 'dnb', name: 'Drum and bass', aka: 'jungle, liquid DnB',
+      desc: 'Chopped breakbeats at 170-plus BPM over deep rolling sub bass. Liquid DnB adds lush pads and soul samples; jungle keeps it raw and ragga.',
+      hear: 'fast chopped breaks, a bass line moving at half the drum speed',
+      ref: 'Goldie "Timeless", LTJ Bukem, Roni Size, Pendulum, Calibre',
+      prompt: 'drum and bass: rapid chopped breakbeats at 174 BPM, deep rolling sub bass, atmospheric pads',
+      tag: 'drum and bass, 174 bpm, breakbeats, sub bass',
+      ex: J('165–178', 'fast breaks, half-time bass', 'breakbeats · sub bass · pads', 'MC or sampled', '1993–', [5, 3, 3]),
+      play: { k: 'seq', bpm: 172, p: { k: 'x.........x.....', s: '....x..x.x..x...', h: 'x.x.x.x.x.x.x.x.' }, bars: 3 } },
+    { id: 'triphop', name: 'Trip-hop', aka: 'Bristol sound, downtempo',
+      desc: 'Slow, smoky music from 90s Bristol: dusty sampled breakbeats, deep bass, cinematic strings, vinyl crackle and a melancholy singer.',
+      hear: 'slow heavy breakbeat, film-score strings, scratched vinyl',
+      ref: 'Massive Attack "Mezzanine", Portishead "Dummy", Tricky, Morcheeba',
+      prompt: 'trip-hop: a slow dusty breakbeat, deep bass, cinematic sampled strings, vinyl crackle, a smoky melancholy vocal',
+      tag: 'trip-hop, slow breakbeat, cinematic, smoky, vinyl',
+      ex: J('70–95', 'slow, heavy', 'breakbeat · bass · strings · turntable', 'smoky, melancholy', '1991–1999', [2, 3, 4]),
+      play: { k: 'seq', bpm: 82, p: { k: 'x......x..x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' }, bars: 2 } },
+    { id: 'lofi', name: 'Lo-fi hip-hop', aka: 'lofi beats, chillhop',
+      desc: 'Mellow instrumental beats for studying: lazy swung drums, jazzy Rhodes chords, vinyl crackle and tape wobble, around 80 BPM.',
+      hear: 'swing on the hats, warm detuned keys, room tone and crackle',
+      ref: 'Nujabes, J Dilla "Donuts", Tomppabeats, the Lofi Girl stream',
+      prompt: 'lo-fi hip-hop: lazy swung boom-bap drums, jazzy Rhodes chords, vinyl crackle and tape wobble, a mellow study mood, 80 BPM',
+      tag: 'lo-fi hip hop, chill, jazzy rhodes, vinyl crackle, 80 bpm',
+      ex: J('70–90', 'swung, lazy', 'drums · Rhodes · bass · vinyl', 'none', '2013–', [1, 3, 2]),
+      play: { k: 'layer', parts: [{ k: 'seq', bpm: 80, swing: .3, p: { k: 'x......x..x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' }, bars: 2 }, { k: 'prog', ch: 'Fmaj7 Em7', bpm: 80, per: 4, style: 'keys', fx: 'vinyl' }] } },
+    { id: 'boombap', name: 'Boom bap', aka: 'golden-era hip-hop, 90s East Coast',
+      desc: 'The sound of 90s New York rap: hard sampled kick ("boom") and snare ("bap"), a chopped soul or jazz loop and scratched hooks.',
+      hear: 'big dusty drums, a looped sample, turntable scratches',
+      ref: 'DJ Premier, Pete Rock, A Tribe Called Quest, Nas "Illmatic", Wu-Tang Clan',
+      prompt: 'boom-bap hip-hop: hard-hitting sampled kick and snare, a chopped soul loop, scratched hook, 90 BPM, golden-era New York',
+      tag: 'boom bap, 90s hip hop, sampled drums, soul loop',
+      ex: J('85–95', 'head-nod', 'sampled breaks · soul loop · bass · turntable', 'rapped verses', '1988–1998', [4, 3, 2]),
+      play: { k: 'seq', bpm: 90, swing: .15, p: { k: 'x.......x.x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' }, bars: 2 } },
+    { id: 'trap', name: 'Trap', aka: 'Atlanta trap',
+      desc: 'Southern hip-hop built on booming 808 bass that slides between notes, rapid rolling hi-hat triplets and a half-time snare. Dark, minor and huge in the low end.',
+      hear: 'hi-hat rolls, 808 glides, snare on beat 3',
+      ref: 'Metro Boomin, Future, Migos, Travis Scott',
+      prompt: 'trap: booming 808 bass slides, fast rolling hi-hat triplets, half-time snare, a dark minor-key melody, 140 BPM',
+      tag: 'trap, 808, hi-hat rolls, dark, 140 bpm',
+      ex: J('130–160 (half-time)', 'half-time', '808 · hats · snare · synth or bell melody', 'melodic, auto-tuned', '2010–', [4, 3, 3]),
+      play: { k: 'inst', i: 'e808' } },
+    { id: 'dub', name: 'Dub', aka: 'roots dub',
+      desc: 'Reggae taken apart at the mixing desk: bass and drums up front, everything else thrown into tape echo and spring reverb, instruments dropping in and out.',
+      hear: 'echoes that spiral away, sudden drop-outs, a bass you feel in your chest',
+      ref: 'King Tubby, Lee "Scratch" Perry, Scientist, Augustus Pablo',
+      prompt: 'roots dub: deep bass up front, one-drop drums, offbeat skank thrown into tape echo and spring reverb, instruments dropping in and out',
+      tag: 'dub, tape echo, spring reverb, deep bass',
+      ex: J('65–80', 'one drop, spacious', 'bass · drums · skank · melodica · echo', 'fragments, echoed', '1972–', [2, 3, 5]),
+      play: { k: 'fx', fx: 'tapeecho', mel: 'blues' } },
+    { id: 'chillwave', name: 'Chillwave', aka: 'glo-fi',
+      desc: 'Hazy late-2000s bedroom electronica: filtered synths, washed-out drum machines and a nostalgic summer feeling, like a VHS of a beach holiday.',
+      hear: 'everything slightly muffled and sidechained, warm and blurry',
+      ref: 'Washed Out "Feel It All Around", Toro y Moi, Neon Indian',
+      prompt: 'chillwave: hazy filtered synths, washed-out drum machine, nostalgic summer mood, lo-fi warmth',
+      tag: 'chillwave, hazy synths, nostalgic, lo-fi',
+      ex: J('90–110', 'easy, pumping', 'filtered synths · drum machine · bass', 'hazy, nostalgic', '2009–2012', [2, 2, 4]),
+      play: { k: 'fx', fx: 'wobble', mel: 'waltz' } },
+    { id: 'vaporwave', name: 'Vaporwave', aka: 'mallsoft',
+      desc: 'Slowed-down 80s smooth jazz, muzak and corporate jingles, chopped and drowned in reverb. Ironic, eerie and oddly beautiful.',
+      hear: 'pitched-down samples looping, a mall\'s worth of reverb',
+      ref: 'Macintosh Plus "Floral Shoppe", Saint Pepsi, Cat System Corp.',
+      prompt: 'vaporwave: slowed-down 1980s smooth-jazz and mall-muzak samples, chopped loops, heavy reverb, eerie nostalgia',
+      tag: 'vaporwave, slowed, chopped samples, reverb',
+      ex: J('60–90 (slowed)', 'dragging loops', 'samples · reverb · drum machine', 'pitched-down samples', '2011–', [1, 2, 4]) },
+    { id: 'folktronica', name: 'Folktronica', aka: 'electronic folk',
+      desc: 'Acoustic guitar, plucked strings and found sounds cut into glitchy electronic beats. Warm and organic, made on a laptop.',
+      hear: 'guitar samples stuttering, field recordings, soft programmed drums',
+      ref: 'Four Tet "Rounds", Bonobo, The Books, Caribou, Tycho',
+      prompt: 'folktronica: plucked acoustic and found-sound samples cut into glitchy electronic beats, warm and organic',
+      tag: 'folktronica, acoustic samples, glitchy beats, organic',
+      ex: J('90–120', 'gentle, programmed', 'guitar samples · glitch beats · field recordings', 'soft or none', '2000–', [3, 2, 3]),
+      play: { k: 'sfx', s: 'granular' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'score', title: 'Jazz, classical & score', slot: 'Genre',
+  intro: 'Instrumental traditions and film-score idioms. For scoring prompts, name the scene as well as the style.',
+  terms: [
+    { id: 'bigband', name: 'Big band swing', aka: 'swing era',
+      desc: 'Dance orchestras of the 1930s and 40s: sax, trumpet and trombone sections trading riffs over walking bass and a swinging ride cymbal.',
+      hear: 'brass shouts, sax section unison, swung eighths everywhere',
+      ref: 'Count Basie, Duke Ellington, Glenn Miller "In the Mood", Benny Goodman',
+      prompt: 'big-band swing: brass and sax sections trading riffs, walking bass, a swinging ride cymbal, 1940s ballroom',
+      tag: 'big band swing, 1940s, brass section, walking bass',
+      ex: J('130–200', 'swung', 'saxes · trumpets · trombones · piano · bass · drums', 'crooner or none', '1935–1946', [4, 1, 3]),
+      play: { k: 'seq', bpm: 160, swing: .33, p: { y: 'x..xx..xx..xx..x', k: 'x...x...x...x...', h: '....x.......x...', B: 'x...x...x...x...' }, bn: NS('C3 E3 G3 A3 F3 A3 C4 D4'), bv: 'upright', bars: 2 } },
+    { id: 'bebop', name: 'Bebop', aka: 'bop',
+      desc: 'Small-group jazz built for listening, not dancing: fast virtuosic horn lines, complex chord changes, a busy ride cymbal and walking bass.',
+      hear: 'long fast eighth-note runs, sudden accents, ii–V changes flying past',
+      ref: 'Charlie Parker, Dizzy Gillespie, Bud Powell, Thelonious Monk',
+      prompt: 'bebop: fast virtuosic sax and trumpet lines, complex chord changes, walking bass and a busy ride cymbal',
+      tag: 'bebop, fast jazz, saxophone, walking bass',
+      ex: J('200–300', 'very fast swing', 'alto sax · trumpet · piano · bass · drums', 'instrumental', '1944–1955', [5, 2, 2]) },
+    { id: 'cooljazz', name: 'Cool & modal jazz', aka: 'West Coast jazz, modal jazz',
+      desc: 'Relaxed, spacious jazz: muted trumpet, a soft tenor, brushes and open piano voicings that sit on one mode instead of racing through chords.',
+      hear: 'lots of air, soft dynamics, long notes',
+      ref: 'Miles Davis "Kind of Blue", Chet Baker, Bill Evans, Dave Brubeck "Time Out"',
+      prompt: 'cool modal jazz: muted trumpet, relaxed tenor sax, brushed drums, spacious piano voicings, late-night 1959',
+      tag: 'cool jazz, modal, muted trumpet, brushes, late night',
+      ex: J('100–140', 'relaxed swing', 'muted trumpet · tenor sax · piano · bass · brushes', 'instrumental', '1949–1962', [2, 1, 3]),
+      play: { k: 'inst', i: 'mutedtpt' } },
+    { id: 'noirjazz', name: 'Film noir jazz', aka: 'noir score, dark jazz',
+      desc: 'Slow, smoky jazz for rain-slick streets: tenor sax over brushes and upright bass, a vibraphone hanging in the dark, menace in the minor chords.',
+      hear: 'a breathy tenor sax, slow walking bass, minor chords that never resolve',
+      ref: 'Bernard Herrmann "Taxi Driver", Bohren & der Club of Gore, Angelo Badalamenti, Miles Davis "Ascenseur pour l\'échafaud"',
+      prompt: 'film noir jazz: a slow smoky tenor saxophone, brushed drums, upright bass, vibraphone, a rain-slick city at night',
+      tag: 'noir jazz, smoky saxophone, slow, dark',
+      ex: J('55–80', 'slow, brushed', 'tenor sax · upright bass · brushes · vibes · piano', 'none', '1940s–1950s style', [2, 2, 4]),
+      play: { k: 'inst', i: 'sax' } },
+    { id: 'bossanova', name: 'Bossa nova', aka: 'Brazilian jazz',
+      desc: 'Rio in the late 50s: gentle syncopated nylon guitar, soft percussion, jazz chords and a voice barely above a whisper.',
+      hear: 'the bossa guitar pattern (bass on 1 and 3, chords syncopated), soft rim clicks',
+      ref: 'João Gilberto, Antônio Carlos Jobim, Astrud Gilberto "The Girl from Ipanema", Stan Getz',
+      prompt: 'bossa nova: gentle syncopated nylon-string guitar, soft brushed percussion, light flute, a near-whispered vocal',
+      tag: 'bossa nova, nylon guitar, soft, brazilian',
+      ex: J('120–140 (felt in 2)', 'gentle syncopation', 'nylon guitar · bass · brushes · flute', 'soft, near-whispered', '1958–', [2, 1, 2]),
+      play: { k: 'seq', bpm: 130, p: { r: 'x..x..x...x..x..', p: 'x.x.x.x.x.x.x.x.', B: 'x.....x.x.....x.', C: 'x..x..x...x..x..' }, bn: [43, 50], bv: 'upright', chords: [NS('B3 D4 F#4 A4'), NS('A3 C4 E4 G4')], cper: 5, cv: 'nylon', cvv: .45, bars: 2 } },
+    { id: 'minimalism', name: 'Minimalism', aka: 'process music, post-minimalism',
+      desc: 'Short repeating patterns that shift slowly against each other, pulsing piano and marimba, a steady hypnotic pulse. Every modern film score borrows from it.',
+      hear: 'repetition with gradual change, interlocking patterns, no big melody',
+      ref: 'Steve Reich "Music for 18 Musicians", Philip Glass, Terry Riley "In C", Max Richter',
+      prompt: 'minimalist composition: interlocking repeating piano and marimba patterns that shift gradually, a hypnotic steady pulse',
+      tag: 'minimalism, repeating patterns, marimba, piano, hypnotic',
+      ex: J('steady pulse', 'hypnotic', 'pianos · marimbas · voices · strings', 'none or wordless', '1964–', [3, 1, 3]),
+      play: { k: 'layer', parts: [{ k: 'mel', v: 'marimba', bpm: 360, n: NS('E5 F#5 B5 C#6 D6 F#5 E5 C#6 B5 F#5 D6 C#6 E5 F#5 B5 C#6 D6 F#5 E5 C#6 B5 F#5 D6 C#6').map(n => [n, 1]) }, { k: 'mel', v: 'marimba', bpm: 366, n: NS('E4 F#4 B4 C#5 D5 F#4 E4 C#5 B4 F#4 D5 C#5 E4 F#4 B4 C#5 D5 F#4 E4 C#5 B4 F#4 D5 C#5').map(n => [n, 1]) }] } },
+    { id: 'romantic', name: 'Romantic orchestral', aka: '19th-century symphonic',
+      desc: 'The big emotional orchestra: sweeping strings, warm horns, expressive rubato and swells that rise and break like weather.',
+      hear: 'tempo that breathes, strings in octaves, horn calls',
+      ref: 'Tchaikovsky, Dvořák "New World Symphony", Rachmaninoff Piano Concerto No. 2, Mahler',
+      prompt: 'lush Romantic-era orchestral: sweeping strings, warm French horns, expressive rubato, big emotional swells',
+      tag: 'romantic orchestral, sweeping strings, french horns, emotional',
+      ex: J('rubato', 'breathing, expressive', 'full orchestra', 'none', '1820–1910', [3, 1, 4]),
+      play: { k: 'inst', i: 'horn' } },
+    { id: 'impressionist', name: 'Impressionist', aka: 'Debussy-like, French impressionism',
+      desc: 'Shimmering piano and harp, whole-tone and pentatonic colors, blurred pedal and chords that float without needing to resolve. Music like watercolor.',
+      hear: 'parallel chords, the sustain pedal held down, harp glissandi',
+      ref: 'Debussy "Clair de Lune" and "La Mer", Ravel, Satie "Gymnopédies"',
+      prompt: 'impressionist: shimmering piano and harp, whole-tone and pentatonic colors, blurred pedal, a watercolor mood',
+      tag: 'impressionist, debussy-like, shimmering piano, harp',
+      ex: J('flowing', 'floating, rubato', 'piano · harp · flute · muted strings', 'none', '1890–1925', [1, 1, 4]),
+      play: { k: 'scale', n: 'C4 D4 E4 F#4 G#4 A#4 C5', v: 'harp', bpm: 240 } },
+    { id: 'baroquemus', name: 'Baroque', aka: 'Bach-like, baroque ensemble',
+      desc: 'Harpsichord continuo, crisp string ensembles and interlocking counterpoint over a steady motor rhythm. Ornate and mathematical.',
+      hear: 'harpsichord jangle, a walking bass line, two melodies weaving',
+      ref: 'J.S. Bach "Brandenburg Concertos", Vivaldi "The Four Seasons", Handel',
+      prompt: 'baroque: harpsichord continuo, a crisp string ensemble, interlocking counterpoint, steady motor rhythm',
+      tag: 'baroque, harpsichord, strings, counterpoint',
+      ex: J('steady motor rhythm', 'driving', 'harpsichord · strings · cello · oboe', 'none', '1600–1750', [3, 1, 2]),
+      play: { k: 'mel', v: 'tack', bpm: 200, n: NS('C5 B4 C5 G4 Ab4 G4 Ab4 F4 G4 F4 G4 Eb4 F4 Eb4 F4 D4 Eb4').map(n => [n, 1]) } },
+    { id: 'choral', name: 'Sacred choral', aka: 'church choir, holy minimalism',
+      desc: 'A cappella choir with pure straight tone, slow suspensions that ache before they resolve, and the long reverb of a stone church.',
+      hear: 'no instruments, chords that hang, a cathedral tail',
+      ref: 'Allegri "Miserere", Arvo Pärt "Spiegel im Spiegel", Eric Whitacre, Tallis Scholars',
+      prompt: 'sacred choral: an a cappella choir with pure straight tone, slow suspensions, cathedral reverb',
+      tag: 'sacred choral, a cappella choir, cathedral reverb',
+      ex: J('free', 'slow, suspended', 'SATB choir · organ (optional)', 'pure, no vibrato', 'Renaissance–today', [2, 1, 5]),
+      play: { k: 'inst', i: 'choirooh' } },
+    { id: 'trailer', name: 'Epic trailer', aka: 'hybrid orchestral, epic music',
+      desc: 'Movie-trailer music: low brass braams, pounding taiko, racing string ostinatos and a choir rising to a huge hybrid climax with synth risers and impacts.',
+      hear: 'BRAAAM, silence, BRAAAM; a build that ends on a hit',
+      ref: 'Hans Zimmer "Inception", Two Steps from Hell, Audiomachine',
+      prompt: 'epic trailer music: low brass braams, pounding taiko, a staccato string ostinato, a rising choir, huge hybrid orchestral climax',
+      tag: 'epic trailer, hybrid orchestral, braams, taiko, choir',
+      ex: J('—', 'builds in stages', 'brass · taiko · strings · choir · synths', 'choir chants', '2008–', [5, 3, 5]),
+      play: { k: 'multi', parts: [{ k: 'sfx', s: 'riser' }, { k: 'sfx', s: 'stinger', gap: 0 }] } },
+    { id: 'westernscore', name: 'Western film score', aka: 'Hollywood Western, frontier Americana',
+      desc: 'Classic Hollywood Westerns: soaring brass themes in open fifths, galloping strings and snare, and wide orchestration that sounds like big sky.',
+      hear: 'open fifths in the brass, a galloping rhythm, a hymn-like big theme',
+      ref: 'Elmer Bernstein "The Magnificent Seven", Jerome Moross "The Big Country", Aaron Copland "Rodeo", "Red Dead Redemption 2"',
+      prompt: 'classic Hollywood Western score: soaring open-fifth brass themes, galloping strings and snare, wide-open Americana orchestration',
+      tag: 'western film score, orchestral, brass, galloping, americana',
+      ex: J('—', 'gallop and wide vistas', 'full orchestra · snare · brass', 'none', '1939–1970', [4, 1, 4]),
+      play: { k: 'layer', parts: [{ k: 'seq', bpm: 120, res: 4, p: { s: 'x.xxx.xxx.xxx.xx', f: 'x.......x.......' }, bars: 3 }, { k: 'mel', v: 'horn', bpm: 120, n: [[55, 2], [62, 2], [67, 3], [66, 1], [64, 2], [62, 2]], fx: 'hall' }] } },
+    { id: 'horror', name: 'Horror score', aka: 'dread score, atonal score',
+      desc: 'Dissonant string clusters, low drones, prepared piano, whispers and sudden stingers. Built to make you lean away from the screen.',
+      hear: 'clusters of close notes, very low and very high at once, silence before a hit',
+      ref: 'Penderecki (used in "The Shining"), Colin Stetson "Hereditary", Disasterpeace "It Follows", Mica Levi "Under the Skin"',
+      prompt: 'horror score: dissonant string clusters, low drones, sudden stingers, unsettling prepared piano, creeping dread',
+      tag: 'horror score, dissonant strings, drones, dread',
+      ex: J('—', 'creeping', 'strings · prepared piano · drones · whispers', 'whispers', '1960s–', [2, 4, 5]),
+      play: { k: 'layer', parts: [{ k: 'sfx', s: 'drone' }, { k: 'mel', v: 'strings', bpm: 30, n: [[null, 1], [84, 2], [85, 1]], fx: 'cathedral' }] } },
+    { id: 'chiptune', name: 'Chiptune', aka: '8-bit, NES music',
+      desc: 'Music made with (or imitating) old game-console sound chips: square-wave leads, a triangle-wave bass, a noise channel for drums, and fast arpeggios faking chords.',
+      hear: 'buzzy square leads, fast arpeggios, crunchy noise drums',
+      ref: 'Koji Kondo "Super Mario Bros.", Mega Man soundtracks, Anamanaguchi, "Shovel Knight"',
+      prompt: 'chiptune: 8-bit square-wave lead, triangle-wave bass, noise-channel drums, upbeat NES game soundtrack',
+      tag: 'chiptune, 8-bit, square wave, video game',
+      ex: J('120–160', 'bouncy', 'square waves · triangle bass · noise drums', 'none', '1983–', [4, 2, 1]),
+      play: { k: 'inst', i: 'chip' } }
+  ]
+});
+
+/* ===== Instruments ===== */
+pool.groups.push({
+  id: 'strings', title: 'Folk strings & roots instruments', slot: 'Instruments',
+  intro: 'The acoustic toolkit of folk, country and bluegrass. The bar shows each instrument\'s usual range on an 88-key span (the amber line is middle C); the tags say what it sounds like and the job it usually does.',
+  terms: [
+    { id: 'strum', name: 'Strummed acoustic guitar', aka: 'flat-top, dreadnought, rhythm acoustic',
+      desc: 'The steel-string acoustic strummed with a pick: the backbone of folk, country and singer-songwriter music. Say how it\'s strummed (driving eighths, lazy downstrokes, palm-muted) to steer the feel.',
+      ref: 'Martin D-28, Gibson J-45; Neil Young "Harvest", Johnny Cash "American Recordings"',
+      prompt: 'a strummed steel-string acoustic guitar driving the rhythm',
+      tag: 'strummed acoustic guitar',
+      ex: RNG('E2', 'B5', ['bright', 'woody', 'rhythm bed']), play: { k: 'inst', i: 'strum' } },
+    { id: 'travis', name: 'Fingerpicked guitar', aka: 'Travis picking, fingerstyle',
+      desc: 'Thumb alternates bass notes while fingers pick melody on top, so one guitar sounds like two. The sound of intimate folk, from Mississippi John Hurt to Bon Iver.',
+      ref: 'Merle Travis, Elizabeth Cotten, Nick Drake, Simon & Garfunkel "The Boxer", Lord Huron "Ends of the Earth"',
+      prompt: 'gently fingerpicked acoustic guitar, an alternating thumb bass under a picked melody',
+      tag: 'fingerpicked acoustic guitar',
+      ex: RNG('E2', 'B5', ['intimate', 'rolling', 'self-accompanying']), play: { k: 'inst', i: 'travis' } },
+    { id: 'twelve', name: '12-string guitar', aka: 'twelve-string',
+      desc: 'Six pairs of strings, some tuned an octave apart, so every chord rings with a natural chorus shimmer. Big and chiming when strummed.',
+      ref: 'Lead Belly, The Byrds\' Rickenbacker, Led Zeppelin "Stairway to Heaven", Tom Petty',
+      prompt: 'a chiming 12-string guitar with natural octave shimmer',
+      tag: 'chiming 12-string guitar',
+      ex: RNG('E2', 'B5', ['chiming', 'shimmering', 'jangly']), play: { k: 'inst', i: 'twelve' } },
+    { id: 'nylonguitar', name: 'Nylon-string guitar', aka: 'classical guitar, Spanish guitar',
+      desc: 'Soft, round and warm with a quick decay. Bossa nova, flamenco, classical and the clip-clop of cowboy ballads all use it.',
+      ref: 'Willie Nelson\'s "Trigger", João Gilberto, Paco de Lucía, Marty Robbins "El Paso"',
+      prompt: 'a warm nylon-string guitar, soft and round',
+      tag: 'nylon-string guitar',
+      ex: RNG('E2', 'B5', ['warm', 'soft', 'round']), play: { k: 'inst', i: 'nylon' } },
+    { id: 'clawhammer', name: 'Clawhammer banjo', aka: 'frailing, old-time banjo',
+      desc: 'Banjo struck downward with the back of a fingernail, with the thumb catching the high drone string. Rhythmic and percussive: "bum-ditty, bum-ditty". Old-time music\'s heartbeat.',
+      ref: 'Dock Boggs, Ola Belle Reed, Rhiannon Giddens, Abigail Washburn',
+      prompt: 'clawhammer banjo with a percussive bum-ditty rhythm and a ringing high drone string',
+      tag: 'clawhammer banjo',
+      ex: RNG('D3', 'D5', ['percussive', 'droning', 'old-time']), play: { k: 'inst', i: 'claw' } },
+    { id: 'scruggs', name: 'Three-finger banjo', aka: 'Scruggs style, bluegrass banjo',
+      desc: 'Fast rolling patterns picked with thumb and two fingers wearing metal picks: a constant cascade of bright notes. If you hear it, you\'re in bluegrass.',
+      ref: 'Earl Scruggs "Foggy Mountain Breakdown", Béla Fleck, Noam Pikelny',
+      prompt: 'fast bright three-finger bluegrass banjo rolls',
+      tag: 'bluegrass banjo rolls',
+      ex: RNG('D3', 'D6', ['bright', 'cascading', 'twangy']), play: { k: 'inst', i: 'scruggs' } },
+    { id: 'fiddle', name: 'Fiddle', aka: 'old-time or bluegrass violin',
+      desc: 'The violin played folk-style: double stops, slides, drones and shuffle bowing. It can carry a dance tune or cry behind a ballad.',
+      ref: 'Kenny Baker, Alison Krauss, Stuart Duncan, Tommy Jarrell',
+      prompt: 'a fiddle with slides and double stops, bowing a lonesome melody',
+      tag: 'fiddle',
+      ex: RNG('G3', 'E7', ['singing', 'lonesome', 'dance tunes']), play: { k: 'inst', i: 'fiddle' } },
+    { id: 'mandolin', name: 'Mandolin', aka: 'mando, F-style mandolin',
+      desc: 'Small, bright and pairs-strung. Plays the offbeat "chop" in bluegrass, fast tremolo on held notes, and sparkly fills in folk-rock.',
+      ref: 'Bill Monroe, Chris Thile, R.E.M. "Losing My Religion", Rod Stewart "Maggie May"',
+      prompt: 'bright mandolin, tremolo-picked on the held notes',
+      tag: 'mandolin tremolo',
+      ex: RNG('G3', 'A6', ['bright', 'sparkling', 'tremolo']), play: { k: 'inst', i: 'mandolin' } },
+    { id: 'upright', name: 'Upright bass', aka: 'double bass, doghouse bass',
+      desc: 'Plucked acoustic bass with a woody thump. Walks in jazz, plays root-fifth in country, and gets slapped for rockabilly.',
+      ref: 'Charles Mingus, Edgar Meyer, Willie Dixon, Bill Black (Elvis)',
+      prompt: 'a woody upright bass playing a walking line',
+      tag: 'upright bass',
+      ex: RNG('E1', 'G3', ['woody', 'round', 'thump']), play: { k: 'inst', i: 'upright' } },
+    { id: 'dobro', name: 'Dobro', aka: 'resonator guitar, square-neck',
+      desc: 'An acoustic guitar with a metal cone, played flat with a steel slide. Nasal, singing and bluesy; it slides between notes the way a voice does.',
+      ref: 'Jerry Douglas, Josh Graves, Mike Auldridge, Son House (round-neck resonator)',
+      prompt: 'a nasal singing dobro, slid with a steel bar',
+      tag: 'dobro slide',
+      ex: RNG('G2', 'D6', ['metallic', 'nasal', 'sliding']), play: { k: 'inst', i: 'dobro' } },
+    { id: 'pedalsteel', name: 'Pedal steel', aka: 'steel guitar, crying steel',
+      desc: 'A table-like guitar played with a bar, with pedals that bend notes inside chords. Its swells and cries are the sound of country heartbreak and cosmic Americana.',
+      ref: 'Buddy Emmons, Lloyd Green, Robert Randolph, Neil Young "Harvest Moon", Lord Huron "Long Lost"',
+      prompt: 'pedal steel swelling and crying behind the vocal',
+      tag: 'crying pedal steel',
+      ex: RNG('E2', 'G6', ['swelling', 'crying', 'gliding']), play: { k: 'inst', i: 'steel' } },
+    { id: 'autoharp', name: 'Autoharp', aka: 'chorded zither',
+      desc: 'A zither with chord bars: press a button and strum, and every string in that chord rings. Shimmery and sweet; Maybelle Carter and June Carter Cash played it.',
+      ref: 'The Carter Family, June Carter Cash, Brian Jones (Rolling Stones)',
+      prompt: 'a shimmering strummed autoharp',
+      tag: 'autoharp',
+      ex: RNG('F2', 'C6', ['shimmering', 'harp-like', 'sweet']), play: { k: 'inst', i: 'autoharp' } },
+    { id: 'dulcimer', name: 'Appalachian dulcimer', aka: 'mountain dulcimer, lap dulcimer',
+      desc: 'A long narrow box laid across the lap, with a melody string over drones. Gentle, modal and old; Joni Mitchell wrote "Blue" on one.',
+      ref: 'Jean Ritchie, Joni Mitchell "Blue", Richard Fariña',
+      prompt: 'a gentle Appalachian dulcimer playing a modal melody over its own drone',
+      tag: 'appalachian dulcimer',
+      ex: RNG('D3', 'D5', ['droning', 'gentle', 'modal']), play: { k: 'inst', i: 'dulcimer' } },
+    { id: 'hammered', name: 'Hammered dulcimer', aka: 'cimbalom, santur (relatives)',
+      desc: 'A trapezoid of strings struck with small hammers. Bright, ringing, a little like a piano with no dampers. Common in Celtic, Appalachian and Eastern European music.',
+      ref: 'Malcolm Dalglish, the cimbalom in Hungarian folk, Dead Can Dance',
+      prompt: 'a ringing hammered dulcimer with sustained sparkling notes',
+      tag: 'hammered dulcimer',
+      ex: RNG('D3', 'E6', ['ringing', 'sparkling', 'cascading']), play: { k: 'inst', i: 'hammered' } },
+    { id: 'harmonica', name: 'Harmonica', aka: 'harp, blues harp, mouth organ',
+      desc: 'Reedy, breathy and expressive, with bends that wail like a voice. Folk players use it on a neck rack between verses; blues players push it through an amp.',
+      ref: 'Bob Dylan, Little Walter, Neil Young, Bruce Springsteen "The River"',
+      prompt: 'a wailing harmonica with bent notes between verses',
+      tag: 'wailing harmonica',
+      ex: RNG('C4', 'C7', ['reedy', 'wailing', 'breathy']), play: { k: 'inst', i: 'harmonica' } },
+    { id: 'accordion', name: 'Accordion', aka: 'squeezebox, button accordion, concertina',
+      desc: 'Bellows-driven reeds with a wheezy, nostalgic sound. Central to Cajun, Tex-Mex, polka, French musette and sea shanties.',
+      ref: 'Flaco Jiménez, Clifton Chenier, Yann Tiersen "Amélie", The Pogues',
+      prompt: 'a wheezy nostalgic accordion',
+      tag: 'accordion',
+      ex: RNG('F2', 'A6', ['wheezy', 'nostalgic', 'reedy']), play: { k: 'inst', i: 'accordion' } },
+    { id: 'washboard', name: 'Washboard & spoons', aka: 'rubboard, jug band percussion',
+      desc: 'Kitchen percussion: a washboard scraped with thimbles, spoons clacked on the knee. Pure jug band and zydeco.',
+      ref: 'jug bands of the 1920s, Washboard Sam, zydeco frottoir players',
+      prompt: 'scratchy washboard and spoons percussion',
+      tag: 'washboard percussion',
+      ex: TAGS(['scratchy', 'clattering', 'homemade'], 'Unpitched percussion'), play: { k: 'inst', i: 'washboard' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'band', title: 'Band, keys & synths', slot: 'Instruments',
+  intro: 'Electric guitars, keyboards and drums. The model, amp or effect often says more than the instrument name: a "Telecaster" and a "fuzz guitar" are both guitars.',
+  terms: [
+    { id: 'telecaster', name: 'Telecaster twang', aka: 'chicken pickin\', Tele',
+      desc: 'A bright, snappy, cutting electric guitar sound with a quick attack. Country leads, bent double stops and slapback echo.',
+      ref: 'James Burton, Roy Buchanan, Brent Mason, Keith Richards',
+      prompt: 'a bright twangy Telecaster with slapback echo',
+      tag: 'telecaster twang',
+      ex: RNG('E2', 'D6', ['bright', 'snappy', 'twangy']), play: { k: 'inst', i: 'tele' } },
+    { id: 'tremguitar', name: 'Tremolo baritone guitar', aka: 'twang baritone, Duane Eddy sound, western guitar',
+      desc: 'A low, twangy electric guitar played through an amp\'s pulsing tremolo and a big spring reverb. Instantly Western, instantly cinematic.',
+      ref: 'Duane Eddy "Rebel Rouser", Chris Isaak "Wicked Game", Calexico, Lord Huron, Ennio Morricone',
+      prompt: 'a low twangy baritone electric guitar through pulsing amp tremolo and deep spring reverb',
+      tag: 'tremolo baritone guitar, spring reverb',
+      ex: RNG('B1', 'B4', ['low', 'twangy', 'pulsing']), play: { k: 'inst', i: 'tremguitar' } },
+    { id: 'fuzzguitar', name: 'Fuzz guitar', aka: 'fuzz pedal, Big Muff',
+      desc: 'A guitar pushed into square-wave distortion: buzzy, thick and woolly. 60s garage, stoner rock and shoegaze all live here.',
+      ref: 'The Rolling Stones "Satisfaction", Jimi Hendrix, The Black Keys, Dinosaur Jr.',
+      prompt: 'a buzzy woolly fuzz guitar riff',
+      tag: 'fuzz guitar',
+      ex: RNG('E2', 'D6', ['buzzy', 'thick', 'woolly']), play: { k: 'inst', i: 'fuzzg' } },
+    { id: 'jangle', name: 'Jangle guitar', aka: 'Rickenbacker jangle, chorus guitar',
+      desc: 'Clean, bright, chorused electric guitar playing ringing arpeggios. The sound of 60s folk-rock and 80s college rock.',
+      ref: 'The Byrds "Mr. Tambourine Man", R.E.M., The Smiths, The Feelies',
+      prompt: 'bright jangly clean electric guitar arpeggios with a touch of chorus',
+      tag: 'jangly clean guitar',
+      ex: RNG('E2', 'D6', ['chiming', 'clean', 'ringing']), play: { k: 'inst', i: 'jangle' } },
+    { id: 'rhodes', name: 'Rhodes electric piano', aka: 'Fender Rhodes, EP',
+      desc: 'Struck metal tines through a pickup: a warm, bell-like piano that barks when hit hard. Soul, jazz fusion, neo-soul and lo-fi chords.',
+      ref: 'Herbie Hancock, Stevie Wonder, Billy Joel "Just the Way You Are", D\'Angelo',
+      prompt: 'warm bell-like Rhodes electric piano chords',
+      tag: 'rhodes electric piano',
+      ex: RNG('E1', 'G7', ['warm', 'bell-like', 'mellow']), play: { k: 'inst', i: 'rhodes' } },
+    { id: 'wurlitzer', name: 'Wurlitzer', aka: 'Wurli electric piano',
+      desc: 'An electric piano with reeds instead of tines: reedier, more nasal and growly than a Rhodes, often through its built-in tremolo.',
+      ref: 'Ray Charles "What\'d I Say", Supertramp, Norah Jones, The Doors',
+      prompt: 'a reedy Wurlitzer electric piano with gentle tremolo',
+      tag: 'wurlitzer electric piano',
+      ex: RNG('A1', 'C7', ['reedy', 'nasal', 'growly']), play: { k: 'inst', i: 'wurli' } },
+    { id: 'hammond', name: 'Hammond organ', aka: 'B3, Leslie organ',
+      desc: 'A tonewheel organ shaped with drawbars and spun through a rotating Leslie speaker. Swells, growls, gospel pads and rock stabs.',
+      ref: 'Booker T. Jones "Green Onions", Jimmy Smith, Procol Harum "A Whiter Shade of Pale", gospel churches everywhere',
+      prompt: 'a Hammond B3 organ through a swirling Leslie speaker',
+      tag: 'hammond organ, leslie',
+      ex: RNG('C2', 'C7', ['swirling', 'warm', 'churchy']), play: { k: 'inst', i: 'hammond' } },
+    { id: 'tack', name: 'Honky-tonk piano', aka: 'tack piano, barroom upright',
+      desc: 'An upright piano slightly out of tune with itself (or with tacks in the hammers), so every note jangles. Saloons, honky-tonks and ragtime.',
+      ref: 'Floyd Cramer, Jerry Lee Lewis, ragtime piano rolls, Western saloon scenes',
+      prompt: 'a jangly out-of-tune honky-tonk upright piano',
+      tag: 'honky-tonk piano',
+      ex: RNG('A0', 'C8', ['jangly', 'tinny', 'barroom']), play: { k: 'inst', i: 'honkytonk' } },
+    { id: 'grandpiano', name: 'Grand piano', aka: 'acoustic piano, felt piano (muted)',
+      desc: 'The full-range acoustic piano. Specify the character: bright concert grand, intimate close-miked felt piano, or a warm old upright in a room.',
+      ref: 'Ólafur Arnalds and Nils Frahm (felt piano), Elton John, Keith Jarrett "The Köln Concert"',
+      prompt: 'an intimate close-miked felt piano with soft hammers and audible pedal noise',
+      tag: 'intimate felt piano',
+      ex: RNG('A0', 'C8', ['full range', 'intimate', 'resonant']), play: { k: 'inst', i: 'grand' } },
+    { id: 'mellotron', name: 'Mellotron', aka: 'tape-replay keyboard',
+      desc: 'A 60s keyboard that plays tape loops of real flutes, strings and choirs, slightly wobbly and eerie. The flute sound is "Strawberry Fields Forever".',
+      ref: 'The Beatles "Strawberry Fields Forever", King Crimson, The Moody Blues, Radiohead "OK Computer"',
+      prompt: 'wobbly vintage Mellotron flutes',
+      tag: 'mellotron flutes',
+      ex: RNG('G2', 'F5', ['wobbly', 'eerie', 'vintage']), play: { k: 'inst', i: 'mellotron' } },
+    { id: 'moogbass', name: 'Analog synth bass', aka: 'Moog bass, synth bass',
+      desc: 'A fat, squelchy bass from an analog synthesizer, its filter snapping shut on every note. Funk, synth-pop, synthwave and "Stranger Things".',
+      ref: 'Minimoog, Parliament-Funkadelic, Giorgio Moroder, Kyle Dixon & Michael Stein "Stranger Things"',
+      prompt: 'a fat squelchy analog synth bass',
+      tag: 'analog synth bass',
+      ex: RNG('C1', 'C4', ['fat', 'squelchy', 'punchy']), play: { k: 'inst', i: 'moog' } },
+    { id: 'synthpad', name: 'Synth pad', aka: 'string machine, warm pad',
+      desc: 'Soft sustained synthesizer chords with a slow attack, filling the space behind everything else. Name it warm, glassy, dark or airy.',
+      ref: 'Juno-60 and Prophet-5 pads, Vangelis "Blade Runner", M83',
+      prompt: 'a warm slow-attack analog synth pad holding chords underneath',
+      tag: 'warm synth pad',
+      ex: RNG('C2', 'C6', ['warm', 'soft', 'sustained']), play: { k: 'inst', i: 'synthpad' } },
+    { id: 'brushes', name: 'Brushed drums', aka: 'brushes, jazz kit with brushes',
+      desc: 'Drums played with wire brushes: soft swishes and taps instead of cracks. Instantly intimate; jazz ballads, folk and late-night country.',
+      ref: 'Philly Joe Jones, Brian Blade, Norah Jones records',
+      prompt: 'soft brushed drums with gentle swishes on the snare',
+      tag: 'brushed drums',
+      ex: TAGS(['soft', 'swishing', 'intimate'], 'Drum kit'), play: { k: 'inst', i: 'brushes' } },
+    { id: 'floortoms', name: 'Floor toms', aka: 'tribal drums, tom-heavy beat',
+      desc: 'A beat built on the low toms instead of the snare: rolling, thunderous and primal. Indie folk anthems and war-drum builds love it.',
+      ref: 'Fleet Foxes, Florence + the Machine "Dog Days Are Over", Phil Collins "In the Air Tonight" (fill)',
+      prompt: 'rolling thunderous floor toms instead of a snare backbeat',
+      tag: 'pounding floor toms',
+      ex: TAGS(['thunderous', 'rolling', 'primal'], 'Drum kit'), play: { k: 'inst', i: 'tribal' } },
+    { id: 'drum808', name: 'TR-808', aka: '808, eight-oh-eight',
+      desc: 'The 1980 Roland drum machine: a booming sine kick that doubles as a bass note, snappy snare, ticking hats and cowbell. Hip-hop and trap run on it.',
+      ref: 'Marvin Gaye "Sexual Healing", Kanye West "808s & Heartbreak", every trap record',
+      prompt: 'booming 808 kick and bass with ticking hi-hats',
+      tag: '808 drums',
+      ex: RNG('A0', 'E2', ['booming', 'sub', 'electronic']), play: { k: 'inst', i: 'e808' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'orch', title: 'Orchestral, brass & winds', slot: 'Instruments',
+  intro: 'The colors of the orchestra and the horn section. Say how they\'re played (muted, solo, pizzicato, section) as well as what they are.',
+  terms: [
+    { id: 'strings', name: 'String section', aka: 'strings, string orchestra',
+      desc: 'Violins, violas, cellos and basses playing together: lush sustained chords, swells, pizzicato or tense tremolo. The quickest way to make something cinematic.',
+      ref: 'Paul Buckmaster (Elton John), Owen Pallett, the "Eleanor Rigby" octet',
+      prompt: 'a lush string section swelling under the chorus',
+      tag: 'lush strings',
+      ex: RNG('C2', 'E7', ['lush', 'swelling', 'cinematic']), play: { k: 'inst', i: 'strings' } },
+    { id: 'cello', name: 'Solo cello', aka: 'cello',
+      desc: 'Closest instrument to a human voice: warm, dark and singing. One cello reads as grief, intimacy or longing.',
+      ref: 'Yo-Yo Ma, Hildur Guðnadóttir "Joker", Zoë Keating, Arthur Russell',
+      prompt: 'a solo cello singing a slow, mournful line',
+      tag: 'solo cello',
+      ex: RNG('C2', 'A5', ['warm', 'dark', 'singing']), play: { k: 'inst', i: 'cello' } },
+    { id: 'harp', name: 'Harp', aka: 'concert harp, pedal harp',
+      desc: 'Plucked strings with a soft attack and long ring. Glissandos say "magic", "dream sequence" or "once upon a time".',
+      ref: 'Joanna Newsom, Alice Coltrane, Dorothy Ashby',
+      prompt: 'a harp glissando opening into gentle arpeggios',
+      tag: 'harp glissando',
+      ex: RNG('C1', 'G7', ['glistening', 'magical', 'soft']), play: { k: 'inst', i: 'harp' } },
+    { id: 'frenchhorn', name: 'French horn', aka: 'horn',
+      desc: 'A round, noble brass voice that can be heroic in a theme or soft and distant in a pad. The sound of frontier vistas and Spielberg sunsets.',
+      ref: 'John Williams scores, Elmer Bernstein Westerns, Sufjan Stevens',
+      prompt: 'warm French horns playing a noble open-fifth theme',
+      tag: 'french horns',
+      ex: RNG('B1', 'F5', ['noble', 'round', 'heroic']), play: { k: 'inst', i: 'horn' } },
+    { id: 'mutedtrumpet', name: 'Muted trumpet', aka: 'Harmon mute, cup mute',
+      desc: 'A trumpet played through a mute, small and buzzy and lonesome. Late-night jazz, noir and the far end of a desert.',
+      ref: 'Miles Davis "Kind of Blue", Chet Baker, Calexico, the "Chinatown" theme',
+      prompt: 'a lonesome muted trumpet in the distance',
+      tag: 'muted trumpet',
+      ex: RNG('F#3', 'D6', ['lonesome', 'buzzy', 'intimate']), play: { k: 'inst', i: 'mutedtpt' } },
+    { id: 'sax', name: 'Tenor saxophone', aka: 'tenor sax, sax',
+      desc: 'Breathy and husky at low volume, honking and wild when pushed. Noir, soul solos, 80s rock and smooth jazz.',
+      ref: 'Coleman Hawkins, Ben Webster, Clarence Clemons, Gerry Rafferty "Baker Street" (alto)',
+      prompt: 'a breathy smoky tenor saxophone',
+      tag: 'smoky tenor sax',
+      ex: RNG('Ab2', 'E5', ['breathy', 'smoky', 'husky']), play: { k: 'inst', i: 'sax' } },
+    { id: 'clarinet', name: 'Clarinet', aka: 'B♭ clarinet',
+      desc: 'Woody and agile: dark and hollow in the low register, sweet in the middle, shrill on top. Klezmer, New Orleans jazz and pastoral scoring.',
+      ref: 'Benny Goodman, Sidney Bechet, Naftule Brandwein, "Rhapsody in Blue" opening',
+      prompt: 'a woody clarinet line with a playful lilt',
+      tag: 'clarinet',
+      ex: RNG('D3', 'C7', ['woody', 'hollow', 'agile']), play: { k: 'inst', i: 'clarinet' } },
+    { id: 'flute', name: 'Flute & whistle', aka: 'flute, tin whistle, pennywhistle',
+      desc: 'Airy, pure and breathy. A concert flute floats; a tin whistle dances an Irish jig.',
+      ref: 'Herbie Mann, Jethro Tull, Matt Molloy (The Chieftains), "Titanic" score',
+      prompt: 'an airy breathy flute melody',
+      tag: 'airy flute',
+      ex: RNG('C4', 'D7', ['airy', 'pure', 'breathy']), play: { k: 'inst', i: 'flute' } },
+    { id: 'timpani', name: 'Timpani', aka: 'kettle drums',
+      desc: 'Tuned orchestral drums: thunderous rolls building tension, booming hits on the downbeat of a climax.',
+      ref: '"Also sprach Zarathustra", Wall of Sound records, every epic trailer',
+      prompt: 'a timpani roll swelling into a booming hit',
+      tag: 'timpani',
+      ex: RNG('D2', 'C4', ['thunderous', 'booming', 'tense']), play: { k: 'inst', i: 'timpani' } },
+    { id: 'celesta', name: 'Celesta & glockenspiel', aka: 'celeste, glock, orchestra bells',
+      desc: 'Small metal bars struck by hammers (glockenspiel) or a keyboard (celesta). Twinkling, innocent, a little magic: music boxes, snowfall, childhood.',
+      ref: 'Tchaikovsky "Dance of the Sugar Plum Fairy", "Hedwig\'s Theme", Bruce Springsteen\'s glock on "Born to Run"',
+      prompt: 'a twinkling celesta melody like a music box',
+      tag: 'twinkling celesta',
+      ex: RNG('C4', 'C8', ['twinkling', 'innocent', 'magical']), play: { k: 'inst', i: 'celesta' } },
+    { id: 'harmonium', name: 'Harmonium', aka: 'pump organ, reed organ',
+      desc: 'A wheezy pedal- or hand-pumped reed organ: drones, hymns and something ancient in a farmhouse parlor.',
+      ref: 'Nico "The Marble Index", Bon Iver, Indian classical and devotional music',
+      prompt: 'a wheezy drone of harmonium chords',
+      tag: 'harmonium drone',
+      ex: RNG('F2', 'F6', ['wheezy', 'droning', 'hymnal']), play: { k: 'inst', i: 'harmonium' } },
+    { id: 'pipeorgan', name: 'Pipe organ', aka: 'church organ, cathedral organ',
+      desc: 'Massive, sacred, overwhelming: pipes from sub-bass rumble to piercing high stops, in a building made to make it bigger.',
+      ref: 'Bach "Toccata and Fugue in D minor", Hans Zimmer "Interstellar"',
+      prompt: 'a massive cathedral pipe organ',
+      tag: 'cathedral pipe organ',
+      ex: RNG('C1', 'C8', ['massive', 'sacred', 'overwhelming']), play: { k: 'inst', i: 'pipeorgan' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'odd', title: 'Textures & oddities', slot: 'Instruments',
+  intro: 'The instruments that make a track memorable: a whistle, a saw, a music box. One of these can do more for a prompt than a whole band.',
+  terms: [
+    { id: 'whistling', name: 'Whistling', aka: 'whistled melody',
+      desc: 'A human whistle carrying the tune: lonely on a prairie, carefree on a porch. Morricone made it the sound of the West.',
+      ref: 'Ennio Morricone (Alessandro Alessandroni), Peter Bjorn and John "Young Folks", Otis Redding "(Sittin\' On) The Dock of the Bay"',
+      prompt: 'a lonely whistled melody carrying across open space',
+      tag: 'whistled melody',
+      ex: RNG('G5', 'D7', ['lonely', 'carefree', 'human']), play: { k: 'inst', i: 'whistling' } },
+    { id: 'musicalsaw', name: 'Musical saw', aka: 'singing saw',
+      desc: 'A handsaw bent and bowed, singing in a wavering, ghostly voice somewhere between a theremin and a soprano.',
+      ref: 'Neutral Milk Hotel "In the Aeroplane Over the Sea", Marlene Dietrich, Julian Koster',
+      prompt: 'a wavering ghostly musical saw',
+      tag: 'musical saw',
+      ex: RNG('C4', 'C6', ['ghostly', 'wavering', 'eerie']), play: { k: 'inst', i: 'musicalsaw' } },
+    { id: 'theremin', name: 'Theremin', aka: 'ether-wave',
+      desc: 'An electronic instrument played without touching it, gliding between pitches with heavy vibrato. 1950s sci-fi, flying saucers, the uncanny.',
+      ref: 'Clara Rockmore, "The Day the Earth Stood Still", The Beach Boys "Good Vibrations" (Electro-Theremin)',
+      prompt: 'a gliding vibrato-heavy theremin',
+      tag: 'theremin',
+      ex: RNG('C3', 'C7', ['gliding', 'otherworldly', 'sci-fi']), play: { k: 'inst', i: 'theremin' } },
+    { id: 'musicbox', name: 'Music box', aka: 'wind-up music box',
+      desc: 'A tiny metal comb plucked by a turning cylinder: delicate, mechanical, nostalgic, and creepy in the right film.',
+      ref: 'horror film nurseries, "Amélie", Yann Tiersen',
+      prompt: 'a delicate wind-up music box melody',
+      tag: 'music box',
+      ex: RNG('C5', 'C8', ['delicate', 'mechanical', 'nostalgic']), play: { k: 'inst', i: 'musicbox' } },
+    { id: 'toypiano', name: 'Toy piano', aka: 'toy keyboard',
+      desc: 'Small metal rods struck by plastic hammers: plinky, out of tune and charming, or deeply unsettling.',
+      ref: 'John Cage "Suite for Toy Piano", Pascal Comelade, Yann Tiersen',
+      prompt: 'a plinky out-of-tune toy piano',
+      tag: 'toy piano',
+      ex: RNG('C5', 'C7', ['plinky', 'childlike', 'off-kilter']), play: { k: 'inst', i: 'toypiano' } },
+    { id: 'vibraphone', name: 'Vibraphone', aka: 'vibes',
+      desc: 'Metal bars with motorized resonators that add a soft pulsing tremolo. Cool jazz, noir, lounge and dreamy indie.',
+      ref: 'Milt Jackson, Lionel Hampton, Gary Burton, Stereolab',
+      prompt: 'mellow vibraphone with a slow pulsing tremolo',
+      tag: 'vibraphone',
+      ex: RNG('F3', 'F6', ['mellow', 'pulsing', 'cool']), play: { k: 'inst', i: 'vibes' } },
+    { id: 'kalimba', name: 'Kalimba', aka: 'mbira, thumb piano',
+      desc: 'Metal tines plucked by the thumbs on a wooden box: soft, round, bell-like and hypnotic.',
+      ref: 'Zimbabwean mbira music, Earth, Wind & Fire, Konono Nº1 (likembé)',
+      prompt: 'a soft bell-like kalimba pattern',
+      tag: 'kalimba',
+      ex: RNG('G4', 'E6', ['bell-like', 'soft', 'hypnotic']), play: { k: 'inst', i: 'kalimba' } },
+    { id: 'bells', name: 'Church bells', aka: 'tolling bells, bell tower',
+      desc: 'Huge bronze bells tolling in the distance, with their strange, clashing overtones. Weddings, funerals, high noon.',
+      ref: 'AC/DC "Hells Bells", Mike Oldfield "Tubular Bells", Morricone',
+      prompt: 'distant church bells tolling',
+      tag: 'church bells',
+      ex: RNG('C2', 'C5', ['tolling', 'distant', 'solemn']), play: { k: 'inst', i: 'bells' } },
+    { id: 'stomps', name: 'Stomps & claps', aka: 'body percussion, stomp-clap',
+      desc: 'Feet on a wooden floor and hands clapping in time, the drum kit of indie folk choruses and shanty halls.',
+      ref: 'The Lumineers "Ho Hey", Mumford & Sons, Of Monsters and Men',
+      prompt: 'foot stomps on a wooden floor and handclaps on the backbeat',
+      tag: 'stomps and claps',
+      ex: TAGS(['woody', 'communal', 'live in a room'], 'Body percussion'), play: { k: 'inst', i: 'stomps' } },
+    { id: 'tambourine', name: 'Tambourine & shaker', aka: 'tamb, egg shaker',
+      desc: 'Jingles and shakers that add shimmer and drive without weight. Soul records put a tambourine on every beat; folk records shake an egg.',
+      ref: 'Motown (Jack Ashford), The Velvet Underground, Bob Dylan "Mr. Tambourine Man"',
+      prompt: 'a tambourine shaking on every beat',
+      tag: 'tambourine',
+      ex: TAGS(['jingly', 'bright', 'driving'], 'Hand percussion'), play: { k: 'inst', i: 'tamb' } },
+    { id: 'choiroohs', name: 'Choir "oohs"', aka: 'backing choir pad, ooh-aah',
+      desc: 'Wordless sustained voices behind everything: "ooh" for warmth, "aah" for heaven. Used as a pad, they make a track feel bigger and more human.',
+      ref: 'Ennio Morricone, 10cc "I\'m Not in Love", Fleet Foxes, Sigur Rós',
+      prompt: 'wordless choir "oohs" swelling behind the chorus',
+      tag: 'choir oohs',
+      ex: RNG('E2', 'A5', ['warm', 'human', 'heavenly']), play: { k: 'inst', i: 'choirooh' } }
+  ]
+});
+
+/* ===== Rhythm & tempo ===== */
+const SQ = (sp, note = '') => ({ ex: GRID(sp, note), play: Object.assign({ k: 'seq' }, sp) });
+const TP = (bpm, name, feel, meter = 4) => ({ ex: TEMPO(bpm, name, feel, meter), play: { k: 'click', bpm, beats: meter * 3, meter } });
+
+pool.groups.push({
+  id: 'tempo', title: 'Tempo', slot: 'Rhythm',
+  intro: 'How fast the beat goes, in beats per minute. Generators read numbers better than words, so put the BPM in the prompt; the Italian names are here because scores and older prompts use them.',
+  terms: [
+    { id: 'largo', name: 'Very slow', aka: 'largo, lento, dirge',
+      desc: 'Under 60 BPM. Funeral marches, ambient pieces and the slowest ballads. At this speed you feel each beat arrive.',
+      ref: 'Samuel Barber "Adagio for Strings", Low, Sigur Rós',
+      prompt: 'a very slow tempo, around 55 BPM, every beat given room',
+      tag: '55 bpm, very slow', ...TP(55, 'Largo', 'slower than a resting heartbeat') },
+    { id: 'ballad', name: 'Ballad tempo', aka: 'adagio, slow ballad',
+      desc: '60 to 76 BPM. Love songs, slow waltzes, slow-dance country. About a resting heartbeat.',
+      ref: 'Lord Huron "The Night We Met" (~70), Etta James "At Last"',
+      prompt: 'a slow ballad tempo, around 70 BPM',
+      tag: '70 bpm, slow ballad', ...TP(70, 'Adagio', 'a resting heartbeat') },
+    { id: 'walking', name: 'Walking pace', aka: 'andante, easy tempo',
+      desc: '76 to 100 BPM. Unhurried, conversational, easy to sway to. Much of folk, soul and lo-fi sits here.',
+      ref: 'Bill Withers "Ain\'t No Sunshine" (~78), lo-fi beats',
+      prompt: 'an unhurried walking tempo, around 88 BPM',
+      tag: '88 bpm, mid-slow', ...TP(88, 'Andante', 'a strolling walk') },
+    { id: 'midtempo', name: 'Mid-tempo', aka: 'moderato',
+      desc: '100 to 120 BPM. The default for pop and rock: alive but not rushing.',
+      ref: 'Fleetwood Mac "Dreams" (~120), Tom Petty "Free Fallin\'" (~84 half-feel)',
+      prompt: 'a steady mid-tempo groove, around 110 BPM',
+      tag: '110 bpm, mid-tempo', ...TP(110, 'Moderato', 'a brisk walk') },
+    { id: 'dance', name: 'Dance tempo', aka: 'allegretto, club tempo',
+      desc: '118 to 130 BPM. House, disco and most club music live in this narrow band because it matches how people dance.',
+      ref: 'house music (~122), disco (~120), Daft Punk',
+      prompt: 'a danceable tempo, 124 BPM',
+      tag: '124 bpm, danceable', ...TP(124, 'Allegretto', 'a dancing body') },
+    { id: 'uptempo', name: 'Uptempo', aka: 'allegro, driving',
+      desc: '130 to 160 BPM. Punk, bluegrass breakdowns, surf, fast country. Energy and urgency.',
+      ref: 'The Ramones, Dick Dale, bluegrass breakdowns',
+      prompt: 'a driving uptempo beat, around 150 BPM',
+      tag: '150 bpm, uptempo, driving', ...TP(150, 'Allegro', 'a jog') },
+    { id: 'breakneck', name: 'Breakneck', aka: 'presto, prestissimo',
+      desc: 'Over 160 BPM. Bebop, drum and bass, hardcore punk, fiddle contests. Often felt in half time so it doesn\'t exhaust the listener.',
+      ref: 'Charlie Parker, "Orange Blossom Special", drum and bass (~174)',
+      prompt: 'a breakneck tempo, around 180 BPM',
+      tag: '180 bpm, very fast', ...TP(180, 'Presto', 'a sprint') }
+  ]
+});
+
+pool.groups.push({
+  id: 'meter', title: 'Time & meter', slot: 'Rhythm',
+  intro: 'How beats group into bars. Most generators assume 4/4, so name any other meter explicitly, and say "waltz" as well as "3/4" for good measure. Each grid shows one bar per row; amber cells are the accented downbeats.',
+  terms: [
+    { id: 'four', name: '4/4 common time', aka: 'common time, four on the floor (one feel of it)',
+      desc: 'Four beats to a bar, the default for nearly all pop, rock and dance music. Count "1-2-3-4", with weight on 1 and 3 and the snare usually on 2 and 4.',
+      prompt: 'in 4/4 time',
+      tag: '4/4', ...SQ({ bpm: 100, p: { k: 'X.......x.......', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' } }) },
+    { id: 'waltz', name: '3/4 waltz', aka: 'waltz time, triple meter',
+      desc: 'Three beats to a bar: "OOM-pah-pah". Waltzes, country ballads, many folk songs and lullabies. Instantly old-fashioned and swaying.',
+      ref: '"Tennessee Waltz", Lord Huron "Way Out There" sections, Elliott Smith "Waltz #2"',
+      prompt: 'a swaying 3/4 waltz rhythm',
+      tag: '3/4 waltz', ...SQ({ bpm: 132, res: 2, steps: 6, meterLabel: '3/4', bars: 3, p: { B: 'X.....', C: '..x.x.' }, bn: [43, 38], chords: [NS('B3 D4 G4')], cv: 'guitar', cvv: .35 }) },
+    { id: 'sixeight', name: '6/8', aka: 'compound duple, jig time',
+      desc: 'Two big beats, each split into three: "ONE-and-a TWO-and-a". Rolling and lilting. Irish jigs, sea songs, "House of the Rising Sun", many ballads.',
+      ref: 'The Animals "House of the Rising Sun", Irish jigs, Leonard Cohen "Hallelujah" (12/8)',
+      prompt: 'a rolling 6/8 rhythm',
+      tag: '6/8 time, lilting', ...SQ({ bpm: 75, res: 3, steps: 6, meterLabel: '6/8', bars: 3, p: { k: 'X.....', s: '...x..', h: 'xxxxxx', B: 'x..x..' }, bn: [45, 52, 45, 50], bv: 'bass' }) },
+    { id: 'twelveeight', name: '12/8 slow blues', aka: 'slow blues feel, triplet feel',
+      desc: 'Four beats each split into triplets. The slow-blues and doo-wop ballad feel, heavy and swaying with a constant triplet underneath.',
+      ref: 'Etta James "At Last", Otis Redding "I\'ve Been Loving You Too Long", B.B. King',
+      prompt: 'a heavy 12/8 slow-blues triplet feel',
+      tag: '12/8 slow blues feel', ...SQ({ bpm: 60, res: 3, steps: 12, meterLabel: '12/8', bars: 2, p: { k: 'X.....x.....', s: '...x.....x..', y: 'xxxxxxxxxxxx' } }) },
+    { id: 'twofour', name: '2/4 two-beat', aka: 'cut time, boom-chick, polka',
+      desc: 'Two beats to a bar: bass on one, chord on two. Marches, polkas, bluegrass and early country.',
+      ref: 'Johnny Cash, polkas, Sousa marches, bluegrass',
+      prompt: 'a bouncing two-beat feel, bass on one and chord on two',
+      tag: '2/4 two-beat', ...SQ({ bpm: 112, res: 2, steps: 4, meterLabel: '2/4', bars: 4, p: { B: 'x...', C: '..x.' }, bn: [43, 38], chords: [NS('B3 D4 G4')] }) },
+    { id: 'fivefour', name: '5/4', aka: 'quintuple meter, odd time',
+      desc: 'Five beats to a bar, usually felt as 3+2. Lopsided but hypnotic. "Take Five" and the "Mission: Impossible" theme.',
+      ref: 'Dave Brubeck "Take Five", Radiohead "15 Step", Lalo Schifrin "Mission: Impossible"',
+      prompt: 'an off-kilter 5/4 rhythm felt as 3+2',
+      tag: '5/4 time, odd meter', ...SQ({ bpm: 168, res: 2, steps: 10, meterLabel: '5/4', bars: 2, p: { y: 'x.xxx.xxx.', k: 'X.....x...', s: '......x...', B: 'x.....x...' }, bn: [39, 46], bv: 'upright' }) },
+    { id: 'seveneight', name: '7/8', aka: 'odd time, aksak',
+      desc: 'Seven quick beats grouped 2+2+3 (or 3+2+2). Feels like it stumbles forward. Balkan folk, prog rock and modern indie.',
+      ref: 'Pink Floyd "Money" (7/4), Balkan dances, Peter Gabriel "Solsbury Hill" (7/4 bars)',
+      prompt: 'a lurching 7/8 groove grouped 2+2+3',
+      tag: '7/8 time', ...SQ({ bpm: 120, res: 2, steps: 7, meterLabel: '7/8', bars: 4, p: { k: 'X.x.x..', s: '..x.x.x', h: 'xxxxxxx' } }) },
+    { id: 'rubato', name: 'Free time', aka: 'rubato, ad lib, out of time',
+      desc: 'No steady beat: the performer stretches and pushes the tempo with the phrase, like speech. Intros, a cappella ballads, solo piano and old field recordings.',
+      ref: 'unaccompanied ballad singers, Chopin nocturnes, "Amazing Grace" sung alone',
+      prompt: 'performed in free time, rubato, no steady beat',
+      tag: 'rubato, free time',
+      ex: WAVE('wobble', 'tempo bends with the phrase'),
+      play: { k: 'mel', v: 'piano', bpm: 70, n: [[67, 1.4], [71, .6], [74, 2.2], [72, .5], [71, .4], [69, 2.8], [67, .7], [64, 1], [67, 3]], tail: 1.5 } }
+  ]
+});
+
+pool.groups.push({
+  id: 'groove', title: 'Grooves & feels', slot: 'Rhythm',
+  intro: 'Named rhythm patterns. A groove word tells a generator where the drums hit and how they lean. Press Play to hear each grid; the amber line follows the beat.',
+  terms: [
+    { id: 'straight', name: 'Straight eighths', aka: 'rock beat, even eighths',
+      desc: 'Eighth notes exactly even, kick on 1 and 3, snare on 2 and 4. The plain, driving rock and pop default.',
+      prompt: 'a straight-eighths rock beat, kick on one and three, snare on two and four',
+      tag: 'straight rock beat', ...SQ({ bpm: 112, p: { k: 'x.......x.x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' } }) },
+    { id: 'swing', name: 'Swing', aka: 'swung eighths, jazz swing',
+      desc: 'Each pair of eighth notes is played long-short ("doo-ba, doo-ba"), with the ride cymbal leading. The lilt of jazz and big band.',
+      ref: 'Count Basie, Frank Sinatra with Nelson Riddle',
+      prompt: 'swung eighth notes, a lilting jazz swing feel on the ride cymbal',
+      tag: 'swing feel', ...SQ({ bpm: 140, swing: .33, p: { y: 'x..xx..xx..xx..x', h: '....x.......x...', k: 'x...x...x...x...', B: 'x...x...x...x...' }, bn: NS('G2 B2 D3 E3 C3 E3 G3 A3'), bv: 'upright' }, 'long-short pairs') },
+    { id: 'shuffle', name: 'Shuffle', aka: 'blues shuffle, Texas shuffle',
+      desc: 'A heavier cousin of swing: the long-short triplet bounce driven by the snare and a boogie bass line. Blues, early rock\'n\'roll and honky-tonk.',
+      ref: 'Stevie Ray Vaughan "Pride and Joy", Chuck Berry, Ray Price shuffles',
+      prompt: 'a bouncing blues shuffle with a boogie bass line',
+      tag: 'blues shuffle', ...SQ({ bpm: 120, swing: .33, p: { k: 'x.......x.......', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.', B: 'x.x.x.x.x.x.x.x.' }, bn: NS('E2 E2 G#2 G#2 B2 B2 C#3 B2'), bv: 'bass' }) },
+    { id: 'trainbeat', name: 'Train beat', aka: 'freight-train beat, Johnny Cash beat',
+      desc: 'Brushes or sticks chugging on the snare in steady eighths with accents on 2 and 4, like wheels on a track. Country\'s engine, from Johnny Cash to outlaw.',
+      ref: 'Johnny Cash "Folsom Prison Blues", Waylon Jennings, "Orange Blossom Special"',
+      prompt: 'a chugging country train beat on the snare',
+      tag: 'country train beat', ...SQ({ bpm: 112, p: { b: 'xxXxxxXxxxXxxxXx', k: 'x.......x.......', B: 'x...x...x...x...' }, bn: [40, 47], bv: 'upright' }) },
+    { id: 'boomchick', name: 'Boom-chick', aka: 'oom-pah, alternating bass',
+      desc: 'Bass note on the beat ("boom"), chord strum on the offbeat ("chick"), alternating root and fifth. Country, bluegrass guitar and the Carter Family.',
+      ref: 'Maybelle Carter "Wildwood Flower", Johnny Cash and the Tennessee Two',
+      prompt: 'an alternating boom-chick guitar pattern, bass note then strum',
+      tag: 'boom-chick rhythm', ...SQ({ bpm: 120, res: 2, steps: 8, p: { B: 'x.x.x.x.', C: '.x.x.x.x' }, bn: [43, 38, 43, 38, 48, 43, 48, 43], chords: [NS('B3 D4 G4'), NS('C4 E4 G4')], cper: 4, bars: 2 }) },
+    { id: 'twostep', name: 'Texas two-step', aka: 'country two-step',
+      desc: 'A brisk dance-hall shuffle: quick-quick-slow-slow on the floor, walking bass and a snare tick on the offbeats.',
+      ref: 'George Strait, Bob Wills, Texas dance halls',
+      prompt: 'a brisk Texas two-step shuffle for the dance floor',
+      tag: 'two-step shuffle', ...SQ({ bpm: 168, res: 2, steps: 8, swing: .2, p: { k: 'x...x...', r: '..x...x.', B: 'x.x.x.x.', C: '.x.x.x.x' }, bn: NS('G2 B2 D3 B2'), bv: 'upright', chords: [NS('B3 D4 G4')], cv: 'tack', cvv: .6 }) },
+    { id: 'fourfloor', name: 'Four on the floor', aka: 'four-to-the-floor',
+      desc: 'Kick drum on every quarter note. The heartbeat of disco, house, techno and stadium-indie choruses.',
+      ref: 'disco, house music, Arcade Fire "Wake Up"',
+      prompt: 'a four-on-the-floor kick on every beat',
+      tag: 'four on the floor', ...SQ({ bpm: 122, p: { k: 'x...x...x...x...', o: '..x...x...x...x.', c: '....x.......x...' } }) },
+    { id: 'halftime', name: 'Half-time', aka: 'half-time feel',
+      desc: 'Snare moves from 2 and 4 to beat 3, so the music feels half as fast while everything else keeps moving. Heavy and spacious; trap and big final choruses.',
+      ref: 'trap, Queens of the Stone Age breakdowns, Imagine Dragons',
+      prompt: 'a heavy half-time feel with the snare on three',
+      tag: 'half-time feel', ...SQ({ bpm: 140, p: { k: 'x.........x.....', s: '........x.......', h: 'x.x.x.x.x.x.x.x.' } }) },
+    { id: 'motorik', name: 'Motorik', aka: 'krautrock beat, Apache beat',
+      desc: 'A steady, endless eighth-note beat with almost no fills, like driving on an open highway. Krautrock, post-punk and The War on Drugs.',
+      ref: 'Neu! "Hallogallo", Stereolab, The War on Drugs "Under the Pressure"',
+      prompt: 'a steady unbroken motorik beat that never fills',
+      tag: 'motorik beat', ...SQ({ bpm: 138, p: { k: 'x.x.x.x.x.x.x.x.', s: '....x.......x...', h: 'xxxxxxxxxxxxxxxx' } }) },
+    { id: 'bodiddley', name: 'Bo Diddley beat', aka: 'hambone, 3-2 clave rock',
+      desc: 'The "shave and a haircut, two bits" rhythm on tom-toms and maracas, a clave pattern brought into rock\'n\'roll.',
+      ref: 'Bo Diddley "Bo Diddley", Buddy Holly "Not Fade Away", George Michael "Faith"',
+      prompt: 'a Bo Diddley beat on tom-toms and maracas',
+      tag: 'bo diddley beat', ...SQ({ bpm: 112, p: { t: 'x..x..x...x.x...', p: 'xxxxxxxxxxxxxxxx', k: 'x.......x.......' } }) },
+    { id: 'gallop', name: 'Gallop', aka: 'cowboy gallop, triplet gallop',
+      desc: 'A long-short-short "da-da-DUM" figure like hooves: Western scores, cavalry charges and heavy metal.',
+      ref: 'Rossini "William Tell Overture", Western film scores, Iron Maiden',
+      prompt: 'a galloping long-short-short rhythm like hooves',
+      tag: 'galloping rhythm', ...SQ({ bpm: 132, p: { f: 'x.xxx.xxx.xxx.xx', s: '....x.......x...' } }, 'da-da-DUM') },
+    { id: 'stompclap', name: 'Stomp-clap', aka: 'folk stomp, hey-ho beat',
+      desc: 'Kick or foot stomp on every beat with handclaps on 2 and 4, played by a whole room. The 2010s indie-folk anthem beat.',
+      ref: 'The Lumineers "Ho Hey", Mumford & Sons "Little Lion Man", Edward Sharpe "Home"',
+      prompt: 'a communal stomp-clap beat, stomps on every beat and claps on two and four',
+      tag: 'stomp-clap beat', ...SQ({ bpm: 82, res: 2, steps: 8, p: { m: 'x.x.x.x.', c: '..x...x.', j: 'x.x.x.x.' } }) },
+    { id: 'bossagroove', name: 'Bossa nova groove', aka: 'bossa pattern',
+      desc: 'Soft brazilian syncopation: bass on 1 and 3, a rim click pattern that anticipates the beat, and guitar chords pushed ahead of the bar.',
+      prompt: 'a gentle bossa nova groove with a syncopated rim click',
+      tag: 'bossa nova rhythm', ...SQ({ bpm: 132, p: { r: 'x..x..x...x..x..', p: 'x.x.x.x.x.x.x.x.', k: 'x.....xx......xx' } }) },
+    { id: 'onedrop', name: 'One drop', aka: 'reggae one drop',
+      desc: 'Reggae\'s signature beat: nothing on beat 1, kick and rim together on 3. It leaves a hole where you expect the downbeat.',
+      ref: 'Bob Marley "One Drop", Carlton Barrett',
+      prompt: 'a reggae one-drop beat, kick and rim together on three',
+      tag: 'one drop rhythm', ...SQ({ bpm: 76, p: { k: '........x.......', r: '........x.......', h: 'x.x.x.x.x.x.x.x.', C: '....x.......x...' }, chords: [NS('A3 C4 E4')], cv: 'organ', cvv: 1.2, cl: .5 }) },
+    { id: 'clave', name: 'Son clave', aka: '3-2 clave',
+      desc: 'A five-hit pattern across two bars (three in one, two in the other) that anchors salsa, rumba and much Latin music.',
+      prompt: 'a 3-2 son clave pattern on wood block',
+      tag: 'son clave, latin', ...SQ({ bpm: 110, steps: 32, p: { r: 'x..x...x....x.x.', q: '..x..x.x..x..x.x', k: 'x.....x.x.....x.' }, bars: 1 }, '3 + 2') },
+    { id: 'breakbeat', name: 'Breakbeat', aka: 'funky drummer, amen-style break',
+      desc: 'A syncopated funk drum pattern with ghost notes, the kind sampled from soul records to build hip-hop, jungle and big beat.',
+      ref: 'James Brown "Funky Drummer", The Winstons "Amen, Brother", The Chemical Brothers',
+      prompt: 'a syncopated funk breakbeat with ghost notes on the snare',
+      tag: 'funky breakbeat', ...SQ({ bpm: 100, p: { k: 'x.x.......x..x..', s: '....x..g.g..x..g', h: 'x.x.x.x.x.x.x.x.' } }) },
+    { id: 'laidback', name: 'Behind the beat', aka: 'laid-back, lazy pocket, Dilla feel',
+      desc: 'Snare and fills land a hair late, so the groove feels relaxed and heavy. Neo-soul, lo-fi and classic soul pockets. Compare "on top of the beat", which pushes and feels urgent.',
+      ref: 'J Dilla, Questlove on D\'Angelo "Voodoo", Al Green records',
+      prompt: 'drums sitting lazily behind the beat, a relaxed deep pocket',
+      tag: 'laid-back groove', ...SQ({ bpm: 86, swing: .22, late: .35, p: { k: 'x......x..x.....', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' } }, 'snare late') }
+  ]
+});
+
+/* ===== Harmony & melody ===== */
+const sc = s => s.split(' ').map(n => n + '4').join(' ');
+const MODE = (names, formula, extra) => ({ ex: SCALE(sc(names), names.split(' ')[0], formula), play: Object.assign({ k: 'scale', n: sc(names) + ' ' + names.split(' ')[0] + '5', v: 'guitar' }, extra) });
+const PR = (nums, chords, label, extra = {}) => ({ ex: PROG(nums, chords, label), play: Object.assign({ k: 'prog', ch: chords, bpm: 100, per: 2, style: 'strum' }, extra) });
+
+pool.groups.push({
+  id: 'modes', title: 'Scales & modes', slot: 'Harmony',
+  intro: 'The note sets a melody is built from, each shown in C so you can compare them (amber is the home note). Mood words for each are traditions, not laws, but generators respond to them.',
+  terms: [
+    { id: 'major', name: 'Major', aka: 'Ionian',
+      desc: 'Bright, settled, resolved. The sound of most pop, hymns, nursery rhymes and campfire songs.',
+      prompt: 'in a bright major key',
+      tag: 'major key', ...MODE('C D E F G A B', 'W W H W W W H') },
+    { id: 'minor', name: 'Natural minor', aka: 'Aeolian',
+      desc: 'Darker and sadder than major, because of its flat third, sixth and seventh. Ballads, laments, most "dark" anything.',
+      prompt: 'in a melancholy minor key',
+      tag: 'minor key', ...MODE('C D Eb F G Ab Bb', 'W H W W H W W') },
+    { id: 'dorian', name: 'Dorian', aka: 'Dorian mode',
+      desc: 'Minor with a raised sixth: sad but hopeful, a bit jazzy or Celtic. "Scarborough Fair", "Oye Como Va", lots of Irish tunes.',
+      ref: 'Simon & Garfunkel "Scarborough Fair", Santana "Oye Como Va", Daft Punk "Get Lucky"',
+      prompt: 'in Dorian mode, minor but with a hopeful raised sixth',
+      tag: 'dorian mode', ...MODE('C D Eb F G A Bb', 'minor with ♮6') },
+    { id: 'mixolydian', name: 'Mixolydian', aka: 'Mixolydian mode, dominant scale',
+      desc: 'Major with a flat seventh: bright but bluesy and unresolved. Bluegrass, Celtic reels, classic rock and "Sweet Home Alabama".',
+      ref: 'The Beatles "Norwegian Wood", Lynyrd Skynyrd "Sweet Home Alabama", old-time fiddle tunes',
+      prompt: 'in Mixolydian mode, major with a bluesy flat seventh',
+      tag: 'mixolydian mode', ...MODE('C D E F G A Bb', 'major with ♭7') },
+    { id: 'phrygian', name: 'Phrygian', aka: 'Spanish Phrygian (with major third: Phrygian dominant)',
+      desc: 'Minor with a flat second, a half step above home that sounds Spanish, Middle Eastern or menacing. Flamenco, surf rock, metal.',
+      ref: 'flamenco, Dick Dale "Misirlou" (Phrygian dominant), Metallica "Wherever I May Roam"',
+      prompt: 'in Phrygian mode with a dark Spanish flat second',
+      tag: 'phrygian mode, spanish', ...MODE('C Db Eb F G Ab Bb', 'minor with ♭2') },
+    { id: 'lydian', name: 'Lydian', aka: 'Lydian mode',
+      desc: 'Major with a raised fourth: dreamy, floating, wondrous. Film scores use it for flying, space and magic.',
+      ref: 'John Williams "E.T." flying theme, The Simpsons theme, Joe Satriani "Flying in a Blue Dream"',
+      prompt: 'in Lydian mode, dreamy and floating with a raised fourth',
+      tag: 'lydian mode, dreamy', ...MODE('C D E F# G A B', 'major with ♯4') },
+    { id: 'harmonicminor', name: 'Harmonic minor', aka: 'harmonic minor scale',
+      desc: 'Minor with a raised seventh, which leaves an exotic gap of three half steps. Gothic, Middle Eastern, klezmer-adjacent, neoclassical metal.',
+      prompt: 'in harmonic minor, dark and exotic',
+      tag: 'harmonic minor', ...MODE('C D Eb F G Ab B', 'minor with ♮7') },
+    { id: 'majpent', name: 'Major pentatonic', aka: 'country scale, five-note scale',
+      desc: 'Five notes with no half steps, so nothing clashes. Folk melodies, country licks, "Amazing Grace", "My Girl". Instantly sweet and open.',
+      ref: '"Amazing Grace", "My Girl", country lead guitar',
+      prompt: 'a simple major pentatonic melody, open and folk-like',
+      tag: 'pentatonic folk melody', ...MODE('C D E G A', '1 2 3 5 6') },
+    { id: 'minpent', name: 'Minor pentatonic', aka: 'rock scale',
+      desc: 'Five notes that underlie blues, rock riffs and countless folk tunes worldwide. Earthy and strong.',
+      ref: 'almost every rock guitar solo, Led Zeppelin, West African and Scottish folk tunes',
+      prompt: 'riffs built on the minor pentatonic scale',
+      tag: 'minor pentatonic', ...MODE('C Eb F G Bb', '1 ♭3 4 5 ♭7') },
+    { id: 'blues', name: 'Blues scale', aka: 'blue notes',
+      desc: 'Minor pentatonic plus the flat fifth "blue note" that lives between the cracks. Bent, crying, gritty.',
+      prompt: 'bluesy melodies with bent blue notes',
+      tag: 'blues scale, blue notes', ...MODE('C Eb F Gb G Bb', '1 ♭3 4 ♭5 5 ♭7') }
+  ]
+});
+
+pool.groups.push({
+  id: 'progs', title: 'Chord progressions', slot: 'Harmony',
+  intro: 'The chord sequences under songs, written as Roman numerals (I is home, capital is major, lowercase is minor) with real chords in G or another easy key. Press Play to hear each one strummed.',
+  terms: [
+    { id: 'onefourfive', name: 'I–IV–V', aka: 'three-chord song, three chords and the truth',
+      desc: 'The three most important chords in a key. Folk, country, blues, early rock\'n\'roll, gospel: thousands of songs use nothing else.',
+      ref: '"La Bamba", Woody Guthrie, Johnny Cash, Ritchie Valens',
+      prompt: 'a simple I–IV–V three-chord progression',
+      tag: 'three-chord progression', ...PR('I IV V I', 'G C D G', 'key of G') },
+    { id: 'axis', name: 'I–V–vi–IV', aka: 'axis progression, pop-punk progression',
+      desc: 'The most-used progression in modern pop, uplifting with a touch of wistfulness from the minor vi.',
+      ref: 'Journey "Don\'t Stop Believin\'", Lady Gaga "Poker Face", the Axis of Awesome "4 Chords" medley',
+      prompt: 'an uplifting I–V–vi–IV pop progression',
+      tag: 'I-V-vi-IV', ...PR('I V vi IV', 'G D Em C', 'key of G') },
+    { id: 'doowopprog', name: 'I–vi–IV–V', aka: '50s progression, doo-wop changes, ice-cream changes',
+      desc: 'The doo-wop progression: sweet, nostalgic, a little innocent. "Stand by Me", "Earth Angel", and every 50s prom slow dance.',
+      ref: 'Ben E. King "Stand by Me", The Penguins "Earth Angel", Blue Moon',
+      prompt: 'nostalgic 1950s I–vi–IV–V changes',
+      tag: '50s doo-wop progression', ...PR('I vi IV V', 'C Am F G', 'key of C', { style: 'arp', v: 'piano', bpm: 76 }) },
+    { id: 'twofiveone', name: 'ii–V–I', aka: 'two-five-one, jazz cadence',
+      desc: 'The basic move of jazz harmony: a minor seventh, a dominant seventh, then home. Smooth and sophisticated.',
+      ref: 'nearly every jazz standard, "Autumn Leaves", "Fly Me to the Moon"',
+      prompt: 'jazzy ii–V–I changes with seventh chords',
+      tag: 'jazz ii-V-I, seventh chords', ...PR('ii7 V7 Imaj7 Imaj7', 'Dm7 G7 Cmaj7 Cmaj7', 'key of C', { style: 'keys', bpm: 90 }) },
+    { id: 'twelvebar', name: '12-bar blues', aka: 'blues changes',
+      desc: 'Twelve bars of I, IV and V in a fixed order (I I I I / IV IV I I / V IV I V). The skeleton of blues, rock\'n\'roll and rockabilly.',
+      ref: 'Muddy Waters, Chuck Berry "Johnny B. Goode", Elvis "Hound Dog"',
+      prompt: 'a 12-bar blues progression with dominant sevenths',
+      tag: '12-bar blues', ...PR('I7 I7 I7 I7 IV7 IV7 I7 I7 V7 IV7 I7 V7', 'E7 E7 E7 E7 A7 A7 E7 E7 B7 A7 E7 B7', 'key of E, one chord per bar', { per: 1, bpm: 120 }) },
+    { id: 'andalusian', name: 'Andalusian cadence', aka: 'i–♭VII–♭VI–V, flamenco progression',
+      desc: 'Four chords stepping down to a major V: dramatic, Spanish, fatalistic. Flamenco, "Hit the Road Jack", "Walk Don\'t Run", spaghetti westerns.',
+      ref: 'Ray Charles "Hit the Road Jack", The Ventures "Walk, Don\'t Run", flamenco',
+      prompt: 'a dramatic descending Andalusian cadence, i–♭VII–♭VI–V',
+      tag: 'andalusian cadence, spanish', ...PR('i ♭VII ♭VI V', 'Am G F E', 'key of A minor') },
+    { id: 'epicminor', name: 'i–♭VI–♭III–♭VII', aka: 'epic minor, "Hallelujah"-adjacent',
+      desc: 'A minor loop that keeps lifting without resolving: cinematic, yearning, heroic in a sad way. Trailer music and arena ballads.',
+      ref: 'Adele "Someone Like You" (rotation), Coldplay "Viva la Vida" (rotation), Two Steps from Hell',
+      prompt: 'a yearning cinematic minor loop, i–♭VI–♭III–♭VII',
+      tag: 'epic minor progression', ...PR('i ♭VI ♭III ♭VII', 'Am F C G', 'key of A minor', { style: 'pad', bpm: 80 }) },
+    { id: 'mixorock', name: 'I–♭VII–IV', aka: 'Mixolydian vamp, classic rock cadence',
+      desc: 'A major chord, then the chord a whole step below, then the IV. Swaggering, open, Americana. "Sweet Home Alabama", "Gloria", "Hey Jude" outro.',
+      ref: 'Lynyrd Skynyrd "Sweet Home Alabama", The Beatles "Hey Jude" coda, Them "Gloria"',
+      prompt: 'a swaggering I–♭VII–IV vamp',
+      tag: 'mixolydian rock vamp', ...PR('I ♭VII IV I', 'D C G D', 'key of D') },
+    { id: 'plagal', name: 'Plagal cadence', aka: 'IV–I, the Amen cadence',
+      desc: 'Ending by moving from IV straight home to I, as in the "A-men" at the end of a hymn. Gentle, warm, reverent.',
+      ref: 'hymns, The Beatles "Let It Be" (end), gospel endings',
+      prompt: 'ends on a warm IV–I "amen" cadence',
+      tag: 'plagal amen cadence', ...PR('IV IV I I', 'C C G G', 'key of G', { style: 'keys', v: 'organ', bpm: 70 }) },
+    { id: 'ragtime', name: 'Circle of fifths', aka: 'ragtime progression, III–VI–II–V',
+      desc: 'Chords that each lean to the next a fifth down, usually as dominant sevenths. Old-timey and jaunty: ragtime, Western swing, "Salty Dog", "Alice\'s Restaurant".',
+      ref: 'Scott Joplin, Bob Wills, "Salty Dog Blues", "Five Foot Two"',
+      prompt: 'jaunty old-timey ragtime changes moving around the circle of fifths',
+      tag: 'ragtime progression, old-timey', ...PR('III7 VI7 II7 V7 I', 'B7 E7 A7 D7 G', 'key of G') },
+    { id: 'sadfour', name: 'vi–IV–I–V', aka: 'sensitive female chord progression, minor-start axis',
+      desc: 'The axis progression started on its minor chord, so it leans sad and searching instead of triumphant.',
+      ref: 'Rihanna "Umbrella" (rotation), Lord Huron "The Night We Met" (similar color), Train "Hey, Soul Sister"',
+      prompt: 'a wistful vi–IV–I–V progression',
+      tag: 'vi-IV-I-V, wistful', ...PR('vi IV I V', 'Em C G D', 'key of G', { style: 'arp', v: 'guitar', bpm: 90 }) },
+    { id: 'creep', name: 'I–III–IV–iv', aka: 'borrowed-chord progression',
+      desc: 'A major chord, a surprising major III, then IV turning minor. Bittersweet and aching; the minor iv is the gut punch.',
+      ref: 'Radiohead "Creep", The Beatles "In My Life" (iv), Leonard Cohen-style ballads',
+      prompt: 'a bittersweet I–III–IV–iv progression ending on the aching minor four',
+      tag: 'bittersweet borrowed chords', ...PR('I III IV iv', 'G B C Cm', 'key of G', { style: 'arp', v: 'guitar', bpm: 84 }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'colors', title: 'Harmonic color', slot: 'Harmony',
+  intro: 'Chord flavors and harmonic moves that change the emotional temperature without changing the song. Each shows its notes on the keyboard.',
+  terms: [
+    { id: 'sus', name: 'Suspended chords', aka: 'sus2, sus4',
+      desc: 'Chords with the third replaced by a second or fourth, so they sound open and unresolved, as if waiting. Jangle-pop and folk players love them.',
+      ref: 'The Who "Pinball Wizard", Tom Petty "Free Fallin\'", The Byrds',
+      prompt: 'open suspended chords that hang unresolved',
+      tag: 'open sus chords', ex: `${KB('D4 G4 A4', 2, { exact: true, start: 60, octs: 1 })}${PROG('Dsus4 D Dsus2 D', 'D–G–A D–F#–A D–E–A D–F#–A')}`, play: { k: 'prog', ch: 'Dsus4 D Dsus2 D', bpm: 100, per: 2, style: 'strum' } },
+    { id: 'maj7', name: 'Major seventh', aka: 'maj7, dreamy major',
+      desc: 'A major chord plus the note a half step below the octave: soft, dreamy, wistful, a little sophisticated. Bossa, yacht rock, city pop, lo-fi.',
+      ref: 'Burt Bacharach, Steely Dan, Frank Ocean',
+      prompt: 'dreamy major-seventh chords',
+      tag: 'major 7th chords, dreamy', ex: KB('C4 E4 G4 B4', 0, { exact: true, start: 60, octs: 1 }) + '<div class="slab">Cmaj7: C E G B</div>', play: { k: 'prog', ch: 'Cmaj7 Fmaj7 Cmaj7 Fmaj7', bpm: 80, per: 2, style: 'keys' } },
+    { id: 'ninths', name: 'Extended jazz chords', aka: '9ths, 11ths, 13ths, minor nines',
+      desc: 'Chords stacked past the seventh, so each one is rich and blurry rather than plain. Neo-soul, jazz, lo-fi and sophisticated pop.',
+      ref: 'D\'Angelo, Robert Glasper, Bill Evans',
+      prompt: 'lush extended chords, minor ninths and thirteenths',
+      tag: 'jazzy extended chords', ex: KB('D4 F4 A4 C5 E5', 2, { exact: true, start: 60, octs: 2 }) + '<div class="slab">Dm9: D F A C E</div>', play: { k: 'prog', ch: 'Dm9 G13 Cmaj9 A7', bpm: 80, per: 2, style: 'keys' } },
+    { id: 'minoriv', name: 'Minor four', aka: 'borrowed iv, modal mixture',
+      desc: 'In a major key, turning the IV chord minor for a moment. One of the most reliably heartbreaking moves in pop and hymns.',
+      ref: 'The Beatles "In My Life", Radiohead "Creep", Elton John',
+      prompt: 'a heartbreaking turn to the minor four chord',
+      tag: 'minor iv, bittersweet', ...PR('I IV iv I', 'C F Fm C', 'key of C', { style: 'keys', v: 'piano', bpm: 72 }) },
+    { id: 'drone', name: 'Drone & pedal tone', aka: 'drone, pedal point',
+      desc: 'One note held or repeated under changing harmony. Ancient and hypnotic: bagpipes, dulcimers, Indian music, psych folk and post-rock builds.',
+      ref: 'bagpipes, Indian tanpura, The Velvet Underground "Venus in Furs", Appalachian dulcimer',
+      prompt: 'melodies moving over a constant low drone',
+      tag: 'drone, pedal tone', ex: KB('D3 A3', 2, { exact: true, start: 48, octs: 2 }) + '<div class="slab">D and A held under everything</div>', play: { k: 'scale', n: 'D4 E4 F#4 G4 A4 B4 C5 D5', drone: 'D3', v: 'fiddle', bpm: 150 } },
+    { id: 'modulation', name: 'Truck-driver key change', aka: 'final chorus modulation, gear change',
+      desc: 'Lifting the whole song up a half or whole step for the last chorus, like a truck shifting gears. Pure uplift; cheesy if you\'re not careful.',
+      ref: 'Bon Jovi "Livin\' on a Prayer", Whitney Houston "I Will Always Love You", Michael Jackson "Man in the Mirror"',
+      prompt: 'a key change up a whole step into the final chorus',
+      tag: 'key change final chorus', ...PR('I V vi IV ♭VII→ I', 'G D Em C F A', 'G major → A major', { per: 2 }) },
+    { id: 'opentuning', name: 'Open tunings', aka: 'DADGAD, open D, open G',
+      desc: 'Retuning the guitar so the open strings form a chord, which gives huge droning resonance and easy slide playing. Celtic, Delta blues, Joni Mitchell, Keith Richards.',
+      ref: 'Joni Mitchell, Nick Drake, Keith Richards (open G), Led Zeppelin "Kashmir" (DADGAD)',
+      prompt: 'acoustic guitar in an open tuning, ringing drone strings',
+      tag: 'open tuning guitar, ringing', ex: `${KB('D2 A2 D3 G3 A3 D4', 2, { exact: true, start: 36, octs: 3, nolabel: true })}<div class="notes"><span class="rt">D</span><span>A</span><span>D</span><span>G</span><span>A</span><span class="rt">D</span></div><div class="slab">DADGAD, low to high</div>`, play: { k: 'mel', v: 'guitar', bpm: 150, n: NS('D2 A2 D3 G3 A3 D4 A3 G3').map(n => [n, 1]), tail: 2 } }
+  ]
+});
+
+pool.groups.push({
+  id: 'melody', title: 'Melody & texture', slot: 'Harmony',
+  intro: 'How the notes move and how the parts fit together. These are the words for describing what a part does rather than what it is.',
+  terms: [
+    { id: 'hook', name: 'Hook', aka: 'earworm, topline hook',
+      desc: 'A short, catchy phrase (sung, played or produced) that the whole song is built to deliver. Usually short, repeated, and placed in the chorus or intro.',
+      prompt: 'a short, instantly memorable hook repeated in the chorus',
+      tag: 'catchy hook', ex: WAVE('pluck', 'repeat it until it sticks'), play: { k: 'mel', v: 'whistle', bpm: 120, n: [[67, .5], [67, .5], [74, 1], [72, .5], [71, .5], [67, 1], [67, .5], [67, .5], [74, 1], [72, .5], [71, .5], [69, 1]], fx: 'room' } },
+    { id: 'riff', name: 'Riff', aka: 'guitar riff, ostinato riff',
+      desc: 'A repeated instrumental figure, usually low and rhythmic, that a song is built on. Rock, blues, funk and surf all run on riffs.',
+      ref: 'Deep Purple "Smoke on the Water", The White Stripes "Seven Nation Army"',
+      prompt: 'built on a repeating low guitar riff',
+      tag: 'guitar riff', ex: WAVE('clip', 'one figure, over and over'), play: { k: 'inst', i: 'fuzzg' } },
+    { id: 'ostinato', name: 'Ostinato', aka: 'repeating pattern, loop',
+      desc: 'A short pattern repeated persistently while other things change around it. Film scores, minimalism and trailer music use it to build tension.',
+      ref: 'Ravel "Boléro", Hans Zimmer, Philip Glass',
+      prompt: 'a persistent string ostinato that builds tension',
+      tag: 'driving ostinato', ex: WAVE('echo', 'same cell, repeated'), play: { k: 'mel', v: 'fiddle', bpm: 150, n: NS('A3 A3 C4 A3 E4 A3 C4 A3 A3 A3 C4 A3 F4 A3 C4 A3').map(n => [n, .5]) } },
+    { id: 'arpeggio', name: 'Arpeggio', aka: 'broken chord, arp',
+      desc: 'Playing the notes of a chord one after another instead of together. Fingerpicked guitar, harp, synth arps: motion without strumming.',
+      prompt: 'gently arpeggiated chords',
+      tag: 'arpeggiated', ...PR('I V vi IV', 'C G Am F', 'one note at a time', { style: 'arp', v: 'harp', bpm: 90 }) },
+    { id: 'countermelody', name: 'Countermelody', aka: 'counter-line, descant',
+      desc: 'A second melody played against the main one, often answering in the gaps. Strings or horns weaving around a vocal.',
+      prompt: 'a countermelody on strings weaving around the vocal',
+      tag: 'countermelody', ex: WAVE('drone', 'two lines, moving against each other'), play: { k: 'layer', parts: [{ k: 'mel', v: 'whistle', bpm: 96, n: [[72, 2], [71, 1], [69, 1], [67, 3], [null, 1]] }, { k: 'mel', v: 'cello', bpm: 96, n: [[null, 1], [55, 1], [57, 1], [59, 1], [60, 2], [59, 1], [57, 1]] }] } },
+    { id: 'thirds', name: 'Harmony in thirds', aka: 'parallel thirds, doubled harmony',
+      desc: 'A second voice or instrument following the melody three notes above or below: sweet, close and very Southern. Twin fiddles, Everly-style vocals, mariachi trumpets.',
+      ref: 'The Allman Brothers twin guitars, The Everly Brothers, mariachi trumpets',
+      prompt: 'melody doubled in sweet parallel thirds',
+      tag: 'harmony in thirds', ex: KB('E4 G4 C5 E5', 0, { exact: true, start: 60, octs: 2 }) + '<div class="slab">C–E · E–G: always a third apart</div>', play: { k: 'layer', parts: [{ k: 'mel', v: 'fiddle', bpm: 110, n: [[67, 1], [69, 1], [71, 2], [72, 1], [71, 1], [67, 2]] }, { k: 'mel', v: 'fiddle', bpm: 110, n: [[64, 1], [66, 1], [67, 2], [69, 1], [67, 1], [64, 2]] }] } },
+    { id: 'unison', name: 'Unison & octaves', aka: 'doubling, octave unison',
+      desc: 'Several instruments playing the same line together (or an octave apart) for weight. Fiddle and banjo in old-time music; strings in octaves at a film climax.',
+      prompt: 'fiddle and banjo playing the tune in unison',
+      tag: 'unison melody', ex: WAVE('sine', 'same line, stacked'), play: { k: 'layer', parts: [{ k: 'mel', v: 'fiddle', bpm: 120, n: NS('G4 A4 B4 D5 B4 A4 G4 E4 G4').map((n, i) => [n, i === 8 ? 2 : .5]) }, { k: 'mel', v: 'banjo', bpm: 120, n: NS('G4 A4 B4 D5 B4 A4 G4 E4 G4').map((n, i) => [n, i === 8 ? 2 : .5]) }] } },
+    { id: 'callresp', name: 'Call and response', aka: 'question and answer',
+      desc: 'One voice or instrument plays a phrase and another answers. From work songs, gospel and the blues (voice then guitar) to sea shanties.',
+      ref: 'gospel choirs, Muddy Waters (voice then guitar), sea shanties, Ray Charles "What\'d I Say"',
+      prompt: 'call and response between the lead and the band',
+      tag: 'call and response', ex: ARR('a:2 b:2 a:2 b:2 a:2 b:2', ['b']), play: { k: 'multi', parts: [{ k: 'mel', v: 'sax', bpm: 100, n: [[64, .5], [67, .5], [69, 1]], tail: 0 }, { k: 'mel', v: 'guitar', bpm: 100, n: [[76, .5], [74, .5], [71, 1]], tail: 0 }, { k: 'mel', v: 'sax', bpm: 100, n: [[64, .5], [67, .5], [62, 1]], tail: 0 }, { k: 'mel', v: 'guitar', bpm: 100, n: [[67, .5], [69, .5], [64, 1]] }] } }
+  ]
+});
+
+/* ===== Song structure ===== */
+const POP = 'intro:4 verse:8 pre:4 chorus:8 verse:8 pre:4 chorus:8 bridge:8 chorus:8 outro:4';
+pool.groups.push({
+  id: 'sections', title: 'Sections', slot: 'Structure',
+  intro: 'The parts of a song. Most music generators read section names in square brackets inside the lyrics, so each card\'s tag is the bracket you\'d type. The strip shows where the section sits in a typical pop song.',
+  terms: [
+    { id: 'intro', name: 'Intro', aka: 'opening, instrumental intro',
+      desc: 'Sets the mood before the voice arrives, often a stripped-down version of the main riff or chords. Describe it: "[Intro: solo fingerpicked guitar]".',
+      prompt: 'a short instrumental intro that sets the mood before the vocal enters',
+      tag: 'Intro', ex: ARR(POP, ['intro']) },
+    { id: 'verse', name: 'Verse', aka: 'A section',
+      desc: 'Tells the story. Same melody each time, new words each time, usually lower in energy and range than the chorus.',
+      prompt: 'verses that tell the story in a lower, conversational register',
+      tag: 'Verse', ex: ARR(POP, ['verse']) },
+    { id: 'prechorus', name: 'Pre-chorus', aka: 'lift, climb, B section',
+      desc: 'A short section that builds tension between verse and chorus: rising melody, new chords, drums building.',
+      prompt: 'a pre-chorus that climbs and builds tension into the chorus',
+      tag: 'Pre-Chorus', ex: ARR(POP, ['pre']) },
+    { id: 'chorus', name: 'Chorus', aka: 'refrain, hook section',
+      desc: 'The emotional and melodic peak, with the same words every time and usually the title. Biggest energy, highest notes.',
+      prompt: 'a big, singable chorus that repeats the title',
+      tag: 'Chorus', ex: ARR(POP, ['chorus']) },
+    { id: 'postchorus', name: 'Post-chorus', aka: 'hook tag, drop chorus',
+      desc: 'A short extra hook right after the chorus, often wordless ("oh-oh-oh") or a repeated phrase, to keep the energy up.',
+      prompt: 'a chanted wordless post-chorus right after each chorus',
+      tag: 'Post-Chorus', ex: ARR('verse:8 chorus:8 post:4 verse:8 chorus:8 post:4', ['post']) },
+    { id: 'bridge', name: 'Bridge', aka: 'middle eight',
+      desc: 'A contrasting section, usually once, two-thirds of the way in: new chords, new angle, before the last chorus lands harder.',
+      prompt: 'a contrasting bridge with new chords before the final chorus',
+      tag: 'Bridge', ex: ARR(POP, ['bridge']) },
+    { id: 'solo', name: 'Instrumental break', aka: 'solo, instrumental, interlude',
+      desc: 'A section with no vocal where an instrument takes the lead. Name it: "[Instrumental: pedal steel solo]", "[Fiddle break]".',
+      prompt: 'an instrumental break where the pedal steel takes a solo',
+      tag: 'Instrumental Break', ex: ARR('verse:8 chorus:8 solo:8 verse:8 chorus:8', ['solo']) },
+    { id: 'breakdown', name: 'Breakdown', aka: 'drop-out, stripped section',
+      desc: 'Most of the band drops out, leaving one instrument, the voice, or a beat. Creates intimacy or tension before the big return.',
+      prompt: 'a breakdown where everything drops out except voice and one guitar',
+      tag: 'Breakdown', ex: ARR('chorus:8 break:4 chorus:8 outro:4', ['break'], [4, 1, 5, 2]) },
+    { id: 'buildup', name: 'Build & drop', aka: 'riser, build-up, drop',
+      desc: 'Dance music\'s version of a chorus: tension rises (snare rolls, filter sweeps, risers) then releases into the full beat. Name both parts.',
+      prompt: 'a build-up with a snare roll and rising filter, then a drop into the full beat',
+      tag: 'Build-Up, Drop', ex: ARR('verse:8 build:8 drop:16 break:8', ['build', 'drop'], [2, 3, 5, 1]),
+      play: { k: 'multi', parts: [{ k: 'layer', parts: [{ k: 'sfx', s: 'riser' }, { k: 'seq', bpm: 128, p: { s: 'x...x...x.x.xxxx' }, bars: 2 }] }, { k: 'seq', bpm: 128, p: { k: 'x...x...x...x...', o: '..x...x...x...x.', c: '....x.......x...' }, bars: 2, gap: 0 }] } },
+    { id: 'outro', name: 'Outro', aka: 'coda, ending',
+      desc: 'How the song leaves: a repeated chorus line, the intro riff again, a slow-down or a solo instrument alone. Say which.',
+      prompt: 'an outro that returns to the opening guitar and slows to a stop',
+      tag: 'Outro', ex: ARR(POP, ['outro']) }
+  ]
+});
+
+pool.groups.push({
+  id: 'forms', title: 'Song forms', slot: 'Structure',
+  intro: 'Whole-song shapes. Folk and older forms are often very different from modern pop, and naming the form helps a generator stop inserting a chorus where a ballad doesn\'t want one.',
+  terms: [
+    { id: 'versechorus', name: 'Verse–chorus', aka: 'modern pop form',
+      desc: 'Verses alternate with a repeating chorus, usually with a bridge before the last chorus. The default for pop, rock and country since the 1960s.',
+      prompt: 'classic verse–chorus form with a bridge before the last chorus',
+      tag: 'verse-chorus form', ex: ARR('intro:4 verse:8 chorus:8 verse:8 chorus:8 bridge:8 chorus:8 outro:4', ['chorus'], [1, 2, 4, 2, 4, 3, 5, 1]) },
+    { id: 'aaba', name: 'AABA', aka: '32-bar form, Tin Pan Alley form',
+      desc: 'Four 8-bar sections: a main melody twice, a contrasting bridge, then the main melody again. Jazz standards, Beatles ballads, classic Hollywood songs.',
+      ref: '"Over the Rainbow", The Beatles "Yesterday", "Blue Moon"',
+      prompt: '32-bar AABA form: main melody twice, a contrasting bridge, then the main melody again',
+      tag: 'AABA form', ex: ARR('a:8 a:8 b:8 a:8', ['b']) },
+    { id: 'strophic', name: 'Strophic ballad', aka: 'verse-only form, folk ballad form',
+      desc: 'The same melody repeated for every verse, with no chorus, maybe a short refrain line at the end of each. Story ballads, murder ballads, hymns, Dylan\'s long songs.',
+      ref: '"Barbara Allen", Bob Dylan "Tangled Up in Blue", Gordon Lightfoot "The Wreck of the Edmund Fitzgerald"',
+      prompt: 'a strophic folk ballad: many verses on one melody, no chorus, each verse ending on a short refrain line',
+      tag: 'strophic ballad, verses only', ex: ARR('verse:8 verse:8 verse:8 verse:8 verse:8 verse:8', [], [2, 2, 3, 3, 4, 2]) },
+    { id: 'bluesform', name: '12-bar blues form', aka: 'AAB lyric form',
+      desc: 'Each verse is twelve bars with a line sung, repeated, then answered: "I woke up this morning... (repeat)... and my baby was gone."',
+      prompt: 'twelve-bar blues verses with an AAB lyric: a line sung twice, then answered',
+      tag: '12-bar blues form', ex: ARR('a:4 a:4 b:4 a:4 a:4 b:4', ['b']) },
+    { id: 'through', name: 'Through-composed', aka: 'no repeats, suite',
+      desc: 'Each section is new; nothing repeats. Art songs, film cues, prog epics and multi-part folk suites.',
+      ref: 'Queen "Bohemian Rhapsody", Fleet Foxes "The Shrine / An Argument", Schubert lieder',
+      prompt: 'through-composed: a sequence of distinct sections with no repeating chorus',
+      tag: 'through-composed, multi-part', ex: ARR('a:6 b:8 c:6 d:10 e:6', [], [1, 3, 2, 5, 1]) },
+    { id: 'loop', name: 'Loop-based', aka: 'vamp, one-chord groove',
+      desc: 'One short progression loops the whole way, with sections made by adding and removing layers. Hip-hop, house, afrobeat, krautrock.',
+      prompt: 'built on a single repeating loop, with sections made by adding and removing layers',
+      tag: 'loop-based, layered', ex: ARR('build:8 a:8 a:8 break:8 a:8 a:8', [], [1, 3, 4, 1, 4, 5]) }
+  ]
+});
+
+pool.groups.push({
+  id: 'moves', title: 'Arrangement moves', slot: 'Structure',
+  intro: 'Specific things a song can do at its edges and turning points. Each one is a short instruction that changes how a generated track feels.',
+  terms: [
+    { id: 'coldopen', name: 'Cold open', aka: 'vocal first, no intro',
+      desc: 'The song begins with the voice (or the chorus) immediately, no instrumental lead-in. Grabs attention in the first second.',
+      prompt: 'starts cold on the vocal with no intro',
+      tag: 'starts with vocals', ex: ARR('chorus:8 verse:8 chorus:8 verse:8 chorus:8', [0], [5, 2, 4, 2, 5]) },
+    { id: 'fadeout', name: 'Fade-out', aka: 'fade ending',
+      desc: 'The band keeps playing the last chorus or vamp while the volume slowly drops to silence, as if it goes on forever somewhere.',
+      ref: 'The Beatles "Hey Jude", 70s radio singles',
+      prompt: 'ends on a repeating chorus that slowly fades out',
+      tag: 'fade out ending', ex: ARR('verse:8 chorus:8 chorus:8 outro:12', ['outro'], [2, 4, 4, 1]) },
+    { id: 'coldend', name: 'Cold ending', aka: 'hard stop, button ending',
+      desc: 'Everyone stops together on one hit. Tight and punchy; the opposite of a fade.',
+      prompt: 'ends abruptly with the whole band stopping on one hit',
+      tag: 'abrupt ending', ex: ARR('chorus:8 chorus:8 end:1', ['end'], [4, 5, 5]),
+      play: { k: 'seq', bpm: 128, p: { k: 'x...x...x...x...', s: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' }, bars: 2 } },
+    { id: 'falseend', name: 'False ending', aka: 'fake-out ending',
+      desc: 'The song seems to end, a beat or two of silence, then it crashes back in for one more chorus.',
+      ref: 'The Beatles "Strawberry Fields Forever", Kanye West "Runaway"',
+      prompt: 'a false ending: silence for two bars, then the band crashes back in for one last chorus',
+      tag: 'false ending', ex: ARR('chorus:8 gap:2 chorus:8 outro:4', ['gap'], [4, 0, 5, 1]) },
+    { id: 'acapella', name: 'A cappella break', aka: 'vocals only, band drop',
+      desc: 'Instruments drop away and the voices sing alone, usually for a final chorus before the band slams back in.',
+      prompt: 'the band drops out for an a cappella chorus, then slams back in',
+      tag: 'a cappella section', ex: ARR('chorus:8 bridge:8 chorus:8 chorus:8', [2], [4, 2, 1, 5]) },
+    { id: 'spoken', name: 'Spoken-word section', aka: 'recitation, spoken bridge',
+      desc: 'A passage spoken instead of sung, often over a quiet bed. Old country records, 60s girl groups and modern folk storytelling all use it.',
+      ref: 'Johnny Cash, The Shangri-Las "Leader of the Pack", Lord Huron\'s in-world radio segments',
+      prompt: 'a quiet spoken-word section over a soft instrumental bed',
+      tag: 'Spoken Word', ex: ARR('verse:8 chorus:8 spoken:8 chorus:8', ['spoken'], [2, 4, 1, 5]) },
+    { id: 'quietloud', name: 'Quiet–loud dynamics', aka: 'loud-quiet-loud',
+      desc: 'Hushed verses and explosive choruses, the contrast doing the emotional work. Pixies, Nirvana, post-rock, indie folk anthems.',
+      prompt: 'hushed whispered verses that explode into loud choruses',
+      tag: 'quiet verses, explosive chorus', ex: ARR('verse:8 chorus:8 verse:8 chorus:8', [], [1, 5, 1, 5]) },
+    { id: 'tagending', name: 'Tag ending', aka: 'tag, repeat last line',
+      desc: 'Repeating the last line of the chorus two or three times to end, often slowing down on the final one. Country and gospel love it.',
+      prompt: 'ends by repeating the final chorus line three times, slowing on the last',
+      tag: 'tag ending', ex: ARR('chorus:8 tag:2 tag:2 tag:3', ['tag'], [4, 3, 3, 2]) },
+    { id: 'lastlift', name: 'Final chorus lift', aka: 'last chorus up, big finish',
+      desc: 'The last chorus gets more: a key change, a gospel choir, double-time drums or every instrument at once. Say which.',
+      prompt: 'the final chorus lifts with a full choir and double-time drums',
+      tag: 'Final Chorus: big finish', ex: ARR(POP, [8], [1, 2, 3, 4, 2, 3, 4, 2, 5, 1]) }
+  ]
+});
+
+/* ===== Vocals ===== */
+pool.groups.push({
+  id: 'vtone', title: 'Vocal tone', slot: 'Vocals',
+  intro: 'What a voice sounds like before anything is done to it. The range bar shows a typical register; the dials show breath, grit and vibrato on a 0 to 5 scale.',
+  terms: [
+    { id: 'breathy', name: 'Breathy', aka: 'airy, soft-sung, whispery',
+      desc: 'Lots of air around the note, close to the mic. Intimate, vulnerable, sensual. Dream pop, bedroom pop and bossa.',
+      ref: 'Astrud Gilberto, Hope Sandoval (Mazzy Star), Billie Eilish, Elliott Smith',
+      prompt: 'a soft breathy vocal close to the mic',
+      tag: 'breathy vocals', ex: VX('A3', 'E5', [5, 0, 1], ['intimate', 'airy', 'close']) },
+    { id: 'baritone', name: 'Deep baritone', aka: 'crooner, low male voice',
+      desc: 'A low, resonant voice that sounds steady and grave. Cowboy balladeers, crooners, Johnny Cash and Matt Berninger.',
+      ref: 'Johnny Cash, Leonard Cohen, Marty Robbins, The National, Nick Cave',
+      prompt: 'a deep resonant baritone',
+      tag: 'deep baritone vocals', ex: VX('G2', 'F4', [1, 2, 2], ['resonant', 'grave', 'steady']) },
+    { id: 'falsetto', name: 'Falsetto & head voice', aka: 'high tenor, falsetto',
+      desc: 'A light, high voice above the normal chest range: fragile, longing, ghostly. Bon Iver, Bee Gees, Jeff Buckley, Fleet Foxes harmonies.',
+      ref: 'Bon Iver, Jeff Buckley, the Bee Gees, Prince, Thom Yorke',
+      prompt: 'a fragile soaring falsetto',
+      tag: 'falsetto vocals', ex: VX('G4', 'D6', [3, 0, 2], ['fragile', 'high', 'longing']) },
+    { id: 'raspy', name: 'Raspy & gravelly', aka: 'gritty, whiskey voice, rough',
+      desc: 'A rough, cracked texture from strain, age or whiskey. Instantly worn and honest. Tom Waits at the far end, Chris Stapleton in the middle.',
+      ref: 'Tom Waits, Janis Joplin, Chris Stapleton, Rod Stewart, Brandi Carlile (when pushed)',
+      prompt: 'a raspy gravelly worn-in voice',
+      tag: 'raspy gritty vocals', ex: VX('A2', 'A4', [2, 5, 1], ['worn', 'honest', 'rough']) },
+    { id: 'twang', name: 'Country twang', aka: 'nasal twang, Southern accent',
+      desc: 'Bright nasal resonance and Southern vowels, with little catches and breaks. The voice of honky-tonk and classic country.',
+      ref: 'Dolly Parton, Hank Williams, Dwight Yoakam, Kacey Musgraves (lighter)',
+      prompt: 'a bright twangy country vocal with Southern vowels',
+      tag: 'country twang vocals', ex: VX('C3', 'C5', [1, 2, 2], ['nasal', 'bright', 'Southern']) },
+    { id: 'pure', name: 'Pure & clear', aka: 'folk soprano, clear tone',
+      desc: 'A clean, bell-like voice with little vibrato or grit. Traditional folk singers, choirboys, early music.',
+      ref: 'Joan Baez, Sandy Denny, Alison Krauss, Joni Mitchell (early)',
+      prompt: 'a pure clear bell-like vocal with little vibrato',
+      tag: 'pure clear vocals', ex: VX('C4', 'C6', [1, 0, 1], ['clear', 'bell-like', 'still']) },
+    { id: 'smoky', name: 'Smoky contralto', aka: 'low female voice, alto',
+      desc: 'A low, dark, velvety voice with weight and mystery. Torch songs, noir jazz, fado and dark folk.',
+      ref: 'Nina Simone, Cat Power, Amália Rodrigues, Lana Del Rey (low register)',
+      prompt: 'a smoky velvety contralto',
+      tag: 'smoky contralto vocals', ex: VX('E3', 'D5', [3, 2, 3], ['velvety', 'dark', 'mysterious']) },
+    { id: 'belting', name: 'Belting', aka: 'power vocals, full voice',
+      desc: 'Chest voice pushed loud and high, the big final-chorus voice of gospel, soul and power ballads.',
+      ref: 'Aretha Franklin, Whitney Houston, Florence Welch, Freddie Mercury',
+      prompt: 'a powerful belted vocal on the final chorus',
+      tag: 'powerful belting vocals', ex: VX('A3', 'F5', [0, 3, 4], ['powerful', 'soaring', 'full']) }
+  ]
+});
+
+pool.groups.push({
+  id: 'delivery', title: 'Delivery & technique', slot: 'Vocals',
+  intro: 'How a voice moves through a line. These are often the details that make a vocal sound like a tradition rather than a generic singer.',
+  terms: [
+    { id: 'lonesome', name: 'High lonesome', aka: 'bluegrass tenor',
+      desc: 'A piercing, strained high tenor with hard vowels, sitting above the melody. Bill Monroe\'s sound; "lonesome" is the point.',
+      ref: 'Bill Monroe, Ralph Stanley, Del McCoury, Rhonda Vincent',
+      prompt: 'a piercing high lonesome bluegrass tenor',
+      tag: 'high lonesome vocals', ex: VX('E4', 'C6', [0, 3, 2], ['piercing', 'strained', 'lonesome']) },
+    { id: 'yodel', name: 'Yodel', aka: 'cowboy yodel, blue yodel',
+      desc: 'Flipping rapidly between chest voice and falsetto. Swiss alpine, Jimmie Rodgers\' blue yodel and singing-cowboy songs.',
+      ref: 'Jimmie Rodgers "Blue Yodel", Patsy Montana, Hank Williams "Lovesick Blues"',
+      prompt: 'a cowboy yodel flipping between chest voice and falsetto',
+      tag: 'cowboy yodel', ex: WAVE('square', 'chest ↔ falsetto flips') },
+    { id: 'melisma', name: 'Melisma', aka: 'runs, riffs, vocal acrobatics',
+      desc: 'Several notes sung on one syllable, sliding through runs. Gospel, R&B and pop divas; also Middle Eastern and Irish sean-nós singing.',
+      ref: 'Whitney Houston, Mariah Carey, Aretha Franklin',
+      prompt: 'soulful melismatic runs on the held words',
+      tag: 'melismatic runs', ex: WAVE('riser', 'many notes, one syllable') },
+    { id: 'straighttone', name: 'Straight tone', aka: 'no vibrato, flat tone',
+      desc: 'Notes held perfectly still, without vibrato. Sounds innocent, ancient or cold. Early music, folk, indie and Nordic singers.',
+      ref: 'Tallis Scholars, Björk (quiet passages), Phoebe Bridgers',
+      prompt: 'held notes sung with a still straight tone and no vibrato',
+      tag: 'straight tone, no vibrato', ex: WAVE('sine', 'pitch held perfectly still') },
+    { id: 'vibrato', name: 'Wide vibrato', aka: 'warble, operatic vibrato',
+      desc: 'A pronounced, slow wobble on held notes. Old-time crooners, Roy Orbison, opera and vintage French chanson.',
+      ref: 'Roy Orbison, Édith Piaf, Andrea Bocelli',
+      prompt: 'a dramatic wide vibrato on held notes',
+      tag: 'wide vibrato', ex: WAVE('wobble', 'pitch wobbling around the note'), play: { k: 'mel', v: 'theremin', bpm: 70, n: [[69, 3], [72, 3]] } },
+    { id: 'talksing', name: 'Talk-singing', aka: 'sprechgesang, half-spoken',
+      desc: 'Somewhere between speaking and singing, with loose pitch and conversational rhythm. Lou Reed, Johnny Cash late, Bob Dylan, Kurt Vile.',
+      ref: 'Lou Reed, Bob Dylan "Subterranean Homesick Blues", Courtney Barnett, Leonard Cohen',
+      prompt: 'a half-spoken talk-sung delivery, loose and conversational',
+      tag: 'talk-singing', ex: WAVE('glitch', 'speech rhythm, loose pitch') },
+    { id: 'whisper', name: 'Whispered', aka: 'hushed, sotto voce',
+      desc: 'Almost no voiced tone, just breath and consonants. Unsettling or very intimate; use for a line, not a whole song.',
+      prompt: 'a hushed, nearly whispered vocal',
+      tag: 'whispered vocals', ex: WAVE('noise', 'breath and consonants') },
+    { id: 'scat', name: 'Scat', aka: 'scat singing, vocalese (with words)',
+      desc: 'Improvised nonsense syllables sung like a horn solo. Jazz singers\' instrument.',
+      ref: 'Ella Fitzgerald, Louis Armstrong, Cab Calloway',
+      prompt: 'playful improvised jazz scat singing',
+      tag: 'scat singing', ex: WAVE('echo', 'syllables as a horn line') }
+  ]
+});
+
+pool.groups.push({
+  id: 'ensemble', title: 'Harmony & ensembles', slot: 'Vocals',
+  intro: 'More than one voice. The way voices stack is as identifying as the lead voice itself.',
+  terms: [
+    { id: 'siblings', name: 'Sibling harmony', aka: 'close harmony duo, blood harmony',
+      desc: 'Two voices, usually a third apart, so closely matched they sound like one. The Everly Brothers, the Louvin Brothers, First Aid Kit.',
+      ref: 'The Everly Brothers, The Louvin Brothers, Simon & Garfunkel, First Aid Kit, The Milk Carton Kids',
+      prompt: 'two closely matched voices singing in tight sibling harmony',
+      tag: 'close two-part harmony', ex: KB('E4 G4 C5 E5', 0, { exact: true, start: 60, octs: 2 }) + '<div class="slab">two voices, a third apart</div>' },
+    { id: 'stack', name: 'Three-part harmony', aka: 'stacked harmonies, CSN harmony',
+      desc: 'Three voices stacked into full chords on the chorus. Bright and rich: Crosby, Stills & Nash; bluegrass trios; Fleet Foxes.',
+      ref: 'Crosby, Stills & Nash, Fleet Foxes, The Beach Boys, Lord Huron choruses',
+      prompt: 'rich stacked three-part harmonies on the chorus',
+      tag: 'three-part harmonies', ex: KB('C4 E4 G4', 0, { exact: true, start: 60, octs: 1 }) + '<div class="slab">root, third and fifth</div>', play: { k: 'inst', i: 'choirooh' } },
+    { id: 'gang', name: 'Gang vocals', aka: 'group shout, singalong vocals',
+      desc: 'A crowd of untrained voices singing or shouting together, a bit ragged. Indie folk choruses, shanties, punk and arena chants.',
+      ref: 'Arcade Fire "Wake Up", The Lumineers "Ho Hey", Mumford & Sons',
+      prompt: 'ragged gang vocals shouting the chorus together',
+      tag: 'gang vocals', ex: TAGS(['communal', 'ragged', 'loud'], 'Many untrained voices') },
+    { id: 'leadchoir', name: 'Lead and choir', aka: 'gospel call and response',
+      desc: 'A solo voice calls a line and a choir answers or sustains under it. Gospel, spirituals and big soul.',
+      prompt: 'a lead singer answered by a full gospel choir',
+      tag: 'lead with gospel choir', ex: ARR('a:2 b:2 a:2 b:2 a:2 b:4', ['b']), play: { k: 'inst', i: 'choirooh' } },
+    { id: 'duet', name: 'Duet', aka: 'male-female duet, call-and-answer duet',
+      desc: 'Two lead singers trading verses and joining on the chorus, often as characters in the song.',
+      ref: 'Johnny Cash & June Carter "Jackson", Gram Parsons & Emmylou Harris, Robert Plant & Alison Krauss',
+      prompt: 'a duet: two voices trade verses and join in harmony on the chorus',
+      tag: 'duet, trading verses', ex: ARR('verse:8 verse:8 chorus:8 verse:8 chorus:8', [1, 2]) },
+    { id: 'wordless', name: 'Wordless vocals', aka: 'vocalise, "oohs" lead',
+      desc: 'A voice used as an instrument, singing melody on vowels with no words. Morricone westerns, Sigur Rós, film scores.',
+      ref: 'Edda Dell\'Orso (Morricone), Sigur Rós, Enya, "The Great Gig in the Sky"',
+      prompt: 'a soaring wordless vocal used like an instrument',
+      tag: 'wordless vocals', ex: WAVE('sine', 'melody on vowels only'), play: { k: 'mel', v: 'choir', bpm: 70, n: [[69, 2], [76, 2], [74, 1], [72, 1], [71, 2]], fx: 'hall' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'treated', title: 'Treated vocals', slot: 'Vocals',
+  intro: 'What gets done to a voice in the studio. These are the fastest way to place a vocal in an era or a mood. Play to hear each treatment on a melody.',
+  terms: [
+    { id: 'distant', name: 'Distant & reverb-drenched', aka: 'cavernous vocal, far-away voice',
+      desc: 'The voice placed far back in a big reverb, as if singing across a lake or a canyon. Haunting and cinematic; a signature of cosmic Americana and dream pop.',
+      ref: 'Lord Huron, Fleet Foxes, My Morning Jacket "It Still Moves", Grouper',
+      prompt: 'a vocal placed far back in a cavernous reverb, as if sung across a lake',
+      tag: 'distant reverb-drenched vocals', ex: CHAIN('Voice', 'Hall reverb', 'Mix', [['Decay', '4.5 s', .8], ['Wet', '60%', .6], ['Pre-delay', '80 ms', .5]]), play: { k: 'fx', fx: 'cathedral', mel: 'waltz' } },
+    { id: 'doubled', name: 'Double-tracked', aka: 'ADT, doubled vocal',
+      desc: 'The singer records the same part twice and both are played together, slightly out of sync. Thicker and more confident; Beatles, Elliott Smith.',
+      ref: 'The Beatles, Elliott Smith, John Lennon',
+      prompt: 'a double-tracked vocal, two takes stacked',
+      tag: 'double-tracked vocals', ex: CHAIN('Take 1 + 2', 'Pan L/R', 'Mix', [['Spread', 'wide', .7], ['Offset', '~30 ms', .3]]), play: { k: 'fx', fx: 'double', mel: 'folk' } },
+    { id: 'slapvox', name: 'Slapback vocal', aka: '50s echo vocal',
+      desc: 'A single quick echo (around 100 ms) right behind the voice. Instantly 1950s: Elvis at Sun, rockabilly, retro country.',
+      ref: 'Elvis Presley at Sun, John Lennon "Instant Karma!", Jack White',
+      prompt: 'a vocal with 1950s slapback echo',
+      tag: 'slapback echo vocals', ex: CHAIN('Voice', 'Slapback', 'Mix', [['Time', '110 ms', .2], ['Feedback', '0', 0], ['Mix', '45%', .45]]), play: { k: 'fx', fx: 'slap', mel: 'blues' } },
+    { id: 'radiovox', name: 'Old-radio vocal', aka: 'telephone vocal, megaphone, AM radio',
+      desc: 'The voice squeezed through a narrow band of frequencies, like a phone line or old radio. Used for intros, bridges and in-world broadcasts.',
+      ref: 'The Strokes, Lord Huron\'s "WHSP" radio interludes, The Black Keys',
+      prompt: 'a lo-fi vocal filtered like an old AM radio',
+      tag: 'telephone filtered vocals', ex: EQ([-30, -24, -10, 0, 4, 6, 4, -6, -24, -30], 'band-limited 400 Hz to 3 kHz'), play: { k: 'fx', fx: 'radio', mel: 'waltz' } },
+    { id: 'autotune', name: 'Hard Auto-Tune', aka: 'T-Pain effect, robotic pitch correction',
+      desc: 'Pitch correction set so fast that the voice jumps between notes like a synth. Trap, hyperpop and 2000s pop. Ask for "no autotune" when you don\'t want it; generators sometimes add it.',
+      ref: 'Cher "Believe", T-Pain, Bon Iver "Woods", Travis Scott',
+      prompt: 'a vocal with hard robotic Auto-Tune',
+      tag: 'autotune vocals', ex: WAVE('crush', 'pitch snapped to the nearest note') },
+    { id: 'vocoder', name: 'Vocoder', aka: 'talk box (relative), robot voice',
+      desc: 'A voice shaping a synthesizer so the synth "speaks". Daft Punk, Kraftwerk, Boards of Canada and 80s electro.',
+      ref: 'Kraftwerk, Daft Punk, Bon Iver "715 - CRΣΣKS", Zapp (talk box)',
+      prompt: 'a robotic vocoder voice',
+      tag: 'vocoder vocals', ex: WAVE('square', 'synth shaped by speech') },
+    { id: 'chopped', name: 'Chopped vocal samples', aka: 'vocal chops',
+      desc: 'Short slices of a vocal re-pitched and played like an instrument. Future bass, house, folktronica.',
+      ref: 'Burial, Flume, Skrillex, Four Tet',
+      prompt: 'chopped and re-pitched vocal samples played as a melody',
+      tag: 'vocal chops', ex: WAVE('glitch', 'syllables sliced and replayed'), play: { k: 'sfx', s: 'glitch' } }
+  ]
+});
+
+/* ===== Production & mix ===== */
+const FX = (from, fx, knobs, kind, mel = 'folk') => ({ ex: CHAIN(from, fx, 'Mix', knobs), play: { k: 'fx', fx: kind, mel } });
+pool.groups.push({
+  id: 'eras', title: 'Recording eras', slot: 'Production',
+  intro: 'How records sounded in each decade, which is often what people mean by "vintage". Each J-card lists the typical gear and the sound it left behind. Press Play to hear a sketch of the treatment.',
+  terms: [
+    { id: 'shellac', name: '1920s–30s shellac', aka: '78 rpm, gramophone, acoustic era',
+      desc: 'Recorded into a horn or one early microphone and cut to a 78: narrow, honky midrange, hiss and crackle, no real bass or treble.',
+      ref: 'Harry Smith\'s Anthology of American Folk Music, Robert Johnson, The Carter Family Bristol Sessions',
+      prompt: 'sounds like a scratchy 1920s 78 rpm record: narrow, honky midrange, surface crackle and hiss',
+      tag: '1920s gramophone recording, crackle',
+      ex: J('—', 'one horn or mic, live', 'whatever fit around the horn', 'loud, projected', '1920–1945', [2, 4, 1]), play: { k: 'fx', fx: 'gramophone', mel: 'folk' } },
+    { id: 'fifties', name: '1950s mono', aka: 'Sun Studio sound, mono slapback',
+      desc: 'A small band around a few tube microphones, recorded live to mono tape with slapback echo. Punchy, warm and immediate.',
+      ref: 'Sun Studio (Elvis, Johnny Cash), Chess Records, early Capitol country',
+      prompt: '1950s mono recording: live band around a few tube mics, slapback echo, warm and punchy',
+      tag: '1950s mono, slapback echo, tube warmth',
+      ex: J('—', 'live to mono tape', 'tube mics · small room', 'up front, echoed', '1950–1960', [3, 3, 2]), play: { k: 'fx', fx: 'slap', mel: 'blues' } },
+    { id: 'sixties', name: '1960s studio', aka: '4-track era, echo chamber',
+      desc: 'Four-track tape, plate reverb or real echo chambers, bright midrange and hard stereo panning (drums left, vocals right) on early stereo mixes.',
+      ref: 'The Beatles at Abbey Road, Motown\'s Studio A, Gold Star (Wall of Sound), Muscle Shoals',
+      prompt: '1960s studio sound: four-track tape, echo-chamber reverb, bright midrange, slightly lo-fi drums',
+      tag: '1960s analog recording, echo chamber',
+      ex: J('—', 'bounced 4-track tape', 'plate reverb · echo chamber · Fairchild', 'double-tracked', '1962–1969', [3, 2, 3]), play: { k: 'fx', fx: 'mono60s', mel: 'folk' } },
+    { id: 'seventies', name: '1970s analog', aka: 'warm 70s, dry 70s, 24-track',
+      desc: 'Twenty-four-track tape, close-miked drums with dampened toms, warm saturated tape and a dry, intimate sound. Laurel Canyon, soul and Southern rock.',
+      ref: 'Fleetwood Mac "Rumours", Steely Dan, Carole King "Tapestry", Al Green at Royal Studios',
+      prompt: 'warm 1970s analog production: dry close-miked drums, saturated tape, intimate and rich',
+      tag: '1970s analog warmth, dry drums',
+      ex: J('—', '24-track tape, dry rooms', 'Neve console · tape saturation', 'close and warm', '1970–1979', [3, 2, 2]), play: { k: 'fx', fx: 'saturate', mel: 'folk' } },
+    { id: 'eighties', name: '1980s digital', aka: 'gated reverb, 80s gloss',
+      desc: 'Digital reverbs, drum machines, chorused everything and the famous gated-reverb snare that booms then cuts off. Big, bright, glossy.',
+      ref: 'Phil Collins "In the Air Tonight", Bruce Springsteen "Born in the U.S.A.", Tears for Fears',
+      prompt: 'glossy 1980s production: gated-reverb snare, chorused guitars, bright digital reverb',
+      tag: '1980s production, gated snare, glossy',
+      ex: J('—', 'digital reverb, MIDI', 'LinnDrum · DX7 · Lexicon reverb', 'polished, wet', '1980–1989', [4, 1, 4]), play: { k: 'seq', bpm: 112, p: { k: 'x.......x.x.....', e: '....x.......x...', h: 'x.x.x.x.x.x.x.x.' }, bars: 2 } },
+    { id: 'fourtrack', name: 'Home 4-track', aka: 'cassette 4-track, lo-fi',
+      desc: 'Recorded at home on a cassette Portastudio: hiss, wobble, saturated tape and charming mistakes. Indie lo-fi and early bedroom recordings.',
+      ref: 'Bruce Springsteen "Nebraska", Daniel Johnston, Elliott Smith (early), Bon Iver "For Emma"',
+      prompt: 'lo-fi home 4-track cassette recording: tape hiss, slight wobble, intimate and unpolished',
+      tag: 'lo-fi 4-track cassette',
+      ex: J('—', 'bedroom, one take', 'Tascam Portastudio · SM57', 'close, unpolished', '1979–2005', [2, 3, 2]), play: { k: 'fx', fx: 'cassette', mel: 'folk' } },
+    { id: 'liveroom', name: 'Live in one room', aka: 'live off the floor, one take',
+      desc: 'The whole band playing together in a room with the mics catching each other. Spill, room sound and real interplay.',
+      ref: 'The Band "Music from Big Pink", Gillian Welch, live Daptone records',
+      prompt: 'recorded live off the floor in one room, natural room sound and bleed between mics',
+      tag: 'live room recording',
+      ex: J('—', 'everyone at once', 'room mics · bleed', 'natural, unedited', 'any', [3, 3, 3]), play: { k: 'fx', fx: 'room', mel: 'folk' } },
+    { id: 'modern', name: 'Modern polished', aka: 'contemporary pop production, hi-fi',
+      desc: 'Pristine digital production: tight edited timing, tuned vocals, wide stereo, loud and bright master. Say this or its opposite explicitly.',
+      prompt: 'modern polished production: tight, wide, bright and loud',
+      tag: 'modern polished production',
+      ex: J('—', 'grid-edited, layered', 'DAW · plugins · tuning', 'tuned, stacked', '2005–', [4, 1, 3]), play: { k: 'fx', fx: 'bright', mel: 'folk' } },
+    { id: 'fieldrec', name: 'Field recording', aka: 'porch recording, on location',
+      desc: 'Recorded where the musician lives: a porch, a kitchen, a church, with crickets or traffic in the background. Archival folk and modern lo-fi folk.',
+      ref: 'Alan Lomax recordings, Smithsonian Folkways, The Tiny Desk (in spirit)',
+      prompt: 'a field recording on a porch at night: crickets and room noise in the background',
+      tag: 'field recording, porch, ambient noise',
+      ex: J('—', 'one mic, on location', 'portable recorder', 'unprocessed', '1930s–', [2, 2, 3]), play: { k: 'layer', parts: [{ k: 'sfx', s: 'crickets' }, { k: 'fx', fx: 'room', mel: 'folk' }] } }
+  ]
+});
+
+pool.groups.push({
+  id: 'space', title: 'Space: reverb & delay', slot: 'Production',
+  intro: 'Where the sound seems to be. Reverb is the room; delay is the echo. Each card shows a signal chain with typical settings.',
+  terms: [
+    { id: 'dry', name: 'Dry & close', aka: 'dead room, in your ear',
+      desc: 'No reverb at all, the source right against the mic. Intimate, confessional and very present. Modern pop vocals and 70s records use it.',
+      prompt: 'bone-dry and close, no reverb',
+      tag: 'dry, intimate, close-miked', ...FX('Voice', 'No reverb', [['Distance', '5 cm', .05], ['Wet', '0%', 0]], 'dry') },
+    { id: 'roomverb', name: 'Room reverb', aka: 'small room, ambience',
+      desc: 'A short, natural sense of a real room around the sound. Makes things feel live and together without washing them out.',
+      prompt: 'a short natural room reverb',
+      tag: 'natural room reverb', ...FX('Kit', 'Room', [['Decay', '0.7 s', .2], ['Wet', '35%', .35]], 'room') },
+    { id: 'plate', name: 'Plate reverb', aka: 'EMT plate',
+      desc: 'A vibrating steel sheet: bright, smooth and dense, with no sense of a real room. Classic on vocals and snare from the 60s on.',
+      ref: 'EMT 140 plate, Abbey Road vocals, countless soul records',
+      prompt: 'a bright smooth plate reverb on the vocal',
+      tag: 'plate reverb', ...FX('Voice', 'Plate', [['Decay', '2.4 s', .5], ['Wet', '40%', .4], ['Tone', 'bright', .8]], 'plate') },
+    { id: 'spring', name: 'Spring reverb', aka: 'amp reverb, surf reverb',
+      desc: 'A metal spring inside a guitar amp: boingy, drippy and twangy. Surf rock, dub, Western twang and lo-fi.',
+      ref: 'Fender Twin Reverb, Dick Dale, King Tubby',
+      prompt: 'drippy spring reverb on the guitar',
+      tag: 'spring reverb', ...FX('Guitar', 'Spring', [['Dwell', 'high', .8], ['Mix', '50%', .5]], 'spring', 'blues') },
+    { id: 'hall', name: 'Hall reverb', aka: 'concert hall',
+      desc: 'A long, smooth tail like a concert hall. Grand and lush on strings, piano and big ballads.',
+      prompt: 'a lush concert-hall reverb',
+      tag: 'hall reverb, lush', ...FX('Strings', 'Hall', [['Decay', '4.2 s', .7], ['Wet', '45%', .45]], 'hall', 'waltz') },
+    { id: 'cathedral', name: 'Cathedral', aka: 'church reverb, huge reverb, canyon',
+      desc: 'An enormous stone space where every note hangs for seconds. Sacred, haunting, distant. Choirs, organs and far-away voices.',
+      prompt: 'an enormous cathedral reverb where every note hangs for seconds',
+      tag: 'huge cathedral reverb', ...FX('Choir', 'Cathedral', [['Decay', '7.5 s', 1], ['Wet', '70%', .7]], 'cathedral', 'hymn') },
+    { id: 'slap', name: 'Slapback echo', aka: 'slapback, rockabilly echo',
+      desc: 'One single, short echo right after the note (about 80 to 140 ms). Rockabilly, 50s vocals and country guitar.',
+      prompt: 'a single short slapback echo',
+      tag: 'slapback echo', ...FX('Guitar', 'Slapback', [['Time', '105 ms', .15], ['Repeats', '1', .1]], 'slap', 'blues') },
+    { id: 'tapeecho', name: 'Tape echo', aka: 'Echoplex, Space Echo, analog delay',
+      desc: 'Repeats that get darker, wobblier and more saturated as they fade, because each one is copied from tape. Dub, psych and dreamy guitar.',
+      ref: 'Roland RE-201 Space Echo, Echoplex, Lee "Scratch" Perry, Pink Floyd',
+      prompt: 'warm wobbly tape echo repeats trailing off into the distance',
+      tag: 'tape echo, analog delay', ...FX('Guitar', 'Tape echo', [['Time', '360 ms', .4], ['Feedback', '50%', .5], ['Wow', 'slight', .3]], 'tapeecho') },
+    { id: 'pingpong', name: 'Ping-pong delay', aka: 'stereo delay',
+      desc: 'Echoes that bounce from left speaker to right and back. Wide, playful and dizzy in headphones.',
+      prompt: 'echoes bouncing left and right in a ping-pong delay',
+      tag: 'ping-pong stereo delay', ...FX('Synth', 'Ping-pong', [['Time', '1/8 note', .4], ['Width', '100%', 1]], 'pingpong') },
+    { id: 'gatedverb', name: 'Gated reverb', aka: 'gated snare, 80s snare',
+      desc: 'A big reverb cut off abruptly by a noise gate, so the snare booms huge and then stops dead. The defining 80s drum sound.',
+      ref: 'Phil Collins "In the Air Tonight", Peter Gabriel "Intruder"',
+      prompt: 'a huge 1980s gated-reverb snare',
+      tag: 'gated reverb snare', ex: CHAIN('Snare', 'Reverb → Gate', 'Mix', [['Decay', 'big', .9], ['Gate', '250 ms', .3]]), play: { k: 'seq', bpm: 100, p: { k: 'x.......x.x.....', e: '....x.......x...' }, bars: 2 } }
+  ]
+});
+
+pool.groups.push({
+  id: 'mod', title: 'Modulation & drive', slot: 'Production',
+  intro: 'Effects that move or dirty up a sound. The waveform shows what each one does to a plain wave.',
+  terms: [
+    { id: 'chorusfx', name: 'Chorus', aka: 'chorus pedal, ensemble',
+      desc: 'A slightly detuned, delayed copy mixed with the original so one instrument sounds like several. Shimmery and watery: 80s guitars, dream pop, post-punk bass.',
+      prompt: 'shimmering chorus on the clean guitar',
+      tag: 'chorus effect, shimmering', ex: WAVE('wobble', 'copies drifting in and out of tune'), play: { k: 'fx', fx: 'chorus', mel: 'folk' } },
+    { id: 'flangerfx', name: 'Flanger', aka: 'jet plane, whoosh',
+      desc: 'A very short, sweeping delay that makes a jet-plane whoosh through the sound. Psychedelic 60s and 70s rock.',
+      ref: 'The Small Faces "Itchycoo Park", Van Halen, Jimi Hendrix',
+      prompt: 'a sweeping jet-plane flanger',
+      tag: 'flanger, jet sweep', ex: WAVE('whoosh', 'comb filter sweeping'), play: { k: 'fx', fx: 'flanger', mel: 'blues' } },
+    { id: 'phaserfx', name: 'Phaser', aka: 'phase shifter, MXR Phase 90',
+      desc: 'A gentler swirl than flanging, like the sound turning slowly in space. 70s funk, outlaw-country guitar, psych keys.',
+      prompt: 'a slow swirling phaser',
+      tag: 'phaser swirl', ex: WAVE('wobble', 'notches sweeping slowly'), play: { k: 'fx', fx: 'phaser', mel: 'folk' } },
+    { id: 'tremfx', name: 'Tremolo', aka: 'amp tremolo, vibrato channel (Fender)',
+      desc: 'Volume pulsing up and down rhythmically: "wah-wah-wah". Built into old amps; the throb of Western twang and swampy blues.',
+      ref: 'Bo Diddley, Duane Eddy, Chris Isaak "Wicked Game", Creedence "Born on the Bayou"',
+      prompt: 'throbbing amp tremolo pulsing in time',
+      tag: 'amp tremolo', ex: WAVE('trem', 'volume pulsing'), play: { k: 'fx', fx: 'tremolo', mel: 'folk' } },
+    { id: 'leslie', name: 'Rotary speaker', aka: 'Leslie, Leslie speaker',
+      desc: 'A spinning speaker that adds both swirl and pitch wobble, fast or slow. Hammond organ\'s best friend, also used on guitars and vocals.',
+      ref: 'Hammond B3 records, The Beatles "Tomorrow Never Knows" (vocal), Stevie Ray Vaughan "Cold Shot"',
+      prompt: 'swirling rotary-speaker effect',
+      tag: 'leslie rotary speaker', ex: WAVE('trem', 'spinning speaker: volume and pitch'), play: { k: 'fx', fx: 'leslie', mel: 'hymn' } },
+    { id: 'wowflutter', name: 'Wow & flutter', aka: 'tape wobble, warped tape',
+      desc: 'Pitch drifting slowly (wow) and jittering fast (flutter), like a stretched cassette or warped record. Nostalgic and slightly seasick; lo-fi and hauntology.',
+      ref: 'Boards of Canada, lo-fi hip-hop, The Caretaker',
+      prompt: 'warped wobbly tape with wow and flutter',
+      tag: 'tape wobble, warped', ex: WAVE('wobble', 'pitch drifting'), play: { k: 'fx', fx: 'wobble', mel: 'waltz' } },
+    { id: 'saturation', name: 'Tape saturation', aka: 'analog warmth, tube warmth',
+      desc: 'Gentle soft clipping from pushing tape or tubes: thicker, rounder, glued together. What people usually mean by "warm".',
+      prompt: 'warm tape saturation gluing the mix together',
+      tag: 'tape saturation, warm', ex: WAVE('clip', 'peaks gently rounded'), play: { k: 'fx', fx: 'saturate', mel: 'folk' } },
+    { id: 'overdrive', name: 'Overdrive', aka: 'crunch, driven amp',
+      desc: 'An amp pushed until it breaks up: crunchy and responsive, cleaning up when played softly. Blues, classic rock, country rock.',
+      prompt: 'a crunchy overdriven amp',
+      tag: 'overdriven guitar, crunch', ex: WAVE('clip', 'peaks clipped'), play: { k: 'fx', fx: 'overdrive', mel: 'blues' } },
+    { id: 'fuzzfx', name: 'Fuzz', aka: 'fuzz pedal',
+      desc: 'Clipping so hard the wave turns nearly square: buzzy, woolly and thick. Garage, psych, stoner and shoegaze.',
+      prompt: 'thick buzzing fuzz distortion',
+      tag: 'fuzz distortion', ex: WAVE('square', 'clipped almost square'), play: { k: 'fx', fx: 'fuzz', mel: 'blues' } },
+    { id: 'bitcrush', name: 'Bitcrush', aka: 'bit reduction, 8-bit crunch',
+      desc: 'Lowering the digital resolution so the sound turns crunchy and steppy. Chiptune, glitch and lo-fi beats.',
+      prompt: 'crunchy bitcrushed digital texture',
+      tag: 'bitcrushed', ex: WAVE('crush', 'smooth wave turned to steps'), play: { k: 'fx', fx: 'bitcrush', mel: 'folk' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'mix', title: 'Mix & master', slot: 'Production',
+  intro: 'How the parts sit together and the final polish. EQ curves show what each treatment boosts or cuts across the frequency range, low on the left and high on the right.',
+  terms: [
+    { id: 'wide', name: 'Wide stereo', aka: 'spacious mix, panoramic',
+      desc: 'Instruments spread hard left and right with space in the middle. Lush and immersive in headphones.',
+      prompt: 'a wide spacious stereo mix',
+      tag: 'wide stereo mix', ex: CHAIN('Guitars', 'Pan hard L/R', 'Mix', [['Width', '100%', 1]]), play: { k: 'fx', fx: 'wide', mel: 'folk' } },
+    { id: 'mono', name: 'Mono', aka: 'mono mix, centered',
+      desc: 'Everything from one point in the middle, as on records before about 1967. Punchy and focused, with a vintage feel.',
+      prompt: 'mixed in punchy vintage mono',
+      tag: 'mono mix, vintage', ex: CHAIN('All parts', 'Center', 'Mono', [['Width', '0%', 0]]), play: { k: 'fx', fx: 'mono', mel: 'folk' } },
+    { id: 'upfront', name: 'Vocal up front', aka: 'vocal-forward mix',
+      desc: 'The voice loud, clear and present over the band, every word audible. Country, pop and singer-songwriter records.',
+      prompt: 'the vocal mixed loud and up front, every word clear',
+      tag: 'vocal-forward mix', ex: EQ([-6, -2, 0, -1, 0, 2, 5, 4, 2, 0], 'presence boost around 3 kHz'), play: { k: 'fx', fx: 'upfront', mel: 'folk' } },
+    { id: 'buried', name: 'Buried vocal', aka: 'vocal low in the mix',
+      desc: 'The voice sunk into the instruments like another texture, words half-heard. Shoegaze, dream pop, early R.E.M.',
+      prompt: 'the vocal buried low in the mix, words half-heard',
+      tag: 'buried vocals', ex: EQ([0, 0, 0, 0, 0, -2, -8, -12, -16, -18], 'muffled and pushed back'), play: { k: 'fx', fx: 'buried', mel: 'waltz' } },
+    { id: 'nextroom', name: 'Music from the next room', aka: 'muffled, underwater, low-pass',
+      desc: 'Highs rolled off so the music sounds like it\'s coming through a wall or from a party next door. A favorite film and transition trick.',
+      prompt: 'muffled as if heard from the next room',
+      tag: 'muffled, low-pass filtered', ex: EQ([2, 3, 3, 1, -3, -12, -24, -30, -30, -30], 'low-pass around 400 Hz'), play: { k: 'fx', fx: 'nextroom', mel: 'folk' } },
+    { id: 'telephone', name: 'Telephone EQ', aka: 'lo-fi filter, radio EQ',
+      desc: 'Lows and highs both cut so only a narrow midrange remains, like a phone or transistor radio. Use on a vocal intro or a whole bridge.',
+      prompt: 'narrow telephone-style EQ on the intro',
+      tag: 'telephone eq, lo-fi', ex: EQ([-30, -24, -12, -2, 4, 6, 3, -8, -24, -30], 'only the middle survives'), play: { k: 'fx', fx: 'telephone', mel: 'waltz' } },
+    { id: 'vinylfx', name: 'Vinyl crackle', aka: 'record noise, dusty',
+      desc: 'Surface crackle and pops from an old record laid under the music. Lo-fi hip-hop\'s signature and instant nostalgia.',
+      prompt: 'warm vinyl crackle underneath',
+      tag: 'vinyl crackle', ex: WAVE('crackle', 'pops over a quiet floor'), play: { k: 'fx', fx: 'vinyl', mel: 'waltz' } },
+    { id: 'sidechain', name: 'Sidechain pump', aka: 'pumping, ducking',
+      desc: 'Pads and bass duck out of the way every time the kick hits, so the whole mix breathes in time. House, French touch, EDM.',
+      ref: 'Daft Punk "One More Time", Eric Prydz "Call on Me"',
+      prompt: 'pads pumping with sidechain compression on every kick',
+      tag: 'sidechain pumping', ex: WAVE('duck', 'level dips on every kick'),
+      play: { k: 'layer', parts: [{ k: 'seq', bpm: 120, p: { k: 'x...x...x...x...' }, bars: 2 }, { k: 'prog', ch: 'Am F', bpm: 120, per: 4, style: 'pad', fx: 'tremolo' }] } },
+    { id: 'punchy', name: 'Punchy low end', aka: 'tight, compressed, hits hard',
+      desc: 'Kick and bass compressed and shaped so they hit your chest without getting muddy. Modern rock, hip-hop and dance.',
+      prompt: 'a tight punchy low end that hits hard',
+      tag: 'punchy low end', ex: EQ([6, 7, 4, -2, -3, 0, 2, 1, 0, -2], 'boosted lows, scooped mud') }
+  ]
+});
+
+/* ===== Sound design ===== */
+pool.groups.push({
+  id: 'ambience', title: 'Field & ambience', slot: 'Sound',
+  intro: 'Environmental sound for intros, interludes, beds under a song or standalone ambience. Naming the place, the time of day and the distance makes these far more specific.',
+  terms: [
+    { id: 'wind', name: 'Wind in the pines', aka: 'wind, mountain wind',
+      desc: 'Soft rushing wind with gusts rising and falling, through trees or across open ground. Lonesome and wide.',
+      prompt: 'soft wind rushing through pines, gusts rising and falling',
+      tag: 'wind ambience', ex: WAVE('wind', 'gusts swelling and fading'), play: { k: 'sfx', s: 'wind' } },
+    { id: 'lake', name: 'Lake at night', aka: 'lapping water, shoreline',
+      desc: 'Small waves lapping against a dock or rocks, a distant loon, deep quiet. Perfect for Lord Huron-style lakeside intros.',
+      prompt: 'water lapping against a wooden dock at night, a distant loon',
+      tag: 'lake at night ambience', ex: WAVE('waves', 'small laps, deep quiet'), play: { k: 'sfx', s: 'lake' } },
+    { id: 'crickets', name: 'Summer night', aka: 'crickets, katydids, porch night',
+      desc: 'Crickets chirping in a warm field or on a porch. Instant small-town summer.',
+      prompt: 'crickets chirping on a warm summer night',
+      tag: 'crickets night ambience', ex: WAVE('gate', 'chirps in pulses'), play: { k: 'sfx', s: 'crickets' } },
+    { id: 'rain', name: 'Rain & distant thunder', aka: 'storm, rain on the roof',
+      desc: 'Steady rain with drops on a surface, and thunder rolling far away. Cozy indoors, ominous outdoors.',
+      prompt: 'steady rain on a tin roof with thunder rolling in the distance',
+      tag: 'rain and distant thunder', ex: WAVE('noise', 'steady wash with a low roll'), play: { k: 'sfx', s: 'rain' } },
+    { id: 'fire', name: 'Campfire', aka: 'crackling fire, hearth',
+      desc: 'Wood crackling and popping, a low rumble of flame. Campfire songs, cabins, storytelling.',
+      prompt: 'a crackling campfire close by',
+      tag: 'campfire crackling', ex: WAVE('crackle', 'pops over a low rumble'), play: { k: 'sfx', s: 'fire' } },
+    { id: 'ocean', name: 'Ocean waves', aka: 'surf, shoreline, tide',
+      desc: 'Big waves rolling in and drawing back over sand, in slow cycles. Calming, vast and a little lonely.',
+      prompt: 'slow ocean waves rolling in and drawing back',
+      tag: 'ocean waves', ex: WAVE('waves', 'slow swells'), play: { k: 'sfx', s: 'surf' } },
+    { id: 'loon', name: 'Loon call', aka: 'northern loon, wail',
+      desc: 'The haunting rising wail of a loon across a still lake. Shorthand for wilderness, northern lakes and loneliness.',
+      prompt: 'the haunting wail of a loon echoing across a still lake',
+      tag: 'loon call', ex: WAVE('drop', 'a rising, falling wail'), play: { k: 'sfx', s: 'loon' } },
+    { id: 'train', name: 'Distant train', aka: 'train whistle, freight train',
+      desc: 'A train horn chord fading in the distance and wheels clacking on the rails. Americana\'s favorite sound effect.',
+      prompt: 'a freight train horn in the distance and wheels clacking on the rails',
+      tag: 'distant train whistle', ex: WAVE('gate', 'horn, then the clack of wheels'), play: { k: 'sfx', s: 'train' } },
+    { id: 'static', name: 'Radio between stations', aka: 'AM static, tuning dial',
+      desc: 'Static and squeals while a dial turns, then a song faintly emerging. A classic intro for in-world radio and found-footage feel.',
+      ref: 'Lord Huron "WHSP" interludes, Pink Floyd "Wish You Were Here" intro',
+      prompt: 'AM radio static as the dial turns, then a faint old song comes through',
+      tag: 'radio static, tuning', ex: WAVE('noise', 'static, then a station'), play: { k: 'sfx', s: 'static' } },
+    { id: 'roomtone', name: 'Room tone', aka: 'ambience bed, air',
+      desc: 'The quiet sound of an empty room: hum, air, faint traffic. Under dialogue or between songs it makes silence feel real.',
+      prompt: 'quiet room tone with a faint electrical hum',
+      tag: 'room tone', ex: WAVE('drone', 'low hum and air'), play: { k: 'sfx', s: 'roomtone' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'design', title: 'Sound design moves', slot: 'Sound',
+  intro: 'Named effects used in trailers, games, transitions and modern production. The waveform shows the shape over time.',
+  terms: [
+    { id: 'riser', name: 'Riser', aka: 'uplifter, build',
+      desc: 'A sound that climbs in pitch and volume to build tension toward a moment: noise sweeps, rising synths, accelerating rolls.',
+      prompt: 'a white-noise riser building tension into the drop',
+      tag: 'riser', ex: WAVE('riser', 'pitch and volume climbing'), play: { k: 'sfx', s: 'riser' } },
+    { id: 'subdrop', name: 'Sub drop', aka: 'bass drop, 808 drop',
+      desc: 'A deep sine tone that falls in pitch, felt more than heard. Marks a downbeat or a transition with weight.',
+      prompt: 'a deep sub drop on the downbeat',
+      tag: 'sub drop', ex: WAVE('drop', 'falling low tone'), play: { k: 'sfx', s: 'subdrop' } },
+    { id: 'impact', name: 'Impact', aka: 'hit, boom, slam',
+      desc: 'A huge layered hit (low boom, crack, reverb tail) for a cut, a title card or a punch.',
+      prompt: 'a huge cinematic impact with a long reverb tail',
+      tag: 'cinematic impact', ex: WAVE('impact', 'instant attack, long tail'), play: { k: 'sfx', s: 'impact' } },
+    { id: 'whoosh', name: 'Whoosh', aka: 'swish, pass-by',
+      desc: 'Air rushing past from one side to the other. Transitions, fast camera moves, logos flying in.',
+      prompt: 'a fast whoosh passing from left to right',
+      tag: 'whoosh transition', ex: WAVE('whoosh', 'swells and passes'), play: { k: 'sfx', s: 'whoosh' } },
+    { id: 'stinger', name: 'Stinger', aka: 'orchestra hit, sting',
+      desc: 'A short, sharp musical hit that punctuates a moment: a brass stab, a chord hit, a jump scare.',
+      prompt: 'a sharp orchestral stinger on the reveal',
+      tag: 'orchestral stinger', ex: WAVE('tail', 'one hit, then decay'), play: { k: 'sfx', s: 'stinger' } },
+    { id: 'reverseswell', name: 'Reverse swell', aka: 'reverse cymbal, reversed reverb',
+      desc: 'A sound played backwards so it swells up into the next note instead of decaying from it. Dreamy transitions and pre-chorus lifts.',
+      prompt: 'a reverse swell sucking into the downbeat',
+      tag: 'reverse swell', ex: WAVE('swell', 'grows, then cuts'), play: { k: 'sfx', s: 'reverse' } },
+    { id: 'dronefx', name: 'Drone', aka: 'tonal bed, dark drone',
+      desc: 'A sustained, slowly shifting tone under a scene. Low and dark for dread, bright and airy for awe.',
+      prompt: 'a low dark drone slowly shifting underneath',
+      tag: 'dark drone', ex: WAVE('drone', 'two tones beating slowly'), play: { k: 'sfx', s: 'drone' } },
+    { id: 'shepard', name: 'Shepard tone', aka: 'endless rise, auditory illusion',
+      desc: 'Overlapping tones an octave apart that seem to rise forever without getting higher. Endless, inescapable tension; "Dunkirk".',
+      ref: 'Hans Zimmer "Dunkirk", the Batpod in "The Dark Knight"',
+      prompt: 'an endlessly rising Shepard tone',
+      tag: 'shepard tone', ex: WAVE('shepard', 'always climbing'), play: { k: 'sfx', s: 'shepard' } },
+    { id: 'glitchfx', name: 'Glitch', aka: 'stutter, buffer repeat',
+      desc: 'Sound chopped into stutters, skips and digital errors. IDM, hyperpop, tense UI and broken-machine moments.',
+      prompt: 'stuttering glitchy edits and buffer repeats',
+      tag: 'glitch stutter', ex: WAVE('glitch', 'chopped blocks'), play: { k: 'sfx', s: 'glitch' } },
+    { id: 'heartbeat', name: 'Heartbeat', aka: 'pulse, lub-dub',
+      desc: 'A low double thump in a steady pulse. Suspense, intimacy or a clock running out.',
+      prompt: 'a low heartbeat pulse under the silence',
+      tag: 'heartbeat pulse', ex: WAVE('heartbeat', 'lub-dub'), play: { k: 'sfx', s: 'heartbeat' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'synth', title: 'Synth sources', slot: 'Sound',
+  intro: 'The raw ingredients of electronic sound. Useful when describing a synth part or a sound effect from scratch.',
+  terms: [
+    { id: 'sinewave', name: 'Sine wave', aka: 'pure tone',
+      desc: 'The purest tone, a single frequency with no harmonics. Soft, round, sub bass, test tones, flutes and whistles.',
+      prompt: 'a pure soft sine tone',
+      tag: 'sine wave', ex: WAVE('sine', 'no harmonics'), play: { k: 'sfx', s: 'wave', arg: 'sine' } },
+    { id: 'square', name: 'Square wave', aka: 'pulse wave',
+      desc: 'Hollow and buzzy, with only odd harmonics. Chiptune leads, clarinet-like tones, retro bass.',
+      prompt: 'a hollow buzzy square-wave lead',
+      tag: 'square wave', ex: WAVE('square', 'odd harmonics only'), play: { k: 'sfx', s: 'wave', arg: 'square' } },
+    { id: 'sawwave', name: 'Sawtooth wave', aka: 'saw',
+      desc: 'Bright and buzzy with every harmonic. The raw material of synth strings, brass, leads and supersaw pads.',
+      prompt: 'a bright buzzing sawtooth synth',
+      tag: 'sawtooth synth', ex: WAVE('saw', 'all harmonics'), play: { k: 'sfx', s: 'wave', arg: 'sawtooth' } },
+    { id: 'noisecolor', name: 'White, pink & brown noise', aka: 'noise colors',
+      desc: 'Random sound with different tilts: white is hissy, pink is rain, brown is a low roar like surf. The basis of wind, snares and risers.',
+      prompt: 'filtered noise like a distant roar',
+      tag: 'filtered noise texture', ex: WAVE('noise', 'white, then pink, then brown'), play: { k: 'sfx', s: 'noises' } },
+    { id: 'fmbell', name: 'FM bell', aka: 'DX7 bell, glassy FM',
+      desc: 'Frequency modulation makes metallic, glassy, bell-like tones. The 80s DX7 electric piano and bell presets.',
+      prompt: 'glassy FM synth bells',
+      tag: 'fm bells, glassy', ex: WAVE('pluck', 'bright attack, ringing decay'), play: { k: 'sfx', s: 'fmbell' } },
+    { id: 'granular', name: 'Granular texture', aka: 'grains, granular cloud',
+      desc: 'A recording sliced into tiny grains and scattered into a shimmering cloud. Ambient, experimental and modern scores.',
+      prompt: 'a shimmering granular cloud made from plucked guitar',
+      tag: 'granular texture', ex: WAVE('crackle', 'thousands of tiny grains'), play: { k: 'sfx', s: 'granular' } },
+    { id: 'supersaw', name: 'Supersaw pad', aka: 'trance pad, detuned saws',
+      desc: 'Many detuned sawtooth waves stacked into one huge, shimmering chord. Trance, EDM drops and synthwave pads.',
+      prompt: 'a huge shimmering detuned supersaw pad',
+      tag: 'supersaw', ex: WAVE('saw', 'many saws, slightly detuned'), play: { k: 'sfx', s: 'supersaw' } }
+  ]
+});
+
+pool.groups.push({
+  id: 'words', title: 'Timbre words', slot: 'Sound',
+  intro: 'Adjectives for tone color, and what they mean in frequency terms. Use them on any instrument, voice or mix. Each curve shows roughly which frequencies the word boosts or cuts.',
+  terms: [
+    { id: 'warm', name: 'Warm', aka: 'full, rich, round',
+      desc: 'More low-mids, softened highs, a little saturation. What people usually want from "analog" or "vintage".',
+      prompt: 'a warm rounded tone with soft highs',
+      tag: 'warm tone', ex: EQ([2, 4, 6, 5, 2, 0, -3, -6, -9, -12], 'more low-mids, softer top'), play: { k: 'fx', fx: 'warm', mel: 'folk' } },
+    { id: 'bright', name: 'Bright', aka: 'crisp, sparkly, present',
+      desc: 'Boosted highs and upper mids so it cuts through. Clean pop vocals, acoustic guitars, cymbals.',
+      prompt: 'a bright crisp sparkling tone',
+      tag: 'bright crisp', ex: EQ([-4, -3, -1, 0, 0, 1, 4, 8, 10, 10], 'more top end'), play: { k: 'fx', fx: 'bright', mel: 'folk' } },
+    { id: 'dark', name: 'Dark', aka: 'muted, mellow, dull',
+      desc: 'Highs rolled right off. Moody, distant, old; also muddy if overdone.',
+      prompt: 'a dark muted tone with no top end',
+      tag: 'dark muted tone', ex: EQ([2, 3, 3, 2, 0, -6, -15, -22, -28, -30], 'highs rolled off'), play: { k: 'fx', fx: 'dark', mel: 'folk' } },
+    { id: 'airy', name: 'Airy', aka: 'open, breathy top, sheen',
+      desc: 'Extra extreme highs (above 10 kHz) so breath and shimmer come through. Expensive-sounding vocals and acoustic guitars.',
+      prompt: 'an airy open top end with breath and shimmer',
+      tag: 'airy', ex: EQ([-2, -1, 0, 0, 0, 0, 1, 3, 8, 12], 'shelf boost above 10 kHz'), play: { k: 'fx', fx: 'airy', mel: 'waltz' } },
+    { id: 'gritty', name: 'Gritty', aka: 'dirty, raw, crunchy',
+      desc: 'Distortion and noise left in on purpose. Rough edges that feel human and unpolished.',
+      prompt: 'a gritty raw tone with dirt left in',
+      tag: 'gritty raw', ex: WAVE('clip', 'edges roughed up'), play: { k: 'fx', fx: 'gritty', mel: 'blues' } },
+    { id: 'glassy', name: 'Glassy', aka: 'crystalline, chiming',
+      desc: 'Clear, bright, ringing tones with pure upper harmonics: celesta, FM bells, clean chorused guitar.',
+      prompt: 'glassy crystalline tones',
+      tag: 'glassy crystalline', ex: EQ([-6, -4, -2, -2, 0, 2, 6, 8, 6, 4], 'bright and ringing'), play: { k: 'fx', fx: 'glassy', mel: 'waltz' } },
+    { id: 'hollow', name: 'Hollow', aka: 'boxy, nasal, scooped',
+      desc: 'Missing some midrange so it sounds like it\'s inside a tube or box. Old radios, clarinets, cheap speakers.',
+      prompt: 'a hollow boxy tone',
+      tag: 'hollow tone', ex: EQ([0, 0, 2, 6, 3, -10, -4, -8, -4, -2], 'notched mids'), play: { k: 'fx', fx: 'hollow', mel: 'folk' } },
+    { id: 'metallic', name: 'Metallic', aka: 'clangy, ringing, robotic',
+      desc: 'Inharmonic ringing overtones like struck metal or a short comb filter. Bells, robots, industrial textures.',
+      prompt: 'a metallic ringing clang',
+      tag: 'metallic', ex: WAVE('echo', 'tight ringing repeats'), play: { k: 'fx', fx: 'metallic', mel: 'folk' } },
+    { id: 'lush', name: 'Lush', aka: 'big, full, layered',
+      desc: 'Layered, chorused and reverberant, filling the whole space. Strings, pads and stacked harmonies.',
+      prompt: 'lush layered chorus and reverb filling the space',
+      tag: 'lush', ex: EQ([2, 3, 3, 2, 1, 1, 2, 2, 3, 2], 'full across the range'), play: { k: 'fx', fx: 'lush', mel: 'waltz' } },
+    { id: 'thin', name: 'Thin', aka: 'small, tinny, weedy',
+      desc: 'Missing the low end, so it sounds small, distant or cheap. Useful on purpose for intros, transistor radios or contrast before a big drop.',
+      prompt: 'a thin tinny tone with no low end',
+      tag: 'thin tinny', ex: EQ([-30, -28, -22, -12, -4, 0, 2, 2, 0, -2], 'lows cut away'), play: { k: 'fx', fx: 'thin', mel: 'folk' } }
+  ]
+});
+
+const G = Object.fromEntries(pool.groups.map(g => [g.id, g]));
+const WORKBOOK = {};
+WORKBOOK.areas = [
+  { id: 'roots', title: 'Folk & roots', preview: 'cosmic', blurb: 'Folk, country and Americana from Appalachian old-time to cosmic Americana, plus global traditions from flamenco to gamelan.', groups: ['roots', 'global'] },
+  { id: 'genres', title: 'Genres', preview: 'surf', blurb: 'Rock and indie, pop, soul and R&B, electronic and hip-hop, and jazz, classical and film-score idioms.', groups: ['rock', 'pop', 'elec', 'score'] },
+  { id: 'instruments', title: 'Instruments', preview: 'pedalsteel', blurb: 'Folk strings, band and keys, orchestral colors and the oddities that make a track memorable, each with its range.', groups: ['strings', 'band', 'orch', 'odd'] },
+  { id: 'rhythm', title: 'Rhythm & tempo', preview: 'trainbeat', blurb: 'Tempo bands in BPM, meters from waltz to 7/8, and named grooves you can hear on a step sequencer.', groups: ['tempo', 'meter', 'groove'] },
+  { id: 'harmony', title: 'Harmony & melody', preview: 'andalusian', blurb: 'Scales and modes, chord progressions in Roman numerals, harmonic colors and the words for what a part does.', groups: ['modes', 'progs', 'colors', 'melody'] },
+  { id: 'structure', title: 'Song structure', preview: 'bridge', blurb: 'Sections with the bracket tags generators read, whole-song forms, and arrangement moves like the false ending.', groups: ['sections', 'forms', 'moves'] },
+  { id: 'vocals', title: 'Vocals', preview: 'baritone', blurb: 'Vocal tone, delivery and technique, harmony and ensembles, and the studio treatments that place a voice in time.', groups: ['vtone', 'delivery', 'ensemble', 'treated'] },
+  { id: 'production', title: 'Production & mix', preview: 'tapeecho', blurb: 'Recording eras, reverb and delay, modulation and drive, and how the parts sit in the mix.', groups: ['eras', 'space', 'mod', 'mix'] },
+  { id: 'sound', title: 'Sound design', preview: 'lake', blurb: 'Field recordings and ambience, trailer and transition effects, synth sources and the adjectives for timbre.', groups: ['ambience', 'design', 'synth', 'words'] }
+].map(a => ({ ...a, groups: a.groups.map(id => G[id]).filter(Boolean) })).filter(a => a.groups.length);
+
+WORKBOOK.recipes = [
+  { label: 'A song for the gallery', parts: [['A '], ['cosmic Americana', 'cosmic'], [' ballad in '], ['6/8', 'sixeight'], [' at '], ['70 BPM', 'ballad'], ['. '], ['Fingerpicked guitar', 'travis'], [' carries the verses while '], ['pedal steel', 'pedalsteel'], [' swells behind a '], ['deep baritone', 'baritone'], [' set '], ['far back in reverb', 'distant'], ['. '], ['Three-part harmonies', 'stack'], [' on the chorus, a '], ['whistled', 'whistling'], [' melody in the '], ['instrumental break', 'solo'], [', '], ['tremolo', 'tremfx'], [' on the electric guitar, and a '], ['lake at night', 'lake'], [' fading in under the '], ['intro', 'intro'], ['.']] },
+  { label: 'A study loop', parts: [['A '], ['lo-fi hip-hop', 'lofi'], [' loop at '], ['88 BPM', 'walking'], [' with drums '], ['behind the beat', 'laidback'], ['. '], ['Rhodes', 'rhodes'], [' playing '], ['extended jazz chords', 'ninths'], [', '], ['vinyl crackle', 'vinylfx'], [' and '], ['tape wobble', 'wowflutter'], ['. '], ['Loop-based', 'loop'], [', no vocals, and a '], ['warm', 'warm'], [', slightly '], ['dark', 'dark'], [' tone.']] },
+  { label: 'A trailer cue for a Western', parts: [['An '], ['epic trailer', 'trailer'], [' cue that opens on '], ['wind in the pines', 'wind'], [' and a '], ['lonely whistle', 'whistling'], [', builds with a '], ['galloping', 'gallop'], [' snare, a '], ['string ostinato', 'ostinato'], [' and '], ['French horns', 'frenchhorn'], [' in a '], ['Western score', 'westernscore'], [' style, rides a '], ['riser', 'riser'], [' and lands on an '], ['impact', 'impact'], [' in a '], ['cathedral', 'cathedral'], [' of reverb.']] }
+];
+
+/* One melody, every room */
+WORKBOOK.treatments = [
+  ['dry', 'dry', 'Nothing added'], ['room', 'roomverb', 'A small real room'], ['plate', 'plate', 'Bright, smooth studio reverb'], ['spring', 'spring', 'Drippy amp reverb'],
+  ['hall', 'hall', 'Concert hall'], ['cathedral', 'cathedral', 'Huge stone space'], ['slap', 'slap', 'One quick 1950s echo'], ['tapeecho', 'tapeecho', 'Repeats that darken'],
+  ['tremolo', 'tremfx', 'Amp volume pulsing'], ['chorus', 'chorusfx', 'Shimmer and doubling'], ['wobble', 'wowflutter', 'Warped tape'], ['saturate', 'saturation', 'Warm tape drive'],
+  ['cassette', 'fourtrack', 'Home 4-track'], ['gramophone', 'shellac', '1920s 78 rpm'], ['radio', 'radiovox', 'Old AM radio'], ['nextroom', 'nextroom', 'Through the wall'],
+  ['vinyl', 'vinylfx', 'Dusty record'], ['fuzz', 'fuzzfx', 'Square-wave drive'], ['bitcrush', 'bitcrush', 'Digital crunch'], ['wide', 'wide', 'Spread left and right']
+];
+
+WORKBOOK.xcols = ['Genre', 'Instruments', 'Rhythm', 'Harmony', 'Vocals', 'Production'];
+WORKBOOK.xlate = [
+  { job: 'Lonesome highway', note: 'night drives, open roads', cells: [['cosmic', 'heartland'], ['pedalsteel', 'tremguitar'], ['motorik', 'trainbeat'], ['mixolydian', 'mixorock'], ['baritone', 'distant'], ['tapeecho', 'wide']] },
+  { job: 'Haunted lake at night', note: 'ghost stories, lore', cells: [['murder', 'desertnoir'], ['musicalsaw', 'cello'], ['waltz', 'rubato'], ['minor', 'drone'], ['pure', 'distant'], ['cathedral', 'lake']] },
+  { job: 'Campfire singalong', note: 'friends, summer, hope', cells: [['indiefolk', 'shanty'], ['strum', 'clawhammer'], ['stompclap', 'boomchick'], ['onefourfive', 'majpent'], ['gang', 'stack'], ['liveroom', 'fire']] },
+  { job: 'Wide-open West', note: 'big sky, frontier', cells: [['westernscore', 'cowboy'], ['frenchhorn', 'nylonguitar'], ['gallop', 'waltz'], ['lydian', 'opentuning'], ['wordless', 'baritone'], ['hall', 'wind']] },
+  { job: 'Honky-tonk heartbreak', note: 'bars, jukeboxes', cells: [['honkytonk', 'outlaw'], ['pedalsteel', 'tack'], ['twostep', 'shuffle'], ['minoriv', 'ragtime'], ['twang', 'siblings'], ['fifties', 'slap']] },
+  { job: '1950s jukebox', note: 'diners, prom night', cells: [['doowop', 'rockabilly'], ['sax', 'upright'], ['twelveeight', 'shuffle'], ['doowopprog', 'twelvebar'], ['falsetto', 'slapvox'], ['fifties', 'mono']] },
+  { job: 'Western standoff', note: 'duels, high noon', cells: [['spaghetti', 'westernscore'], ['whistling', 'tremguitar'], ['gallop', 'rubato'], ['andalusian', 'phrygian'], ['wordless'], ['spring', 'cathedral']] },
+  { job: 'Sunrise & hope', note: 'beginnings, mornings', cells: [['laurel', 'indiefolk'], ['twelve', 'celesta'], ['midtempo', 'straight'], ['lydian', 'sus'], ['pure', 'stack'], ['airy', 'wide']] },
+  { job: 'Rainy afternoon', note: 'study, cafés', cells: [['lofi', 'bossanova'], ['rhodes', 'nylonguitar'], ['laidback', 'walking'], ['maj7', 'ninths'], ['breathy'], ['vinylfx', 'rain']] },
+  { job: 'Dreamy summer haze', note: 'nostalgia, beaches', cells: [['dreampop', 'chillwave'], ['jangle', 'synthpad'], ['halftime', 'walking'], ['maj7', 'sus'], ['breathy', 'doubled'], ['chorusfx', 'wowflutter']] },
+  { job: 'Tense chase', note: 'action, trailers', cells: [['trailer', 'dnb'], ['timpani', 'strings'], ['uptempo', 'gallop'], ['harmonicminor', 'ostinato'], [], ['riser', 'impact']] },
+  { job: 'Big triumphant finish', note: 'finales, credits', cells: [['romantic', 'gospel'], ['strings', 'frenchhorn'], ['fourfloor', 'halftime'], ['modulation', 'epicminor'], ['belting', 'leadchoir'], ['hall', 'lastlift']] }
+];
+WORKBOOK.lens = ['60 BPM', '72 BPM', '90 BPM', '120 BPM', 'about 3 minutes', '30-second loop', '10-second sound effect'];
+WORKBOOK.avoids = ['no drums', 'no autotune', 'no choir', 'no vocals', 'no synths', 'no electric guitar'];
+WORKBOOK.slotOrder = ['Genre', 'Rhythm', 'Harmony', 'Instruments', 'Vocals', 'Production', 'Sound', 'Structure'];
+
+/* ---------- rendering ---------- */
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+};
+const picks = new Set(store.get('ms-picks', []));
+let fmt = store.get('ms-fmt', 'tags');
+let melId = store.get('ms-mel', 'folk');
+const TERMS = {};
+WORKBOOK.areas.forEach(a => a.groups.forEach(g => g.terms.forEach(t => TERMS[t.id] = { t, g, a })));
+const totalTerms = Object.keys(TERMS).length;
+const playable = Object.values(TERMS).filter(x => x.t.play).length;
+let pendingJump = null;
+const tagOf = t => t.tag || t.name.toLowerCase();
+
+const cardHTML = (t, g) => `
+  <article class="card${picks.has(t.id) ? ' picked' : ''}" id="t-${t.id}" data-search="${esc((t.name + ' ' + (t.aka || '') + ' ' + t.desc + ' ' + (t.ref || '') + ' ' + (t.hear || '') + ' ' + tagOf(t) + ' ' + g.title).toLowerCase())}">
+    <div class="ex${t.play ? ' has-play' : ''}">${t.play ? `<button type="button" class="pbtn" data-play="${t.id}" aria-pressed="false" aria-label="Play a sketch of ${esc(t.name)}">Play</button>` : ''}${t.ex}</div>
+    <div class="cbody">
+      <h3>${esc(t.name)}</h3>
+      ${t.aka ? `<div class="aka">Also called ${esc(t.aka)}</div>` : ''}
+      <p class="desc">${esc(t.desc)}</p>
+      ${t.hear ? `<p class="ref"><b>Listen for</b>${esc(t.hear)}</p>` : ''}
+      ${t.ref ? `<p class="ref"><b>Look up</b>${esc(t.ref)}</p>` : ''}
+      <div class="phrase">
+        <code id="p-${t.id}">${esc(t.prompt)}</code>
+        <div class="tagline">Style tag <b>${g.slot === 'Structure' ? '[' + esc(tagOf(t)) + ']' : esc(tagOf(t))}</b></div>
+        <div class="btns">
+          <button type="button" class="btn add" data-add="${t.id}" aria-pressed="${picks.has(t.id)}">${picks.has(t.id) ? 'Added' : 'Add to prompt'}</button>
+          <button type="button" class="btn" data-copy="${t.id}">Copy phrase</button>
+        </div>
+      </div>
+    </div>
+  </article>`;
+const groupHTML = (g, sub) => `
+  <section class="group" id="g-${g.id}" aria-labelledby="h-${g.id}">
+    <div class="ghead">${sub ? `<div class="eyebrow">${esc(sub)}</div>` : ''}<h2 id="h-${g.id}">${esc(g.title)}</h2><p>${esc(g.intro)}</p></div>
+    <div class="cards">${g.terms.map(t => cardHTML(t, g)).join('')}</div>
+  </section>`;
+const emptyMsg = `<p class="empty" id="empty" hidden>Nothing matches that search. Try a plainer word like "banjo", "waltz", "reverb" or "sad".</p>`;
+const chip = (id, txt) => TERMS[id] ? `<a class="chip" href="#${TERMS[id].a.id}" data-jump="${id}"><span>${esc(txt || TERMS[id].t.name)}</span><small>${esc(TERMS[id].g.slot)}</small></a>` : esc(txt || '');
+const link = id => TERMS[id] ? `<a href="#${TERMS[id].a.id}" data-jump="${id}">${esc(TERMS[id].t.name)}</a>` : '';
+
+function renderSame() {
+  $('#mels').innerHTML = Object.entries(MELS).map(([id, m]) => `<button type="button" data-mel="${id}" aria-pressed="${id === melId}">${esc(m.label)}</button>`).join('');
+  $('#tgrid').innerHTML = WORKBOOK.treatments.map(([fx, id, note]) => `<div class="tcell"><button type="button" class="pbtn" data-treat="${fx}" aria-pressed="false" aria-label="Play through ${esc(TERMS[id] ? TERMS[id].t.name : fx)}">Play</button><a href="#${TERMS[id].a.id}" data-jump="${id}">${esc(TERMS[id].t.name)}</a><small>${esc(note)}</small></div>`).join('');
+}
+
+function renderHome() {
+  stopSound();
+  $('#home').hidden = false; $('#subject').hidden = true; $('#main').innerHTML = '';
+  $('#homeCount').textContent = `${totalTerms} cards on ${WORKBOOK.areas.length} pages · ${playable} you can hear`;
+  renderSame();
+  $('#recipes').innerHTML = WORKBOOK.recipes.map(r => `<div class="rcp"><div class="eyebrow">${esc(r.label)}</div><p class="sentence">${r.parts.map(([txt, id]) => id ? chip(id, txt) : esc(txt)).join('')}</p></div>`).join('');
+  $('#xtable').innerHTML = `<thead><tr><th>The mood</th>${WORKBOOK.xcols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
+    WORKBOOK.xlate.map(r => `<tr><th>${esc(r.job)}<small>${esc(r.note)}</small></th>${r.cells.map(c => `<td>${c.map(x => link(x)).join(' ') || '<span style="color:var(--ink3)">instrumental</span>'}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  $('#tiles').innerHTML = WORKBOOK.areas.map(a => `
+    <a class="tile" href="#${a.id}">
+      <div class="ex" aria-hidden="true">${TERMS[a.preview] ? TERMS[a.preview].t.ex : ''}</div>
+      <div class="tbody"><h3>${esc(a.title)}</h3><p>${esc(a.blurb)}</p>
+      <div class="tmeta">${a.groups.reduce((n, g) => n + g.terms.length, 0)} cards · ${a.groups.map(g => esc(g.title)).join(' · ')}</div></div>
+    </a>`).join('');
+  $('#results').innerHTML = WORKBOOK.areas.map(a => a.groups.map(g => groupHTML(g, a.title)).join('')).join('') + emptyMsg;
+  filter($('#qh'), $('#results'), true);
+}
+
+function renderSubject(a) {
+  stopSound();
+  $('#home').hidden = true; $('#subject').hidden = false; $('#results').innerHTML = '';
+  $('#subTitle').textContent = a.title;
+  $('#subBlurb').textContent = a.blurb;
+  const i = WORKBOOK.areas.indexOf(a), next = WORKBOOK.areas[(i + 1) % WORKBOOK.areas.length];
+  $('#nav').innerHTML = a.groups.map(g => `<a href="#g-${g.id}" data-g="${g.id}">${esc(g.title)}<span>${g.terms.length}</span></a>`).join('');
+  $('#main').innerHTML = a.groups.map(g => groupHTML(g)).join('') + emptyMsg + `<a class="next" href="#${next.id}">Next: ${esc(next.title)} →</a>`;
+  $('#q').value = '';
+  document.title = `${a.title} · Music & Sound Workbook`;
+}
+
+function route() {
+  const id = location.hash.slice(1);
+  const a = WORKBOOK.areas.find(x => x.id === id);
+  if (a) renderSubject(a);
+  else if (!id || !document.getElementById(id)) { renderHome(); document.title = 'Music & Sound Workbook'; }
+  else return;
+  if (pendingJump) { const j = pendingJump; pendingJump = null; setTimeout(() => jumpTo(j), 60); }
+  else if (a || !id) window.scrollTo(0, 0);
+}
+
+/* ---------- prompt composer ---------- */
+function pickedBySlot() {
+  const out = [];
+  WORKBOOK.slotOrder.forEach(slot => {
+    const ts = [];
+    WORKBOOK.areas.forEach(a => a.groups.forEach(g => { if (g.slot === slot) g.terms.forEach(t => { if (picks.has(t.id)) ts.push(t); }); }));
+    if (ts.length) out.push({ slot, terms: ts });
+  });
+  return out;
+}
+function skeleton() {
+  const has = id => picks.has(id);
+  let s;
+  if (has('aaba')) s = ['Verse 1', 'Verse 2', 'Bridge', 'Verse 3'];
+  else if (has('strophic')) s = ['Verse 1', 'Verse 2', 'Verse 3', 'Verse 4', 'Verse 5'];
+  else if (has('bluesform')) s = ['Verse 1', 'Verse 2', 'Instrumental Break', 'Verse 3'];
+  else if (has('through')) s = ['Part I', 'Part II', 'Part III', 'Part IV'];
+  else if (has('loop')) s = ['Intro', 'Verse 1', 'Hook', 'Verse 2', 'Hook', 'Breakdown', 'Hook', 'Outro'];
+  else s = ['Intro', 'Verse 1', 'Chorus', 'Verse 2', 'Chorus', 'Bridge', 'Chorus', 'Outro'];
+  const lastIdx = name => { for (let i = s.length - 1; i >= 0; i--) if (s[i].startsWith(name)) return i; return -1; };
+  const before = (name, item) => { const i = lastIdx(name); if (i >= 0) s.splice(i, 0, item); };
+  if (has('prechorus')) s = s.flatMap(x => x === 'Chorus' ? ['Pre-Chorus', x] : [x]);
+  if (has('postchorus')) s = s.flatMap(x => x === 'Chorus' ? [x, 'Post-Chorus'] : [x]);
+  if (has('solo') && !s.includes('Instrumental Break')) { if (lastIdx('Bridge') >= 0) before('Bridge', 'Instrumental Break'); else before('Verse', 'Instrumental Break'); }
+  if (has('spoken')) { if (lastIdx('Bridge') >= 0) before('Bridge', 'Spoken Word'); else s.splice(Math.max(1, s.length - 1), 0, 'Spoken Word'); }
+  if (has('breakdown') && !s.includes('Breakdown')) before('Chorus', 'Breakdown');
+  if (has('buildup')) { before('Chorus', 'Build-Up'); const i = lastIdx('Chorus'); if (i >= 0) s[i] = 'Drop'; }
+  if (has('acapella')) { const i = lastIdx('Chorus'); if (i >= 0) s.splice(i, 1, 'Chorus (a cappella)', 'Chorus (full band)'); }
+  if (has('lastlift') || has('modulation')) { const i = lastIdx('Chorus'); if (i >= 0) s[i] = has('modulation') ? 'Final Chorus (key change up)' : 'Final Chorus (big lift)'; }
+  if (has('falseend')) { const i = lastIdx('Chorus') >= 0 ? lastIdx('Chorus') : lastIdx('Final'); if (i >= 0) s.splice(i + 1, 0, 'Break (two bars of silence)', 'Chorus'); }
+  if (has('tagending')) { const i = Math.max(lastIdx('Chorus'), lastIdx('Final'), lastIdx('Hook')); if (i >= 0) s.splice(i + 1, 0, 'Tag (repeat the last line)'); }
+  if (has('coldopen')) s = s.filter(x => x !== 'Intro');
+  if (has('coldend')) { s = s.filter(x => x !== 'Outro'); s.push('End (hard stop)'); }
+  if (has('fadeout')) { const i = s.indexOf('Outro'); if (i >= 0) s[i] = 'Outro (fade out)'; else s.push('Outro (fade out)'); }
+  if (has('quietloud')) s = s.map(x => x.startsWith('Verse') ? x + ' (quiet)' : x.startsWith('Chorus') && !x.includes('(') ? x + ' (loud)' : x);
+  return s;
+}
+function compose() {
+  const subj = $('#subject-in').value.trim();
+  const tempo = $('#tempo-in').value.trim();
+  const avoid = $('#avoid-in').value.trim();
+  const rows = pickedBySlot();
+  const n = rows.reduce((k, r) => k + r.terms.length, 0);
+  const styleRows = rows.filter(r => r.slot !== 'Structure');
+  const tags = [...styleRows.flatMap(r => r.terms.map(tagOf)), ...(tempo && /bpm/i.test(tempo) ? [tempo] : [])].join(', ');
+  const lines = [];
+  if (fmt === 'tags') {
+    lines.push(tags || '(add genres, instruments, rhythm and production from the workbook)');
+    if (avoid) lines.push('', 'Exclude: ' + avoid);
+  } else if (fmt === 'song') {
+    lines.push('STYLE', tags || '(add genres, instruments, rhythm and production from the workbook)');
+    if (avoid) lines.push('', 'EXCLUDE', avoid);
+    if (subj) lines.push('', 'THEME', subj);
+    lines.push('', 'LYRICS');
+    skeleton().forEach(sec => lines.push(`[${sec}]`, '…', ''));
+    lines.pop();
+  } else {
+    lines.push(`Make ${subj || '[what the music is for]'}.`);
+    if (tempo) lines.push(`Tempo or length: ${tempo}.`);
+    if (avoid) lines.push(`Leave out: ${avoid}.`);
+    lines.push('', 'The sound:');
+    if (styleRows.length) styleRows.forEach(r => lines.push(`- ${r.slot}: ${r.terms.map(t => t.prompt).join('; ')}`));
+    else lines.push('- (add genres, instruments, rhythm and production from the workbook)');
+    const st = rows.find(r => r.slot === 'Structure');
+    if (st) lines.push('', 'Structure: ' + st.terms.map(t => t.prompt).join('; ') + '.', 'Sections: ' + skeleton().join(' → '));
+    lines.push('', 'Describe or produce it in concrete musical terms: instruments and what each one plays, tempo and feel, harmony, voice, and how it was recorded. Use the techniques named above without imitating any specific recording or artist.');
+  }
+  return { text: lines.join('\n'), n, chars: tags.length };
+}
+const NOTES = {
+  tags: c => `Paste into a music generator's style box. ${c} characters; some style boxes cap around 200.`,
+  song: () => 'Style goes in the style box; the bracketed sections go in the lyrics box. Replace each … with your words.',
+  brief: () => 'A written brief for Claude, a producer, or for describing a sound in words.'
+};
+function renderTray() {
+  const { text, n, chars } = compose();
+  $('#out').textContent = text;
+  document.querySelectorAll('[data-fmt]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fmt === fmt));
+  $('#fmtNote').textContent = NOTES[fmt](chars);
+  const names = [...picks].filter(id => TERMS[id]).map(id => TERMS[id].t.name);
+  $('#count').innerHTML = n
+    ? `${n} pick${n > 1 ? 's' : ''}<small>${esc(names.join(' · '))}</small>`
+    : `Nothing picked yet<small>Press "Add to prompt" on any card to start</small>`;
+}
+
+function copyText(text, btn, fallbackEl) {
+  const done = ok => { const o = btn.textContent; btn.textContent = ok ? 'Copied' : 'Selected, press Ctrl+C'; setTimeout(() => btn.textContent = o, 1400); };
+  const select = () => { if (!fallbackEl) return; const r = document.createRange(); r.selectNodeContents(fallbackEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+  try { navigator.clipboard.writeText(text).then(() => done(true), () => { select(); done(false); }); } catch (e) { select(); done(false); }
+}
+function jumpTo(id) {
+  const el = document.getElementById('t-' + id);
+  if (!el || el.hidden) return;
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+function filter(input, scope, homeMode) {
+  const q = input.value.trim().toLowerCase();
+  let any = false;
+  scope.querySelectorAll('.group').forEach(g => {
+    let vis = 0;
+    g.querySelectorAll('.card').forEach(c => { const ok = !q || c.dataset.search.includes(q); c.hidden = !ok; if (ok) vis++; });
+    g.hidden = !vis; if (vis) any = true;
+    const nav = document.querySelector(`#nav [data-g="${g.id.slice(2)}"]`); if (nav) nav.hidden = !vis;
+  });
+  const empty = scope.querySelector('#empty'); if (empty) empty.hidden = any;
+  if (homeMode) { $('#results').hidden = !q; ['#tiles', '#same', '#recipe', '#xlate'].forEach(s => $(s).hidden = !!q); }
+}
+
+/* ---------- play wiring ---------- */
+function startCard(btn, sp) {
+  const ex = btn.closest('.ex');
+  const res = playSpec(sp, btn, () => {
+    if (ex) { ex.classList.remove('run'); ex.querySelectorAll('.prog div').forEach(d => d.classList.remove('now')); }
+    markChord = () => { };
+  });
+  if (!res || !ex) return;
+  const grid = ex.querySelector('.grid');
+  if (grid && sp.k === 'seq') { grid.style.setProperty('--bar', grid.dataset.bar + 's'); grid.style.setProperty('--loops', grid.dataset.loops); }
+  const tp = ex.querySelector('.tp');
+  if (tp && sp.k === 'click') { const b = 60 / sp.bpm; ex.style.setProperty('--tb', b + 's'); ex.style.setProperty('--tbar', b * (sp.meter || 4) + 's'); }
+  if (ex.querySelector('.prog')) markChord = ci => ex.querySelectorAll('.prog div').forEach(d => d.classList.toggle('now', +d.dataset.ci === ci % ex.querySelectorAll('.prog div').length));
+  void ex.offsetWidth; ex.classList.add('run');
+}
+
+document.addEventListener('click', e => {
+  const pl = e.target.closest('[data-play]');
+  if (pl) { e.preventDefault(); const t = TERMS[pl.dataset.play]; if (t && t.t.play) startCard(pl, t.t.play); return; }
+  const tr = e.target.closest('[data-treat]');
+  if (tr) { playSpec({ k: 'fx', fx: tr.dataset.treat, mel: melId }, tr); return; }
+  const ml = e.target.closest('[data-mel]');
+  if (ml) { stopSound(); melId = ml.dataset.mel; store.set('ms-mel', melId); renderSame(); return; }
+  const add = e.target.closest('[data-add]');
+  if (add) {
+    const id = add.dataset.add;
+    picks.has(id) ? picks.delete(id) : picks.add(id);
+    store.set('ms-picks', [...picks]);
+    const on = picks.has(id);
+    add.setAttribute('aria-pressed', on); add.textContent = on ? 'Added' : 'Add to prompt';
+    document.getElementById('t-' + id).classList.toggle('picked', on);
+    renderTray(); return;
+  }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { const el = document.getElementById('p-' + cp.dataset.copy); copyText(el.textContent, cp, el); return; }
+  const ln = e.target.closest('[data-len]');
+  if (ln) { $('#tempo-in').value = ln.dataset.len; store.set('ms-tempo', ln.dataset.len); renderTray(); return; }
+  const av = e.target.closest('[data-avoid]');
+  if (av) { const cur = $('#avoid-in').value.split(',').map(x => x.trim()).filter(Boolean); if (!cur.includes(av.dataset.avoid)) cur.push(av.dataset.avoid); $('#avoid-in').value = cur.join(', '); store.set('ms-avoid', $('#avoid-in').value); renderTray(); return; }
+  const fm = e.target.closest('[data-fmt]');
+  if (fm) { fmt = fm.dataset.fmt; store.set('ms-fmt', fmt); renderTray(); return; }
+  const j = e.target.closest('[data-jump]');
+  if (j) {
+    e.preventDefault();
+    const target = TERMS[j.dataset.jump].a.id;
+    pendingJump = j.dataset.jump;
+    if (location.hash.slice(1) === target) route(); else location.hash = target;
+  }
+});
+
+window.addEventListener('hashchange', route);
+$('#q').addEventListener('input', () => filter($('#q'), $('#main')));
+$('#qh').addEventListener('input', () => filter($('#qh'), $('#results'), true));
+$('#toggle').addEventListener('click', () => {
+  const body = $('#trayBody'), open = body.hidden;
+  body.hidden = !open; $('#toggle').setAttribute('aria-expanded', open); $('#toggle').textContent = open ? 'Hide prompt' : 'Show prompt';
+});
+$('#copyAll').addEventListener('click', e => copyText(compose().text, e.currentTarget, $('#out')));
+$('#clear').addEventListener('click', () => {
+  picks.clear(); store.set('ms-picks', []);
+  document.querySelectorAll('.card.picked').forEach(c => c.classList.remove('picked'));
+  document.querySelectorAll('[data-add]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.textContent = 'Add to prompt'; });
+  renderTray();
+});
+$('#lens').innerHTML = WORKBOOK.lens.map(s => `<button type="button" data-len="${esc(s)}">${esc(s)}</button>`).join('');
+$('#avoids').innerHTML = WORKBOOK.avoids.map(s => `<button type="button" data-avoid="${esc(s)}">${esc(s)}</button>`).join('');
+[['#subject-in', 'ms-subject'], ['#tempo-in', 'ms-tempo'], ['#avoid-in', 'ms-avoid']].forEach(([sel, k]) => {
+  $(sel).value = store.get(k, '');
+  $(sel).addEventListener('input', () => { store.set(k, $(sel).value); renderTray(); });
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopSound(); });
+
+route();
+renderTray();

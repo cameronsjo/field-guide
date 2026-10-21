@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Music &amp; Sound Workbook</title>
+<meta name="description" content="The words for what music sounds like: genres and folk traditions, instruments, rhythm and tempo, harmony, song structure, voices, production and sound design. Every card shows the thing it names, most of them play a short sketch synthesized in your browser, and each one gives you a phrase and a style tag to paste into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Figtree:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="vu" id="vu" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Music &amp; <em>Sound</em> Workbook</h1>
+      <p>The words for what music sounds like: genres and folk traditions, instruments, rhythm and tempo, harmony, song structure, voices, production and sound design. Every card shows the thing it names, most of them play a short sketch synthesized in your browser, and each one gives you a phrase and a style tag to paste into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Pick a topic and press Play until something sounds right</li>
+        <li><b>2</b>Press Add on the genre, instruments, feel and production that fit</li>
+        <li><b>3</b>Copy style tags, a full song prompt, or a written sound brief</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="same" aria-labelledby="sameH">
+      <h2 id="sameH">One melody, every room</h2>
+      <p class="lead">Production words are easiest to hear when the notes stay the same. Pick a tune, then play it through each treatment. The melody never changes, only the room, the tape and the gear it passes through. Tap a name to open its card.</p>
+      <div class="seg" id="mels" role="group" aria-label="Melody"></div>
+      <div class="tgrid" id="tgrid"></div>
+    </section>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a music prompt</h2>
+      <p class="lead">A music prompt that lands names a genre and an era, two or three instruments with a job each, a feel and a tempo, a voice, and how it was recorded. Here is what that looks like for three different jobs. Tap any word to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Describe, don't name</strong>Most music generators refuse artist and song names. Say what the artist sounds like instead: "reverb-drenched baritone, pedal steel, slow waltz". Every card here gives you that description.</li>
+        <li><strong>Genre plus era plus place</strong>"Country" is a thousand things. "1970s Texas outlaw country" is one. Stack two genre words at most, then pin the decade.</li>
+        <li><strong>Give each instrument a job</strong>"Fingerpicked guitar carries the verse, pedal steel answers the vocal" beats a list of five instruments that all fight for the middle.</li>
+        <li><strong>Say what's missing</strong>"No drums", "no autotune" or "no choir" removes the generator's default habits. Use the Leave out box in the tray.</li>
+        <li><strong>Tempo is a number</strong>"Slow" means 60 to one model and 90 to another. Write the BPM, and the time signature if it isn't 4/4.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Sound by mood</h2>
+      <p class="lead">Start from a feeling or a scene and read across: a genre, the instruments that carry it, a groove, a harmonic color, a voice, and a production treatment. Every name links to its card.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All topics</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the Visual Vocabulary, UI Patterns, Color, Typography, Photography, Art Movements, Voice &amp; Tone and Motion workbooks. Every Play button synthesizes a rough sketch in your browser with no recordings, so it shows the shape of a sound (a rhythm, a chord, a reverb, a sweep) rather than what a real player or record sounds like. The Look up line names records and artists to listen to yourself.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt" role="group" aria-label="Prompt format">
+        <button type="button" data-fmt="tags" aria-pressed="true">Style tags</button>
+        <button type="button" data-fmt="song" aria-pressed="false">Song prompt</button>
+        <button type="button" data-fmt="brief" aria-pressed="false">Sound brief</button>
+        <small id="fmtNote"></small>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What's it about, or what's it for?</label>
+          <input id="subject-in" type="text" placeholder="e.g. a song about a lake that keeps its secrets">
+        </div>
+        <div>
+          <label for="tempo-in">Tempo or length (optional)</label>
+          <input id="tempo-in" type="text" placeholder="e.g. 72 BPM, about 3 minutes">
+          <div class="stacks" id="lens"></div>
+        </div>
+        <div>
+          <label for="avoid-in">Leave out (optional)</label>
+          <input id="avoid-in" type="text" placeholder="e.g. no drums, no autotune">
+          <div class="stacks" id="avoids"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>
