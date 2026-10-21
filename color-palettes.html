@@ -1,0 +1,1542 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}#reading:empty{display:none}</style></head><body>
+<title>Color &amp; Palettes Workbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif&family=Caveat:wght@600&display=swap">
+<style>
+/* Layout: a specimen book (sibling of Visual Vocabulary and UI Patterns). Sticky group index on the left, cards on a cool paper ground, a prompt tray docked at the bottom. */
+:root{
+  --bg:#F2F4F7; --panel:#FFFFFF; --ink:#161C27; --ink2:#4B5466; --ink3:#8A93A3; --line:#DCE1E8;
+  --accent:#2B50D8; --accent-soft:#E3E9FC; --ok:#1E8E63;
+  --tile:#E8EBF1; --xs:#FFFFFF; --g2:#C9CFDA; --g3:#A7B0BF;
+  --x1:#3D6BF0; --x1l:#A8BDFA; --x1d:#2340A8;
+  --x2:#F0A532; --x2l:#F8D69A; --x2d:#B5721A;
+  --x3:#1FA197; --x3l:#9ADBD3; --x3d:#127066;
+  --x4:#E1527A; --x4l:#F4B3C5; --x4d:#A3304F;
+  --neu:#E4E8EF; --neul:#FFFFFF; --neud:#B9C1CE;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141B; --panel:#181D26; --ink:#E8ECF2; --ink2:#A9B1BF; --ink3:#6E7787; --line:#2A313D;
+  --accent:#86A2FF; --accent-soft:#1E2846; --ok:#4CC896;
+  --tile:#1F2530; --xs:#2B3240; --g2:#3A4352; --g3:#4C5667;
+  --x1:#5B83F7; --x1l:#9DB4FB; --x1d:#2F4FBF;
+  --x2:#F2B04A; --x2l:#F7D597; --x2d:#B97A22;
+  --x3:#2DB8AC; --x3l:#8FD8CF; --x3d:#1A7D73;
+  --x4:#EE6A90; --x4l:#F5B0C3; --x4d:#B13D60;
+  --neu:#232A35; --neul:#2F3846; --neud:#141920;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#10141B; --panel:#181D26; --ink:#E8ECF2; --ink2:#A9B1BF; --ink3:#6E7787; --line:#2A313D;
+  --accent:#86A2FF; --accent-soft:#1E2846; --ok:#4CC896;
+  --tile:#1F2530; --xs:#2B3240; --g2:#3A4352; --g3:#4C5667;
+  --x1:#5B83F7; --x1l:#9DB4FB; --x1d:#2F4FBF;
+  --x2:#F2B04A; --x2l:#F7D597; --x2d:#B97A22;
+  --x3:#2DB8AC; --x3l:#8FD8CF; --x3d:#1A7D73;
+  --x4:#EE6A90; --x4l:#F5B0C3; --x4d:#B13D60;
+  --neu:#232A35; --neul:#2F3846; --neud:#141920;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-inline:16px;padding-block:0 120px}
+.wrap{max-width:1240px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* header */
+.top{padding-block:40px 24px;display:grid;gap:14px;max-width:760px}
+.eyebrow{font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--ink2)}
+.top h1{font-size:clamp(36px,6vw,60px);font-weight:750;line-height:1;font-variation-settings:"opsz" 96}
+.top p{margin:0;color:var(--ink2);font-size:17px;max-width:62ch}
+.steps{display:flex;flex-wrap:wrap;gap:8px 20px;margin:4px 0 0;padding:0;list-style:none;color:var(--ink2);font-size:14px}
+.steps li{display:flex;gap:8px;align-items:baseline}
+.steps b{font:500 12px var(--mono);color:var(--accent)}
+
+/* recipe */
+.recipe{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px clamp(16px,3vw,28px);display:grid;gap:14px;margin-bottom:28px}
+.recipe h2{font-size:22px}
+.recipe .lead{margin:0;color:var(--ink2);max-width:70ch}
+.sentence{font-size:clamp(17px,2.1vw,21px);line-height:2.3;margin:0}
+.chip{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;vertical-align:middle;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:4px 9px 3px;margin:0 1px;font-weight:600}
+.chip small{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:500}
+.chip:hover{outline:1.5px solid var(--accent)}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:4px 0 0;padding:0;list-style:none}
+.tips li{border-top:1px solid var(--line);padding-top:10px;font-size:14px;color:var(--ink2)}
+.tips li strong{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+
+/* reading a real prompt */
+.reading{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px clamp(16px,3vw,28px);margin-bottom:28px}
+.reading h2{font-size:22px;margin:0 0 4px}
+.reading .lead{margin:0 0 18px;color:var(--ink2);max-width:70ch}
+.rgrid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:28px;align-items:start}
+.rfig{margin:0;position:sticky;top:16px}
+.rfig img{width:100%;height:auto;display:block;border-radius:10px}
+.rfig figcaption{font:12px var(--mono);color:var(--ink3);margin-top:8px}
+.rparts{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.rparts li{border-top:1px solid var(--line);padding:14px 0}
+.rparts li:first-child{border-top:0;padding-top:0}
+.rparts blockquote{margin:0 0 8px;font:italic 19px/1.35 "Instrument Serif", Georgia, serif;color:var(--ink)}
+.rparts .uses{display:flex;flex-wrap:wrap;gap:6px}
+.rparts .also{margin-top:8px}.rparts .also .chip{background:transparent;outline:1.5px dashed var(--accent)}
+.rparts .note{margin:8px 0 0;font-size:14px;color:var(--ink2)}
+.rparts .note b{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-right:6px}
+@media (max-width:900px){.rgrid{grid-template-columns:1fr}.rfig{position:static}}
+
+/* tool bar */
+.layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:12px}
+.search{width:100%;font:15px var(--body);padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.index nav{display:grid;gap:2px}
+.index nav a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink2);padding:6px 10px;border-radius:7px;font-size:14px}
+.index nav a span{font:12px var(--mono);color:var(--ink3);font-variant-numeric:tabular-nums}
+.index nav a:hover{background:var(--panel);color:var(--ink)}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  .index{top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:10px;z-index:5;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+  .index nav{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .index nav a{white-space:nowrap;background:var(--panel);border:1px solid var(--line);padding:5px 10px}
+}
+
+/* groups + cards */
+.group{padding-block:8px 36px;scroll-margin-top:90px}
+.ghead{display:grid;gap:4px;margin-bottom:16px;max-width:70ch}
+.ghead h2{font-size:28px;font-weight:700}
+.ghead p{margin:0;color:var(--ink2)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:100px;transition:box-shadow .3s}
+.card.flash{box-shadow:0 0 0 3px var(--accent)}
+.card.picked{border-color:var(--accent)}
+.ex{aspect-ratio:16/10;max-width:100%;background:var(--tile);display:grid;place-items:center;overflow:hidden;position:relative}
+.ex>svg{width:100%;height:100%;display:block}
+.cbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
+.cbody h3{font-size:19px;font-weight:700;line-height:1.2}
+.aka{font-size:12.5px;color:var(--ink3);margin-top:-4px}
+.desc{margin:0;font-size:14.5px;color:var(--ink2)}
+.ref{margin:0;font-size:13px;color:var(--ink2)}
+.ref b{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-right:4px}
+.phrase{margin-top:auto;display:grid;gap:8px;padding-top:6px}
+.phrase code{display:block;font:13px/1.45 var(--mono);background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.btns{display:flex;gap:8px}
+.btn{font:600 13px var(--body);border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btn:hover{border-color:var(--ink3)}
+.btn.add[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.empty{color:var(--ink2);padding:24px 0}
+.foot{border-top:1px solid var(--line);margin-top:12px;padding-block:20px;color:var(--ink3);font-size:13px;max-width:70ch}
+
+/* tray */
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(10,20,40,.08);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));z-index:10}
+.tray-in{max-width:1240px;margin:0 auto;display:grid;gap:12px}
+.tray-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tray-bar .count{font-weight:600;flex:1;min-width:0}
+.tray-bar .count small{display:block;font-weight:400;color:var(--ink2);font-size:13px}
+.tray-body{display:grid;gap:10px}
+.tray-body label{font-size:13px;color:var(--ink2)}
+.tray-body input{width:100%;font:15px var(--body);padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.tray-body pre{margin:0;max-height:38vh;overflow:auto;background:var(--bg);border-radius:9px;padding:12px;font:13px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* example drawing classes */
+.x1{fill:var(--x1)}.x1l{fill:var(--x1l)}.x1d{fill:var(--x1d)}
+.x2{fill:var(--x2)}.x2l{fill:var(--x2l)}.x2d{fill:var(--x2d)}
+.x3{fill:var(--x3)}.x3l{fill:var(--x3l)}.x3d{fill:var(--x3d)}
+.x4{fill:var(--x4)}.x4l{fill:var(--x4l)}.x4d{fill:var(--x4d)}
+.g{fill:var(--g2)}.gl{fill:var(--xs)}.gd{fill:var(--g3)}
+.sf{fill:var(--xs)}.ik{fill:var(--ink)}.mu{fill:var(--ink3)}.gr{fill:var(--g2)}
+.st{fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.sm{fill:none;stroke:var(--ink3);stroke-width:1;stroke-linecap:round}
+.sx1{fill:none;stroke:var(--x1);stroke-width:2;stroke-linecap:round}
+.sx2{fill:none;stroke:var(--x2);stroke-width:2;stroke-linecap:round}
+.sx3{fill:none;stroke:var(--x3);stroke-width:2;stroke-linecap:round}
+.nd{fill:var(--xs);stroke:var(--ink);stroke-width:1.1}
+.ar{fill:none;stroke:var(--ink);stroke-width:1.1;marker-end:url(#arr)}
+.ln{fill:none;stroke:var(--ink);stroke-width:1.1}
+.dash{stroke-dasharray:3 3}
+.dt{fill:var(--ink);font:500 7px var(--mono);text-anchor:middle}
+.dtl{fill:var(--ink);font:500 7px var(--mono)}
+.dts{fill:var(--ink2);font:6px var(--mono);text-anchor:middle}
+
+/* HTML-built examples */
+.hx{width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:18px;padding:14px}
+.neu{background:var(--neu)}
+.neu .b{width:64px;height:64px;border-radius:18px;background:var(--neu);box-shadow:7px 7px 14px var(--neud),-7px -7px 14px var(--neul)}
+.neu .i{width:64px;height:64px;border-radius:50%;background:var(--neu);box-shadow:inset 6px 6px 12px var(--neud),inset -6px -6px 12px var(--neul)}
+.glass{position:relative}
+.glass .blob{position:absolute;border-radius:50%}
+.glass .p{position:relative;width:62%;height:58%;border-radius:14px;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(20,30,60,.15);padding:12px;display:grid;gap:6px;align-content:start}
+.glass .p i{display:block;height:7px;border-radius:4px;background:rgba(255,255,255,.75)}
+.clay .c{width:62px;height:62px;border-radius:24px;box-shadow:inset -7px -7px 12px rgba(0,0,0,.18),inset 7px 7px 12px rgba(255,255,255,.55),8px 12px 18px rgba(20,30,60,.22)}
+.elev .c{width:54px;height:66px;border-radius:8px;background:var(--xs)}
+.typo{flex-direction:column;gap:2px;color:var(--ink);text-align:center}
+.morph{width:52px;height:52px;background:var(--x1);animation:morph 3.2s ease-in-out infinite}
+.press{font:600 15px var(--body);color:#fff;width:108px;height:40px;border-radius:10px;position:relative;animation:press 2.6s ease infinite,pressbg 2.6s ease infinite;display:grid;place-items:center}
+.press span{grid-area:1/1}
+.press .a{animation:fadeA 2.6s infinite}.press .b{animation:fadeB 2.6s infinite;opacity:0}
+
+/* motion keyframes */
+.mv{transform-box:fill-box}
+.lin{animation:mvx 2.4s linear infinite alternate}
+.eio{animation:mvx 2.4s cubic-bezier(.65,0,.35,1) infinite alternate}
+.spr{animation:mvx 1.8s cubic-bezier(.34,1.7,.5,1) infinite alternate}
+.pop{animation:pop 3s ease-out infinite both}
+.ring{transform-box:fill-box;transform-origin:center;animation:ring 2s ease-out infinite}
+.flow{stroke-dasharray:4 6;animation:dash 1s linear infinite}
+.p1{animation:px1 4s ease-in-out infinite}.p2{animation:px2 4s ease-in-out infinite}.p3{animation:px3 4s ease-in-out infinite}
+.b1{animation:b1 4.5s infinite}.b2{animation:b2 4.5s infinite}.b3{animation:b3 4.5s infinite}
+.blink{animation:blink 1s steps(1) infinite}
+.bob{animation:bob 3s ease-in-out infinite}
+.bobs{transform-box:fill-box;transform-origin:center;animation:bobs 3s ease-in-out infinite}
+.orb{offset-path:path('M28 66 A52 14 0 1 0 132 66 A52 14 0 1 0 28 66');animation:orb 6s linear infinite}
+@keyframes bob{0%,100%{transform:translateY(-4px)}50%{transform:translateY(4px)}}
+@keyframes bobs{0%,100%{transform:scale(.8);opacity:.12}50%{transform:scale(1.05);opacity:.25}}
+@keyframes orb{from{offset-distance:0%}to{offset-distance:100%}}
+@keyframes mvx{0%,8%{transform:translateX(0)}92%,100%{transform:translateX(96px)}}
+@keyframes pop{0%{opacity:0;transform:translateY(8px)}18%,80%{opacity:1;transform:none}100%{opacity:0}}
+@keyframes ring{0%{transform:scale(.5);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+@keyframes dash{to{stroke-dashoffset:-20}}
+@keyframes px1{0%,100%{transform:translateX(-3px)}50%{transform:translateX(3px)}}
+@keyframes px2{0%,100%{transform:translateX(-9px)}50%{transform:translateX(9px)}}
+@keyframes px3{0%,100%{transform:translateX(-20px)}50%{transform:translateX(20px)}}
+@keyframes b1{0%,4%{opacity:0}10%,86%{opacity:1}94%,100%{opacity:0}}
+@keyframes b2{0%,30%{opacity:0}36%,86%{opacity:1}94%,100%{opacity:0}}
+@keyframes b3{0%,56%{opacity:0}62%,86%{opacity:1}94%,100%{opacity:0}}
+@keyframes morph{0%,12%{border-radius:8px;transform:rotate(0)}50%,62%{border-radius:50%;transform:rotate(90deg) scale(1.1)}100%{border-radius:8px;transform:rotate(180deg)}}
+@keyframes press{0%,40%{transform:scale(1)}46%{transform:scale(.9)}54%,100%{transform:scale(1)}}
+@keyframes pressbg{0%,46%{background:var(--x1)}50%,92%{background:var(--ok)}100%{background:var(--x1)}}
+@keyframes fadeA{0%,46%{opacity:1}50%,92%{opacity:0}100%{opacity:1}}
+@keyframes fadeB{0%,46%{opacity:0}50%,92%{opacity:1}100%{opacity:0}}
+@keyframes blink{50%{opacity:0}}
+.kt{display:inline-block;animation:kt 2.6s cubic-bezier(.2,1.4,.4,1) infinite}.kt2{animation-delay:.25s}.kt3{animation-delay:.5s}
+@keyframes kt{0%,8%{transform:translateY(14px) scale(.6);opacity:0}22%,80%{transform:none;opacity:1}100%{opacity:0}}
+.mgspin{transform-origin:30px 30px;animation:mgspin 1.6s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes mgspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.ex *{animation:none!important}.b2,.b3,.pop{opacity:1}}
+/* home tiles + subject pages */
+.top .search{max-width:420px;margin-top:6px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:32px}
+.tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-decoration:none;color:var(--ink);transition:border-color .2s,transform .2s}
+.tile:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tile .ex *{animation:none!important}
+.tbody{padding:14px 16px 16px;display:grid;gap:6px;min-width:0}
+.tbody h3{font-size:22px;font-weight:700}
+.tbody p{margin:0;color:var(--ink2);font-size:14.5px}
+.tmeta{font:12px/1.5 var(--mono);color:var(--ink3)}
+#results{margin-bottom:28px}
+.subhead{padding-block:28px 20px;display:grid;gap:8px;max-width:760px}
+.subhead h1{font-size:clamp(32px,5vw,48px);font-weight:750;line-height:1.05}
+.subhead p{margin:0;color:var(--ink2);font-size:17px}
+.back{font:500 13px var(--mono);text-decoration:none;color:var(--accent)}
+.next{display:inline-block;margin-block:8px 24px;font-weight:600;text-decoration:none;color:var(--accent);font-size:16px}
+.ghead .eyebrow{margin-bottom:2px}
+.shim{animation:shim 1.4s ease-in-out infinite}
+@keyframes shim{0%,100%{opacity:1}50%{opacity:.45}}
+@media (max-width:900px){.subhead{padding-block:20px 8px}}
+
+/* color workbook additions */
+.hexes{display:flex;border-top:1px solid var(--line)}
+.hexes button{flex:1 1 0;min-width:0;border:0;padding:16px 2px 4px;font:500 9.5px/1 var(--mono);cursor:pointer;text-align:center;overflow:hidden;white-space:nowrap;letter-spacing:-.02em}
+.hexes button:hover{outline:2px solid var(--ink);outline-offset:-2px}
+.hexes.many button{font-size:0;padding:11px 0 0}
+.hexes.many button:hover{font-size:9px;padding:2px 0}
+.hexnote{font:11.5px var(--mono);color:var(--ink3);margin-top:-2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.qchip{font:500 13px var(--body);border-radius:999px;padding:5px 11px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.qchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.tray-body .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:700px){.tray-body .row2{grid-template-columns:1fr}}
+.sampled{display:flex;gap:0;margin-top:10px;border-radius:8px;overflow:hidden}
+.sampled span{flex:1;height:30px;display:grid;place-items:end center;font:9.5px var(--mono);padding-bottom:3px}
+.conic{width:76px;height:76px;border-radius:50%}
+.mesh{position:absolute;inset:0;filter:blur(18px);transform:scale(1.2)}
+.mesh i{position:absolute;border-radius:50%;display:block}
+.aurora i{animation:drift 9s ease-in-out infinite alternate}
+.aurora i:nth-child(2){animation-duration:12s}.aurora i:nth-child(3){animation-duration:7s}
+@keyframes drift{from{transform:translate(-14px,6px)}to{transform:translate(16px,-8px)}}
+.irid{background:linear-gradient(115deg,#ff9ad5,#ffe08a 22%,#9cf6c9 42%,#8fd3ff 62%,#c8a2ff 80%,#ff9ad5);background-size:200% 200%;animation:irid 6s linear infinite}
+@keyframes irid{to{background-position:200% 0}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ik"/></marker>
+  <filter id="grainF" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0"/></filter>
+  <radialGradient id="vigF" cx=".5" cy=".5" r=".72"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></radialGradient>
+</defs></svg>
+
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Color &amp; Palettes</h1>
+      <p>Words, palettes and real hex codes for the colors in your head. Every card has a picture, a plain explanation, and a phrase you can paste into a prompt, so you can ask for “a muted accented-analogous palette with a Portra grade” instead of “warmer, but not like that”.</p>
+      <ol class="steps">
+        <li><b>1</b>Open a subject and browse until a swatch matches what you imagine</li>
+        <li><b>2</b>Press Add on the cards that fit, or tap a swatch to copy its hex</li>
+        <li><b>3</b>Copy the assembled prompt from the tray</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every subject…" aria-label="Search every subject">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="recipe" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a color prompt</h2>
+      <p class="lead">A strong color direction names a relationship, a mood, a light and a finish, then gives each color a job. Here is the kind of sentence that describes a screen-print poster of a sailboat heading into a low sun. Tap any word to jump to its card.</p>
+      <p class="sentence" id="sentence"></p>
+      <ul class="tips">
+        <li><strong>Relationship before hex</strong>“Analogous with one complementary accent” tells Claude how colors relate, so every new color it adds still fits.</li>
+        <li><strong>Give every color a job</strong>“Amber for light, teal for shadow, cream for highlights.” Roles stop colors drifting into places they don’t belong.</li>
+        <li><strong>Name the light</strong>Golden hour, overcast and neon night each recolor the whole scene. One light word beats five color words.</li>
+        <li><strong>Borrow a palette</strong>“Nord”, “Kodak Portra” or “Wes Anderson pinks” each carry a whole tested palette. Tap a swatch to copy exact hexes when you need them.</li>
+      </ul>
+    </section>
+
+    <section class="reading" id="reading" aria-labelledby="readingH"></section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All subjects</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this subject…" aria-label="Search this subject">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot">A sibling of the Visual Vocabulary and UI Patterns workbooks. Hex codes for themes, film palettes and accessibility palettes come from their published specs; pigment and brand colors are the commonly used digital approximations, since the real thing is paint, dye or ink.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">No cards picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="row2">
+        <div>
+          <label for="subject-in">What are you coloring?</label>
+          <input id="subject-in" type="text" placeholder="e.g. a screen-print poster for a lakeside folk festival">
+        </div>
+        <div>
+          <label id="mediumL">Where will the color live?</label>
+          <div class="chips" id="mediums" role="group" aria-labelledby="mediumL"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUN_IMG = '';
+/* ---------- drawing helpers ---------- */
+const sv = b => `<svg viewBox="0 0 160 100" aria-hidden="true">${b}</svg>`;
+const f1 = n => n.toFixed(1);
+const pts = a => a.map(q => f1(q[0]) + ',' + f1(q[1])).join(' ');
+let UID = 0;
+const U = p => p + (++UID);
+const grainOv = (a = .35) => `<rect width="160" height="100" filter="url(#grainF)" opacity="${a}"/>`;
+const vig = (a = 1) => `<rect width="160" height="100" fill="url(#vigF)" opacity="${a}"/>`;
+
+// palette scene: background, circle, bars, plus a swatch strip
+function cs(c) {
+  const k = c.length;
+  return sv(`<rect x="14" y="8" width="132" height="60" rx="6" fill="${c[0]}"/><circle cx="48" cy="38" r="17" fill="${c[1]}"/><rect x="76" y="24" width="56" height="9" rx="4.5" fill="${c[2]}"/><rect x="76" y="39" width="40" height="6" rx="3" fill="${c[3] || c[1]}"/><rect x="76" y="51" width="24" height="9" rx="4.5" fill="${c[4] || c[2]}"/>` +
+    c.map((x, i) => `<rect x="${f1(14 + i * 132 / k)}" y="76" width="${f1(132 / k + .2)}" height="16" fill="${x}"/>`).join(''));
+}
+// a poster-ish scene that shows a palette in use: sky, sun, two hills, a figure
+function scene(c) {
+  return sv(`<rect width="160" height="100" fill="${c[0]}"/><circle cx="108" cy="40" r="20" fill="${c[1]}"/><path d="M0 64 Q40 44 82 60 T160 54 V100 H0Z" fill="${c[2]}"/><path d="M0 80 Q60 66 110 78 T160 76 V100 H0Z" fill="${c[3]}"/><rect x="40" y="62" width="4" height="12" rx="2" fill="${c[4] || c[3]}"/><circle cx="42" cy="59" r="3" fill="${c[4] || c[3]}"/>`);
+}
+// 12-step color wheel with selected hues and connecting lines
+const wheel = (sel, lines, extra = '') => {
+  const P = i => { const a = (i * 30 - 90) * Math.PI / 180; return [80 + 34 * Math.cos(a), 50 + 34 * Math.sin(a)]; };
+  let o = lines ? `<path d="${lines.map(([a, b]) => `M${pts([P(a)])}L${pts([P(b)])}`).join('')}" stroke="var(--ink)" stroke-width="1.2" fill="none"/>` : '';
+  for (let i = 0; i < 12; i++) { const [x, y] = P(i), on = sel.includes(i); o += `<circle cx="${f1(x)}" cy="${f1(y)}" r="${on ? 8.5 : 5.5}" fill="hsl(${i * 30} 78% 56%)"${on ? ' stroke="var(--ink)" stroke-width="1.6"' : ' opacity=".45"'}/>`; }
+  return sv(o + extra);
+};
+// wheel on the left, the resulting palette on the right
+const wheelPal = (sel, lines, cols) => {
+  const P = i => { const a = (i * 30 - 90) * Math.PI / 180; return [50 + 32 * Math.cos(a), 50 + 32 * Math.sin(a)]; };
+  let o = lines ? `<path d="${lines.map(([a, b]) => `M${pts([P(a)])}L${pts([P(b)])}`).join('')}" stroke="var(--ink)" stroke-width="1.1" fill="none"/>` : '';
+  for (let i = 0; i < 12; i++) { const [x, y] = P(i), on = sel.includes(i); o += `<circle cx="${f1(x)}" cy="${f1(y)}" r="${on ? 7.5 : 4.5}" fill="hsl(${i * 30} 78% 56%)"${on ? ' stroke="var(--ink)" stroke-width="1.4"' : ' opacity=".4"'}/>`; }
+  const h = 76 / cols.length;
+  o += cols.map((c, i) => `<rect x="100" y="${f1(12 + i * h)}" width="46" height="${f1(h - 2)}" rx="3" fill="${c}"/>`).join('');
+  return sv(o);
+};
+const swatchRow = (y, cols, h = 22, x0 = 12, w = 136) => cols.map((c, i) => `<rect x="${f1(x0 + i * (w / cols.length))}" y="${y}" width="${f1(w / cols.length - 2)}" height="${h}" rx="3" fill="${c}"/>`).join('');
+
+// landscape for film stocks, grades and light: o = {sky:[top,bottom], sun, far, mid, near, fig, glow, post}
+function land(o) {
+  const id = U('ld');
+  const sky = o.sky || ['#9fc7e8', '#f6d9b0'], sun = o.sun || '#ffd27a', sy = o.sunY == null ? 44 : o.sunY;
+  return sv(`<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset="1" stop-color="${sky[1]}"/></linearGradient><radialGradient id="${id}g"><stop offset="0" stop-color="${o.glowC || sun}" stop-opacity=".85"/><stop offset="1" stop-color="${o.glowC || sun}" stop-opacity="0"/></radialGradient></defs>` +
+    `<rect width="160" height="100" fill="url(#${id})"/>` + (o.glow ? `<circle cx="112" cy="${sy}" r="${o.glow}" fill="url(#${id}g)"/>` : '') +
+    (o.noSun ? '' : `<circle cx="112" cy="${sy}" r="${o.sunR || 10}" fill="${sun}"/>`) + (o.pre || '') +
+    `<path d="M0 62 L22 50 L44 58 L70 42 L96 56 L124 47 L160 58 V100 H0Z" fill="${o.far || '#8aa0b8'}"/>` +
+    `<path d="M0 74 Q40 62 80 72 T160 68 V100 H0Z" fill="${o.mid || '#5f7a8c'}"/>` +
+    `<path d="M0 86 Q50 78 100 86 T160 84 V100 H0Z" fill="${o.near || '#2f4552'}"/>` +
+    `<circle cx="46" cy="69.5" r="2.6" fill="${o.fig || '#1a1a1a'}"/><path d="M43.4 82 L44.3 72.8 h3.4 L48.6 82Z" fill="${o.fig || '#1a1a1a'}"/>` +
+    (o.post || ''));
+}
+// a portrait-ish face for skin-tone looks
+function face(o) {
+  const id = U('fc');
+  return sv(`<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${o.bg[0]}"/><stop offset="1" stop-color="${o.bg[1]}"/></linearGradient></defs><rect width="160" height="100" fill="url(#${id})"/>` +
+    `<path d="M50 100 Q52 74 80 72 Q108 74 110 100Z" fill="${o.cloth}"/><rect x="73" y="58" width="14" height="16" fill="${o.skinD}"/><ellipse cx="80" cy="44" rx="17" ry="21" fill="${o.skin}"/><path d="M80 23 a17 21 0 0 1 17 21 L97 46 Q90 40 92 30 Q80 26 63 40 L63 44 a17 21 0 0 1 17 -21Z" fill="${o.hair}"/><path d="M80 23 a17 21 0 0 1 0 42" fill="${o.skinD}" opacity="${o.split || 0}"/>` + (o.post || ''));
+}
+// code editor in a theme: bg, gutter, fg, accents
+function editor(bg, panel, fg, acc, dim) {
+  const rows = [[[14, 1], [18, 0], [10, 2]], [[8, 3], [26, 0], [12, 4]], [[6, 0], [16, 5], [8, 0], [14, 2]], [[8, 0], [20, 4], [10, 1]], [[14, 6], [24, 0]], [[6, 0], [12, 3], [18, 2]], [[22, dim]], [[10, 1], [8, 5], [16, 0]]];
+  let o = `<rect width="160" height="100" fill="${bg}"/><rect width="160" height="9" fill="${panel}"/><circle cx="7" cy="4.5" r="1.8" fill="${acc[0]}"/><circle cx="13" cy="4.5" r="1.8" fill="${acc[3] || acc[1]}"/><circle cx="19" cy="4.5" r="1.8" fill="${acc[2]}"/><rect x="0" y="9" width="16" height="91" fill="${panel}" opacity=".6"/><rect x="128" y="9" width="32" height="91" fill="${panel}" opacity=".4"/>`;
+  rows.forEach((r, i) => {
+    let x = 22 + (i % 3 === 2 ? 6 : 0), y = 15 + i * 10;
+    o += `<rect x="5" y="${y}" width="7" height="3" rx="1" fill="${fg}" opacity=".25"/>`;
+    r.forEach(([w, c]) => { const col = typeof c === 'string' ? c : c === 0 ? fg : acc[(c - 1) % acc.length]; o += `<rect x="${x}" y="${y}" width="${w}" height="4" rx="2" fill="${col}"/>`; x += w + 3; });
+  });
+  return sv(o);
+}
+// a paint chip for a single named color
+function chip(hex, name, sub) {
+  return sv(`<rect width="160" height="100" fill="var(--tile)"/><g transform="rotate(-3 80 50)"><rect x="36" y="8" width="88" height="84" rx="3" fill="#fff" stroke="#0002"/><rect x="40" y="12" width="80" height="56" rx="1" fill="${hex}"/><text x="42" y="79" style="font:600 7.5px var(--body);fill:#1d1d1d">${name}</text><text x="42" y="88" style="font:6.5px var(--mono);fill:#666">${sub || hex.toUpperCase()}</text></g>`);
+}
+// a chip next to an object that wears the color
+function wear(hex, obj) {
+  return sv(`<rect width="160" height="100" fill="var(--tile)"/><rect x="14" y="14" width="56" height="72" rx="4" fill="${hex}"/>` + obj);
+}
+// HTML gradient tile
+const hg = (css, inner = '') => `<div class="hx" style="background:${css};padding:0">${inner}</div>`;
+// mini UI frame helpers
+const uiCard = (x, y, w, h, fill, stroke) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${fill}"${stroke ? ` stroke="${stroke}"` : ''}/>`;
+const bar = (x, y, w, fill, h = 4) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" fill="${fill}"/>`;
+
+/* ---------- workbook content ----------
+   Every section is a group pushed into pool.groups:
+   { id, title, slot, intro, terms:[{ id, name, aka, desc, spot?, ref, prompt, ex, hex? }] }
+   hex: exact colors shown as tap-to-copy swatches under the picture, and listed in the prompt.
+   Subjects (one page each) are assembled from groups at the end.
+*/
+const pool = { groups: [] };
+
+/* ---------- harmony & theory ---------- */
+pool.groups.push({
+  id: 'harmony', title: 'Harmonies', slot: 'Harmony',
+  intro: "Classic ways to choose colors that belong together, named by where they sit on the color wheel. Naming the relationship lets Claude add new colors that still fit.",
+  terms: [
+    { id: 'mono', name: 'Monochromatic', aka: 'single-hue, tonal, tone-on-tone',
+      desc: "One hue in many lights and darks. Calm, unified and almost impossible to get wrong; contrast comes from value, not from color.",
+      spot: "everything is the same color family, separated only by lighter and darker steps",
+      ref: "IBM's blue-only diagrams, blueprint posters, Tron",
+      prompt: "monochromatic palette: tints and shades of a single [blue], separated by value only",
+      ex: wheelPal([7], null, ['#dce6fb', '#93b2f0', '#4a7de0', '#1f4fb5', '#0d2b6b']) },
+    { id: 'analog', name: 'Analogous', aka: 'neighbor colors, adjacent hues',
+      desc: "Three or so hues that sit side by side on the wheel, like amber, orange and red. Natural and harmonious, the way a sunset or autumn leaves are.",
+      ref: "sunsets, forests, warm film posters",
+      prompt: "analogous palette of neighboring hues: [gold, amber and burnt orange]",
+      ex: wheelPal([1, 2, 3], [[1, 2], [2, 3]], ['#f6c75a', '#f0a53a', '#e07b2a', '#b8521f']) },
+    { id: 'accented', name: 'Accented analogous', aka: 'analogous plus complement, warm palette with one cool accent',
+      desc: "An analogous family with a single small accent taken from the opposite side of the wheel. The accent pops because it is the only one of its kind.",
+      spot: "a mostly warm (or mostly cool) image with one small patch of the opposite temperature",
+      ref: "warm travel posters with one teal accent; a red door on a green street",
+      prompt: "accented analogous palette: [amber, gold and cream] with a single small [teal] accent as the only cool color",
+      ex: wheelPal([1, 2, 3, 7], [[1, 2], [2, 3], [2, 7]], ['#f6c75a', '#f0a53a', '#e07b2a', '#2f8f8a']) },
+    { id: 'comp', name: 'Complementary', aka: 'opposites, contrast pair',
+      desc: "Two hues from opposite sides of the wheel, such as blue and orange. Each makes the other look stronger; use one as the main color and the other sparingly.",
+      ref: "teal-and-orange film posters, sports kits, IKEA",
+      prompt: "complementary palette: [deep blue] dominant with small [orange] accents",
+      ex: wheelPal([1, 7], [[1, 7]], ['#0f2a63', '#1f4fb5', '#f08a1c', '#f9c98f']) },
+    { id: 'splitcomp', name: 'Split-complementary', aka: 'split complement',
+      desc: "One main hue plus the two hues on either side of its opposite. The punch of complementary colors with less clash, so it is easier to balance.",
+      ref: "blue with red-orange and yellow-orange accents",
+      prompt: "split-complementary scheme: [blue] as the base, with [red-orange] and [yellow-orange] accents",
+      ex: wheelPal([7, 0, 2], [[7, 0], [7, 2]], ['#1f4fb5', '#e8452f', '#f2b134', '#dfe6f5']) },
+    { id: 'triadic', name: 'Triadic', aka: 'three-way scheme, primary triad',
+      desc: "Three hues evenly spaced around the wheel, like red, yellow and blue. Bright and playful; let one lead and the other two support.",
+      ref: "Bauhaus posters, kids' toys, Mondrian",
+      prompt: "triadic color scheme of [red], [yellow] and [blue], with [red] dominant",
+      ex: wheelPal([0, 4, 8], [[0, 4], [4, 8], [8, 0]], ['#d8352a', '#f3c623', '#2348a8', '#f4efe4']) },
+    { id: 'tetradic', name: 'Tetradic', aka: 'rectangle scheme, double complementary',
+      desc: "Two complementary pairs, making a rectangle on the wheel. Rich and varied, but busy; it works best when one color clearly dominates and the rest are muted.",
+      ref: "festival posters, video game UI",
+      prompt: "tetradic (double complementary) scheme, one dominant hue and three muted supporting hues",
+      ex: wheelPal([1, 3, 7, 9], [[1, 3], [3, 7], [7, 9], [9, 1]], ['#e07b2a', '#d9c53a', '#2a6fdb', '#7b3fd1']) },
+    { id: 'square', name: 'Square', aka: 'four evenly spaced hues',
+      desc: "Four hues evenly spaced around the wheel. The most colorful of the classic schemes; it suits playful brands and needs a quiet neutral to rest on.",
+      ref: "Google's four-color logo, Microsoft's tiles",
+      prompt: "square color scheme of four evenly spaced hues on a calm off-white background",
+      ex: wheelPal([0, 3, 6, 9], [[0, 3], [3, 6], [6, 9], [9, 0]], ['#e5483b', '#e6c229', '#2fa860', '#3a64d8']) },
+    { id: 'achromatic', name: 'Achromatic', aka: 'black, white and grays, colorless',
+      desc: "No hue at all: only black, white and grays. Feels editorial, architectural and serious, and lets texture and shape carry everything.",
+      ref: "Swiss posters, architecture monographs, film noir",
+      prompt: "achromatic palette: black, white and grays only, no hue at all",
+      ex: wheelPal([], null, ['#f4f4f2', '#bdbdbb', '#7a7a78', '#3c3c3b', '#121212']) },
+    { id: 'accent', name: 'Neutral plus one accent', aka: 'achromatic with a pop, spot color',
+      desc: "Mostly grays, off-whites or blacks, with one strong color reserved for the thing that matters. The most dependable way to direct the eye.",
+      ref: "Stripe docs, Nike ads, red in Schindler's List",
+      prompt: "neutral palette of warm grays with a single [cobalt] accent used only for the most important element",
+      ex: wheelPal([7], null, ['#f3f2ef', '#d6d4cf', '#9b9891', '#4d4b47', '#2b50d8']) },
+    { id: 'ratio', name: '60-30-10 rule', aka: 'dominant, secondary, accent',
+      desc: "Use the main color on about 60% of the area, a second on 30%, and an accent on 10%. A simple proportion that makes almost any palette feel balanced.",
+      ref: "interior design, brand guidelines, slide decks",
+      prompt: "follow a 60-30-10 split: [cream] 60% of the area, [forest green] 30%, [brass] 10% for accents",
+      ex: sv(`<rect x="14" y="12" width="132" height="54" rx="4" fill="#efe6d2"/><rect x="14" y="12" width="52.8" height="54" rx="4" fill="#2f4a3a"/><rect x="104" y="44" width="30" height="12" rx="3" fill="#c79a3d"/><rect x="14" y="74" width="79" height="14" fill="#efe6d2"/><rect x="93" y="74" width="39.6" height="14" fill="#2f4a3a"/><rect x="132.6" y="74" width="13.4" height="14" fill="#c79a3d"/><text x="53" y="96" class="dts">60</text><text x="113" y="96" class="dts">30</text><text x="139" y="96" class="dts">10</text>`) },
+    { id: 'discord', name: 'Discordant', aka: 'clashing colors, deliberate clash',
+      desc: "Colors that are “wrong” together on purpose, like pink with orange or acid green with red. Loud, fashion-forward and attention-grabbing when it is clearly intentional.",
+      ref: "Gucci campaigns, punk flyers, Memphis design",
+      prompt: "deliberately clashing palette: hot pink against orange and acid green, bold and intentional",
+      ex: cs(['#ff7a1a', '#ff3ea5', '#b6f23a', '#d6001c', '#3a1d8f']) }
+  ]
+});
+
+pool.groups.push({
+  id: 'dials', title: 'Color dials & effects', slot: 'Color dial',
+  intro: "The properties every color has, and the perception effects that change how colors look next to each other. Use these to make a fix precise: “less saturated”, not “less loud”.",
+  terms: [
+    { id: 'hue', name: 'Hue', aka: 'the color family',
+      desc: "Which color it is (red, amber, teal) as a position around the wheel. Shifting hue changes the color itself, not how strong or light it is.",
+      ref: '"shift the reds toward orange", "same hue, darker"',
+      prompt: "keep every color within a narrow hue range around [amber]",
+      ex: sv(swatchRow(28, [0, 30, 60, 120, 180, 210, 260, 310].map(h => `hsl(${h} 72% 56%)`), 40) + `<text x="80" y="86" class="dts">hue: which color</text>`) },
+    { id: 'sat', name: 'Saturation', aka: 'chroma, intensity, vividness',
+      desc: "How pure a color is, from gray to vivid. Low saturation feels calm, grown-up and expensive; high saturation feels loud, young and energetic.",
+      ref: "documentary grades vs. kids' brands",
+      prompt: "low-saturation palette overall, with only [one element] fully saturated",
+      ex: sv(swatchRow(28, [0, 15, 30, 50, 70, 90].map(s => `hsl(18 ${s}% 52%)`), 40) + `<text x="80" y="86" class="dts">gray → vivid</text>`) },
+    { id: 'value', name: 'Value', aka: 'lightness, tonal value, luminance',
+      desc: "How light or dark a color is, ignoring its hue. Value does the work and color gets the credit: an image with clear light and dark shapes still reads in grayscale.",
+      spot: "turn the image grayscale; strong images still show a few clear big shapes",
+      ref: "notan studies, the squint test",
+      prompt: "strong value structure: a few big light and dark shapes that read clearly even in grayscale",
+      ex: sv(swatchRow(16, [18, 32, 46, 60, 74, 88].map(l => `hsl(170 55% ${l}%)`), 26) + swatchRow(48, [18, 32, 46, 60, 74, 88].map(l => `hsl(0 0% ${l}%)`), 26) + `<text x="80" y="90" class="dts">same values, with and without color</text>`) },
+    { id: 'tints', name: 'Tints, tones & shades', aka: 'adding white, gray or black',
+      desc: "A tint is a color plus white (soft, airy). A tone is plus gray (muted). A shade is plus black (deep, rich). Asking for “tints and shades of one teal” keeps a palette unified.",
+      ref: "pastels are tints; jewel tones lean toward shades",
+      prompt: "build the palette from tints, tones and shades of a single [teal]",
+      ex: sv([['tint', i => `hsl(175 60% ${42 + i * 9}%)`], ['tone', i => `hsl(175 ${60 - i * 10}% 42%)`], ['shade', i => `hsl(175 60% ${42 - i * 6.5}%)`]].map(([n, c], r) => [0, 1, 2, 3, 4, 5].map(i => `<rect x="${44 + i * 18}" y="${14 + r * 26}" width="16" height="20" rx="3" fill="${c(i)}"/>`).join('') + `<text x="38" y="${27 + r * 26}" class="dts" style="text-anchor:end">${n}</text>`).join('')) },
+    { id: 'temp', name: 'Color temperature', aka: 'warm vs. cool',
+      desc: "Reds, oranges and yellows feel warm, close and energetic; blues and greens feel cool, distant and calm. Warm things seem to step forward and cool things recede.",
+      ref: "fire vs. ice, heat maps, sunset vs. moonlight",
+      prompt: "warm colors for the foreground subject, cool colors for the background so it recedes",
+      ex: sv(`<rect x="10" y="8" width="70" height="84" fill="#f3d9c8"/><rect x="80" y="8" width="70" height="84" fill="#d3e3f3"/><circle cx="45" cy="44" r="18" fill="#e4572e"/><rect x="26" y="70" width="38" height="8" rx="4" fill="#f2a541"/><circle cx="115" cy="44" r="18" fill="#2a6fdb"/><rect x="96" y="70" width="38" height="8" rx="4" fill="#2bb3a3"/>`) },
+    { id: 'shifted', name: 'Warm-shifted & cool-shifted', aka: 'biased hue, warm teal, cool red',
+      desc: "Nudging a color toward the warm or cool side without changing what it is: a teal that leans green, a red that leans blue. It keeps a single accent in tune with the rest of the palette.",
+      spot: "a cool color that still looks at home in a warm picture, or the reverse",
+      ref: "“more green than blue”",
+      prompt: "warm-shift the [teal] toward green so it sits comfortably in the warm palette",
+      ex: sv(`<rect x="10" y="10" width="140" height="80" rx="4" fill="#f2c56d"/><rect x="22" y="24" width="50" height="50" rx="4" fill="#2e86b8"/><rect x="88" y="24" width="50" height="50" rx="4" fill="#3f8f73"/><text x="47" y="86" class="dts">cool teal</text><text x="113" y="86" class="dts">warm-shifted</text>`) },
+    { id: 'valuekey', name: 'High key & low key', aka: 'light key, dark key, tonal range',
+      desc: "High key keeps nearly everything light, with few shadows: airy and optimistic. Low key keeps nearly everything dark with small pools of light: dramatic and intimate.",
+      ref: "Apple product shots (high key), Rembrandt and noir (low key)",
+      prompt: "high-key image: mostly light tones, soft shadows, airy and bright",
+      ex: sv(`<rect x="0" y="0" width="80" height="100" fill="#f4f1ec"/><circle cx="40" cy="48" r="18" fill="#e5ded3"/><ellipse cx="40" cy="76" rx="20" ry="4" fill="#d9d1c4"/><rect x="80" y="0" width="80" height="100" fill="#121214"/><circle cx="120" cy="48" r="18" fill="#2a2620"/><path d="M107 36 a18 18 0 0 1 22 -4 a20 20 0 0 0 -22 4z" fill="#c99b5a"/><text x="40" y="94" class="dts">high key</text><text x="120" y="94" style="font:6px var(--mono);fill:#999" text-anchor="middle">low key</text>`) },
+    { id: 'simult', name: 'Simultaneous contrast', aka: 'relative color, color interaction, Albers effect',
+      desc: "The same color looks different depending on what surrounds it: gray looks warm on blue and cool on orange. It is why a color you picked alone can look wrong in place.",
+      ref: "Josef Albers, Interaction of Color",
+      prompt: "test each color against its actual background; adjust for simultaneous contrast",
+      ex: sv(`<rect x="10" y="14" width="68" height="72" fill="#2a63c8"/><rect x="82" y="14" width="68" height="72" fill="#f08a1c"/><rect x="32" y="38" width="24" height="24" fill="#9a9a9a"/><rect x="104" y="38" width="24" height="24" fill="#9a9a9a"/><text x="80" y="96" class="dts">both squares are the same gray</text>`) },
+    { id: 'vibrate', name: 'Vibrating colors', aka: 'chromatic vibration, optical buzz',
+      desc: "Two saturated complements of the same lightness placed edge to edge seem to shimmer at the border. Thrilling in op art and posters, painful for text.",
+      ref: "Op art, psychedelic 60s posters, red text on blue (avoid)",
+      prompt: "use vibrating complementary colors of equal lightness for an op-art shimmer (never for body text)",
+      ex: sv(`<rect width="160" height="100" fill="#e0306f"/>` + [0, 1, 2, 3, 4, 5, 6].map(i => `<path d="M${-10 + i * 26} 100 Q${i * 26 + 3} 50 ${-10 + i * 26} 0 h12 Q${i * 26 + 15} 50 ${2 + i * 26} 100Z" fill="#1fa86a"/>`).join('')) },
+    { id: 'weight', name: 'Color weight', aka: 'visual weight, color balance',
+      desc: "Saturated, dark and warm colors look heavier than light, cool, muted ones. A small patch of red can balance a large area of pale blue.",
+      ref: "balancing a poster, placing an accent",
+      prompt: "balance color weight: one small saturated [red] shape offsets the large pale [blue] field",
+      ex: sv(`<path d="M20 78 H140" stroke="var(--ink)" stroke-width="2"/><polygon points="80,78 74,90 86,90" class="ik"/><rect x="24" y="34" width="44" height="44" fill="#bcd4ec"/><rect x="118" y="62" width="16" height="16" fill="#d8352a"/>`) },
+    { id: 'roles', name: 'Color roles', aka: 'color jobs, assigned colors, color mapping',
+      desc: "Assigning every color one job: background, main subject, shadow, highlight, accent. Roles are the single most effective way to keep a generated image or UI on palette.",
+      ref: "“amber for light, teal for shadow, bone for highlights”",
+      prompt: "assign each color one role: [color] for [background], [color] for [subject], [color] for [shadows], [color] for [accents only]",
+      ex: sv([['#f2c56d', 'light'], ['#d27229', 'sun'], ['#2f6e6a', 'shadow'], ['#f4ead2', 'highlight'], ['#1d3a2e', 'detail']].map(([c, n], i) => `<rect x="18" y="${8 + i * 17}" width="22" height="13" rx="2" fill="${c}"/><text x="48" y="${17 + i * 17}" class="dtl">${n}</text>`).join('') + `<rect x="96" y="12" width="52" height="76" rx="3" fill="#f2c56d"/><circle cx="122" cy="40" r="14" fill="#d27229"/><rect x="96" y="60" width="52" height="28" fill="#2f6e6a"/><rect x="106" y="64" width="22" height="2" fill="#f4ead2"/><rect x="118" y="54" width="3" height="10" fill="#1d3a2e"/>`) },
+    { id: 'limited', name: 'Limited palette', aka: 'restricted palette, Zorn palette, three-color',
+      desc: "Painting everything with only three or four colors. Every mixture shares the same parents, so the whole image hangs together. The Zorn palette is just ochre, red, black and white.",
+      ref: "Anders Zorn, screen prints, Game Boy",
+      prompt: "strictly limited palette of [four] colors; every tone mixed only from these",
+      ex: sv(swatchRow(12, ['#c99a3b', '#b23a2a', '#1b1a1a', '#f1ebdf'], 22, 30, 100) + `<circle cx="64" cy="66" r="18" fill="#d6a487"/><path d="M50 60 a18 18 0 0 0 28 20 a20 20 0 0 1 -28 -20z" fill="#7b4a33"/><rect x="88" y="52" width="36" height="32" fill="#5b5150"/><rect x="88" y="52" width="36" height="8" fill="#b23a2a"/>`),
+      hex: ['#c99a3b', '#b23a2a', '#1b1a1a', '#f1ebdf'] }
+  ]
+});
+
+/* ---------- moods & families ---------- */
+pool.groups.push({
+  id: 'families', title: 'Palette families', slot: 'Palette',
+  intro: "Broad kinds of palette that carry a mood on their own. One of these plus a harmony from the first page is usually enough direction.",
+  terms: [
+    { id: 'pastel', name: 'Pastel', aka: 'soft, candy, sorbet',
+      desc: "Light colors with lots of white mixed in. Gentle, friendly and young; needs one darker color for text and edges or everything floats.",
+      ref: "Notion illustrations, spring campaigns, Animal Crossing",
+      prompt: "soft pastel palette (light, low-saturation tints) with one deep [plum] for outlines and text",
+      ex: cs(['#fdf3f6', '#f8c8d4', '#bcdcf6', '#cdebc8', '#e0d2f6']), hex: ['#f8c8d4', '#bcdcf6', '#cdebc8', '#e0d2f6', '#fdf3f6'] },
+    { id: 'muted', name: 'Muted', aka: 'dusty, desaturated, greyed',
+      desc: "Every color has some gray mixed in so nothing shouts. Sophisticated, calm and easy to live with; reads as considered and adult.",
+      ref: "Scandinavian interiors, documentary photography",
+      prompt: "muted, dusty palette; no color fully saturated",
+      ex: cs(['#ebe7df', '#7d8f80', '#4f5d6b', '#b39f86', '#a46b5a']), hex: ['#ebe7df', '#7d8f80', '#4f5d6b', '#b39f86', '#a46b5a'] },
+    { id: 'earthy', name: 'Earth tones', aka: 'natural, terracotta, clay',
+      desc: "Browns, ochres, terracotta, olive and sand: the colors of soil, stone and clay. Warm, grounded, organic and trustworthy.",
+      ref: "ceramics brands, Patagonia, desert architecture",
+      prompt: "earth-tone palette: terracotta, ochre, olive, sand and warm brown",
+      ex: cs(['#efe2cc', '#c4643b', '#7d7a3e', '#d39b4a', '#5a3b28']), hex: ['#c4643b', '#d39b4a', '#7d7a3e', '#5a3b28', '#efe2cc'] },
+    { id: 'jewel', name: 'Jewel tones', aka: 'gemstone colors, rich saturated',
+      desc: "Deep, saturated colors named after gems: emerald, sapphire, ruby, amethyst, topaz. Luxurious, rich and a little theatrical.",
+      ref: "velvet interiors, holiday campaigns, art deco",
+      prompt: "jewel-tone palette of emerald, sapphire, ruby and amethyst with gold accents",
+      ex: cs(['#132a33', '#0f7a5c', '#1d4fa0', '#9b1b3a', '#6a2c91']), hex: ['#0f7a5c', '#1d4fa0', '#9b1b3a', '#6a2c91', '#d4a537'] },
+    { id: 'neon', name: 'Neon', aka: 'fluorescent, electric, glow',
+      desc: "Over-saturated, glowing colors, usually on near-black. Feels nocturnal, techy and energetic; they only glow if the background is dark.",
+      ref: "Tokyo signage, gaming gear, rave flyers",
+      prompt: "glowing neon accents in magenta, cyan and lime on a near-black background",
+      ex: cs(['#0b0b18', '#ff2bd6', '#22f0ff', '#b6ff3b', '#7a5cff']), hex: ['#0b0b18', '#ff2bd6', '#22f0ff', '#b6ff3b', '#7a5cff'] },
+    { id: 'brights', name: 'Bright primaries', aka: 'bold, saturated, poppy',
+      desc: "Clean, fully saturated colors close to the primaries, usually on white. Confident, playful and loud.",
+      ref: "LEGO, Google, Mondrian, kids' TV",
+      prompt: "bold primary palette: saturated red, yellow and blue on clean white",
+      ex: cs(['#ffffff', '#e5232a', '#ffcc00', '#0057b8', '#111111']), hex: ['#e5232a', '#ffcc00', '#0057b8', '#111111', '#ffffff'] },
+    { id: 'monochrome', name: 'Black & white', aka: 'monochrome, grayscale, B&W',
+      desc: "No color at all, only light and dark. Timeless and graphic; pushes attention onto shape, texture and expression.",
+      ref: "Ansel Adams, Sin City, newspaper photography",
+      prompt: "black and white with deep blacks and bright highlights, rich midtone gradation",
+      ex: land({ sky: ['#4a4a4a', '#d8d8d8'], sun: '#ffffff', far: '#8a8a8a', mid: '#4d4d4d', near: '#1d1d1d', fig: '#000', glow: 22 }) },
+    { id: 'sepia', name: 'Sepia & vintage', aka: 'aged, antique, old photo',
+      desc: "Warm browns and creams like an old photograph or yellowed paper. Nostalgic and archival.",
+      ref: "19th-century photos, old maps, Westerns",
+      prompt: "sepia-toned palette of warm browns and aged cream, like an old photograph",
+      ex: land({ sky: ['#6b4a2e', '#e9d3ad'], sun: '#fbecc8', far: '#a5825c', mid: '#7a5a3c', near: '#3e2a1a', fig: '#24170d', glow: 20, post: grainOv(.3) + vig(.8) }) },
+    { id: 'sunbleached', name: 'Sun-bleached', aka: 'faded, washed out, sun-faded',
+      desc: "Colors that look left out in the sun: pale, chalky and slightly warm, with no true blacks. Laid-back, dusty and nostalgic.",
+      ref: "surf posters, old billboards, California 70s",
+      prompt: "sun-bleached palette: faded, chalky, warm-washed colors with no true blacks",
+      ex: cs(['#f2e6cf', '#e7a98a', '#9cc2bf', '#e8cc8a', '#7f8f8c']), hex: ['#f2e6cf', '#e7a98a', '#9cc2bf', '#e8cc8a', '#7f8f8c'] },
+    { id: 'moody', name: 'Dark & moody', aka: 'deep, shadowy, chiaroscuro',
+      desc: "Deep, low-key colors with a few rich mid-tones and almost no bright areas. Intimate, serious and cinematic.",
+      ref: "Rembrandt, The Batman, whisky ads",
+      prompt: "dark and moody palette: deep charcoals and forest greens, small pools of warm light",
+      ex: cs(['#141716', '#2d3b33', '#5a4632', '#b07a3f', '#1e2a2a']), hex: ['#141716', '#2d3b33', '#5a4632', '#b07a3f', '#1e2a2a'] },
+    { id: 'airy', name: 'Light & airy', aka: 'bright, clean, whitewashed',
+      desc: "Mostly whites and very pale neutrals with soft color only in small amounts. Fresh, open and calm.",
+      ref: "wedding photography, Kinfolk, Glossier",
+      prompt: "light and airy palette: whites and pale neutrals with soft touches of [blush]",
+      ex: cs(['#fbfaf7', '#efe7e1', '#e8d2cc', '#d7e2e4', '#cdbfb2']), hex: ['#fbfaf7', '#efe7e1', '#e8d2cc', '#d7e2e4', '#cdbfb2'] },
+    { id: 'tonal', name: 'Tonal neutrals', aka: 'greige, oatmeal, quiet luxury',
+      desc: "Creams, taupes, oatmeal and stone in close steps. Expensive-feeling and calm; contrast comes from texture rather than color.",
+      ref: "Aesop, The Row, Japandi interiors",
+      prompt: "tonal neutral palette of cream, oatmeal, taupe and stone, close in value",
+      ex: cs(['#efe9df', '#d8cbb8', '#b8a891', '#8d7f6c', '#5e5447']), hex: ['#efe9df', '#d8cbb8', '#b8a891', '#8d7f6c', '#5e5447'] }
+  ]
+});
+
+pool.groups.push({
+  id: 'places', title: 'Seasons & places', slot: 'Palette',
+  intro: "Palettes borrowed from a time of year or a landscape. They work because everyone already knows the mood they belong to.",
+  terms: [
+    { id: 'autumn', name: 'Autumn', aka: 'fall palette, harvest',
+      desc: "Rust, mustard, burgundy, burnt orange and olive. Cozy, nostalgic and warm.",
+      ref: "Gilmore Girls, harvest markets, Wes Anderson's Fantastic Mr. Fox",
+      prompt: "autumn palette: rust, mustard, burgundy, burnt orange and olive",
+      ex: scene(['#f1dfc0', '#d9822b', '#9c3b25', '#5d5a26', '#5b1f24']), hex: ['#d9822b', '#c9a227', '#9c3b25', '#5b1f24', '#5d5a26'] },
+    { id: 'winter', name: 'Winter', aka: 'icy, frost, nordic winter',
+      desc: "Icy blues, silver, slate and snow white, with a deep navy for night. Clean, quiet and crisp.",
+      ref: "Frozen, Scandinavian noir, ski posters",
+      prompt: "cold winter palette: icy blue, silver gray, slate and snow white",
+      ex: scene(['#e9f0f5', '#ffffff', '#a9c3d6', '#4c6a85', '#1c2a40']), hex: ['#e9f0f5', '#a9c3d6', '#7c95a8', '#4c6a85', '#1c2a40'] },
+    { id: 'spring', name: 'Spring', aka: 'fresh, blossom',
+      desc: "Fresh green, blossom pink, butter yellow and sky blue: light and saturated at once. Optimistic and new.",
+      ref: "Easter campaigns, cherry blossom season",
+      prompt: "spring palette: fresh leaf green, blossom pink, butter yellow and clear sky blue",
+      ex: scene(['#d9eefb', '#fbe38a', '#9bd472', '#4f9d4a', '#f2a6c1']), hex: ['#9bd472', '#f2a6c1', '#fbe38a', '#9ccff0', '#4f9d4a'] },
+    { id: 'summer', name: 'Summer', aka: 'sunny, bright, holiday',
+      desc: "Turquoise, coral, sunshine yellow and sand under a big blue sky. Bright, carefree and saturated.",
+      ref: "Slim Aarons pool photos, travel posters",
+      prompt: "summer palette: turquoise water, coral, sunshine yellow and warm sand",
+      ex: scene(['#5ec8ef', '#ffd23f', '#f2d3a0', '#1db6b0', '#ff6f59']), hex: ['#1db6b0', '#5ec8ef', '#ffd23f', '#ff6f59', '#f2d3a0'] },
+    { id: 'desert', name: 'Desert', aka: 'southwest, mesa, canyon',
+      desc: "Sand, terracotta, sage, dusty rose and a hot pale sky. Sun-baked and spacious.",
+      ref: "Georgia O'Keeffe, Joshua Tree, Dune",
+      prompt: "desert palette: sand, terracotta, sage, dusty rose under a pale hot sky",
+      ex: scene(['#f3dcc0', '#fff1d0', '#d47a4f', '#a3533a', '#8fa38a']), hex: ['#f3dcc0', '#d47a4f', '#a3533a', '#c98f86', '#8fa38a'] },
+    { id: 'coastal', name: 'Coastal', aka: 'nautical, seaside, maritime',
+      desc: "Navy, sea-glass green, sand and sail white, often with a touch of red. Breezy and clean.",
+      ref: "Cape Cod, Breton stripes, J.Crew",
+      prompt: "coastal palette: navy, sea-glass green, sand and crisp white with a small red accent",
+      ex: scene(['#dcecf0', '#ffffff', '#9fcfc4', '#1f3a5f', '#c8352e']), hex: ['#1f3a5f', '#9fcfc4', '#e9dcc0', '#fbfbf7', '#c8352e'] },
+    { id: 'forest', name: 'Forest', aka: 'woodland, pine, mossy',
+      desc: "Pine, moss, bark brown and fern green with a cool mist. Grounded, quiet and a little mysterious.",
+      ref: "Pacific Northwest, Twin Peaks, Princess Mononoke",
+      prompt: "forest palette: deep pine, moss, fern green, bark brown and misty gray",
+      ex: scene(['#c9d3cc', '#e8eee6', '#4c6b4a', '#1f3b2c', '#5a3e2b']), hex: ['#1f3b2c', '#4c6b4a', '#8aa36b', '#5a3e2b', '#c9d3cc'] },
+    { id: 'tropical', name: 'Tropical', aka: 'jungle, island, botanical',
+      desc: "Lush deep greens with flashes of hibiscus pink, mango and parrot blue. Hot, humid and joyful.",
+      ref: "Henri Rousseau, Miami Vice, botanical wallpaper",
+      prompt: "tropical palette: lush jungle greens with flashes of hibiscus pink, mango orange and parrot blue",
+      ex: scene(['#0f4d3a', '#ff9f1c', '#1f8a4c', '#0a2f22', '#ff4f8b']), hex: ['#0a2f22', '#1f8a4c', '#ff4f8b', '#ff9f1c', '#00a6d6'] },
+    { id: 'sunset', name: 'Sunset', aka: 'dusk, afterglow',
+      desc: "A band of peach, coral, magenta and violet fading to indigo. Romantic and wistful; works as a gradient or as flat bands.",
+      ref: "synthwave skies, travel posters, the end of every road movie",
+      prompt: "sunset palette in bands: peach, coral, magenta, violet fading to indigo",
+      ex: sv(swatchRow(0, ['#2b1b4f', '#6a2c70', '#b83b5e', '#f08a5d', '#f9d56e'].reverse(), 100, 0, 160).replace(/rx="3"/g, '') + `<circle cx="80" cy="74" r="20" fill="#fff3c4" opacity=".9"/><rect y="74" width="160" height="26" fill="#2b1b4f"/>`), hex: ['#f9d56e', '#f08a5d', '#b83b5e', '#6a2c70', '#2b1b4f'] },
+    { id: 'night', name: 'Night city', aka: 'nocturne, blue night, after dark',
+      desc: "Deep blues and blacks with warm windows and a few colored lights. Lonely, cinematic and quiet.",
+      ref: "Edward Hopper's Nighthawks, Lost in Translation",
+      prompt: "night palette: deep navy and black with warm yellow windows and a few colored lights",
+      ex: sv(`<rect width="160" height="100" fill="#0d1530"/>` + [[8, 40, 26], [38, 26, 22], [64, 52, 30], [98, 34, 24], [126, 46, 30]].map(([x, h, w]) => `<rect x="${x}" y="${100 - h - 20}" width="${w}" height="${h + 20}" fill="#1a2445"/>` + [...Array(6)].map((_, i) => (i * 7 + x) % 3 ? `<rect x="${x + 4 + (i % 2) * 10}" y="${100 - h - 14 + Math.floor(i / 2) * 10}" width="5" height="5" fill="${i === 3 ? '#ff5c8a' : '#ffd27a'}"/>` : '').join('')).join('') + `<circle cx="134" cy="16" r="6" fill="#e9eef7"/>`), hex: ['#0d1530', '#1a2445', '#ffd27a', '#ff5c8a', '#e9eef7'] },
+    { id: 'americana', name: 'Dusty Americana', aka: 'western, dust bowl, folk Americana',
+      desc: "Faded denim, rust, prairie gold, sagebrush and bone, as if everything has been on the road for a while. Folk-song nostalgia.",
+      ref: "Lord Huron and Fleet Foxes album art, Paris, Texas, Dorothea Lange",
+      prompt: "dusty Americana palette: faded denim blue, rust, prairie gold, sagebrush and bone white",
+      ex: scene(['#e4d3b2', '#d8a548', '#a3896a', '#5d6f7f', '#9a4a2c']), hex: ['#5d6f7f', '#9a4a2c', '#d8a548', '#9aa07f', '#e9dfc9'] }
+  ]
+});
+
+/* ---------- named aesthetics ---------- */
+pool.groups.push({
+  id: 'aesthetics', title: 'Aesthetic palettes', slot: 'Aesthetic',
+  intro: "Named styles whose palettes are part of their identity. Saying the name gets you the colors and the attitude in one word.",
+  terms: [
+    { id: 'vaporwave', name: 'Vaporwave', aka: 'aesthetic, A E S T H E T I C',
+      desc: "Pastel pink, mint, lavender and cyan, with marble busts, grids and early-web nostalgia. Dreamy, ironic and soft.",
+      ref: "Macintosh Plus album art, Windows 95 imagery",
+      prompt: "vaporwave palette: pastel pink, mint, lavender and cyan with a soft retro-web feel",
+      ex: cs(['#ffd1f2', '#ff71ce', '#01cdfe', '#05ffa1', '#b967ff']), hex: ['#ff71ce', '#01cdfe', '#05ffa1', '#b967ff', '#fffb96'] },
+    { id: 'synthwave', name: 'Synthwave', aka: 'outrun, retrowave, 80s neon',
+      desc: "Hot magenta and electric cyan on deep purple, a striped sunset sun and a glowing grid. Pure 80s night-drive energy.",
+      ref: "Drive, Kung Fury, Far Cry 3: Blood Dragon",
+      prompt: "synthwave palette: hot magenta and cyan on deep purple-black, striped orange-to-pink sunset sun",
+      ex: sv(`<defs><linearGradient id="swSun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd319"/><stop offset=".55" stop-color="#ff901f"/><stop offset="1" stop-color="#ff2975"/></linearGradient></defs><rect width="160" height="100" fill="#1a0b2e"/><circle cx="80" cy="54" r="26" fill="url(#swSun)"/>` + [56, 62, 67, 71, 75].map((y, i) => `<rect x="50" y="${y}" width="60" height="${1 + i * .6}" fill="#1a0b2e"/>`).join('') + `<rect y="62" width="160" height="38" fill="#2b0f4c"/>` + [-80, -40, 0, 40, 80].map(d => `<path d="M80 62 L${80 + d * 2.4} 100" stroke="#f222ff" stroke-width=".8"/>`).join('') + [66, 72, 80, 90].map(y => `<path d="M0 ${y}H160" stroke="#f222ff" stroke-width=".8"/>`).join('') + `<path d="M0 62H160" stroke="#8c1eff" stroke-width="1.5"/>`),
+      hex: ['#1a0b2e', '#f222ff', '#ff2975', '#ff901f', '#ffd319', '#8c1eff'] },
+    { id: 'cyberpunk', name: 'Cyberpunk', aka: 'neon noir, tech noir',
+      desc: "Acid yellow, toxic cyan and hot pink cutting through wet black streets. Harsher and grittier than synthwave.",
+      ref: "Blade Runner, Cyberpunk 2077, Ghost in the Shell",
+      prompt: "cyberpunk palette: acid yellow, cyan and hot pink neon against wet black and teal shadows",
+      ex: cs(['#0a0f14', '#fcee0a', '#00f0ff', '#ff2a6d', '#05d9e8']), hex: ['#0a0f14', '#fcee0a', '#00f0ff', '#ff2a6d', '#1b3b44'] },
+    { id: 'y2k', name: 'Y2K', aka: 'millennium, cyber pastel, frutiger aero',
+      desc: "Chrome, icy blue, bubblegum pink, lime and translucent plastic. Glossy, optimistic and very 1999 to 2004.",
+      ref: "iMac G3, Britney-era album art, Frutiger Aero UI",
+      prompt: "Y2K palette: chrome silver, icy blue, bubblegum pink and lime, glossy translucent plastic",
+      ex: cs(['#dfe9f5', '#ff8fd6', '#7fd6ff', '#c6f432', '#b9c2cf']), hex: ['#dfe9f5', '#ff8fd6', '#7fd6ff', '#c6f432', '#b9c2cf'] },
+    { id: 'memphis', name: 'Memphis', aka: 'Memphis Group, 80s postmodern',
+      desc: "Saturated primaries and pastels thrown together with black squiggles and confetti patterns. Cheerful, loud and anti-tasteful on purpose.",
+      ref: "Ettore Sottsass, Saved by the Bell",
+      prompt: "Memphis design palette: mint, pink, yellow, cobalt and black, with squiggles and confetti",
+      ex: sv(`<rect width="160" height="100" fill="#fff6e5"/><circle cx="40" cy="38" r="18" fill="#ff6b9a"/><rect x="74" y="20" width="34" height="34" fill="#2b59c3" transform="rotate(12 91 37)"/><polygon points="118,78 140,40 154,82" fill="#ffd23f"/><path d="M20 76 q8 -10 16 0 t16 0 t16 0 t16 0" fill="none" stroke="#111" stroke-width="2.4"/><rect x="58" y="62" width="24" height="24" fill="#3ddcb0"/>` + [[20, 14], [130, 18], [100, 72], [64, 12], [146, 60]].map(([x, y]) => `<rect x="${x}" y="${y}" width="5" height="2" fill="#111" transform="rotate(35 ${x} ${y})"/>`).join('')),
+      hex: ['#3ddcb0', '#ff6b9a', '#ffd23f', '#2b59c3', '#111111'] },
+    { id: 'seventies', name: '70s retro', aka: 'groovy, harvest gold, avocado',
+      desc: "Harvest gold, burnt orange, avocado green and chocolate brown, often as rounded stripes. Warm, mellow and nostalgic.",
+      ref: "That '70s Show, Boogie Nights, retro stripe logos",
+      prompt: "70s retro palette: harvest gold, burnt orange, avocado green and chocolate brown in rounded stripes",
+      ex: sv(`<rect width="160" height="100" fill="#f3e3c3"/>` + ['#5a3a22', '#c8501e', '#e48a24', '#e8b830', '#8a9a3a'].map((c, i) => `<path d="M0 ${70 - i * 9} H${86 - i * 9} a${30 + i * 9} ${30 + i * 9} 0 0 1 ${30 + i * 9} ${-30 - i * 9} V0" fill="none" stroke="${c}" stroke-width="9" transform="translate(0 ${28})"/>`).join('')),
+      hex: ['#e8b830', '#e48a24', '#c8501e', '#8a9a3a', '#5a3a22'] },
+    { id: 'midcentury', name: 'Mid-century modern', aka: 'atomic age, MCM',
+      desc: "Mustard, teal, orange and walnut brown on warm off-white. Optimistic, tidy and crafted.",
+      ref: "Charles and Ray Eames, Saul Bass, Mad Men",
+      prompt: "mid-century modern palette: mustard, teal, tangerine and walnut brown on warm off-white",
+      ex: cs(['#f4ecd8', '#e0a526', '#2a7f7a', '#e2652c', '#6b4a2e']), hex: ['#e0a526', '#2a7f7a', '#e2652c', '#6b4a2e', '#f4ecd8'] },
+    { id: 'artdeco', name: 'Art Deco', aka: 'Gatsby, jazz age',
+      desc: "Black, gold and cream with deep emerald or navy. Glamorous, geometric and opulent.",
+      ref: "The Great Gatsby, the Chrysler Building, Bioshock",
+      prompt: "Art Deco palette: black, metallic gold and cream with deep emerald accents",
+      ex: sv(`<rect width="160" height="100" fill="#0f1412"/>` + [0, 1, 2, 3, 4, 5, 6].map(i => `<path d="M80 96 L${20 + i * 20} 10" stroke="#c9a54a" stroke-width="1.2"/>`).join('') + `<path d="M40 96 a40 40 0 0 1 80 0" fill="#0e5a45" stroke="#c9a54a" stroke-width="2"/><path d="M58 96 a22 22 0 0 1 44 0" fill="#f1e6cc"/>`),
+      hex: ['#0f1412', '#c9a54a', '#f1e6cc', '#0e5a45', '#1b2a4a'] },
+    { id: 'bauhaus', name: 'Bauhaus', aka: 'primary modernism',
+      desc: "Red, yellow, blue, black and off-white in hard geometric shapes. Rational, bold and teacherly.",
+      ref: "Bauhaus posters, Kandinsky's shape-color studies",
+      prompt: "Bauhaus palette: primary red, yellow and blue with black on off-white, hard geometric shapes",
+      ex: sv(`<rect width="160" height="100" fill="#efe8d8"/><circle cx="50" cy="50" r="28" fill="#d8352a"/><rect x="86" y="18" width="40" height="40" fill="#2348a8"/><polygon points="96,86 128,86 112,58" fill="#f3c623"/><rect x="20" y="84" width="60" height="5" fill="#111"/>`),
+      hex: ['#d8352a', '#f3c623', '#2348a8', '#111111', '#efe8d8'] },
+    { id: 'swiss', name: 'Swiss style', aka: 'International Typographic Style',
+      desc: "White, black and one signal red, nothing else. Clean, objective and confident.",
+      ref: "Josef Müller-Brockmann, Helvetica posters",
+      prompt: "Swiss style palette: white, black and a single signal red",
+      ex: sv(`<rect width="160" height="100" fill="#f5f5f2"/><rect x="18" y="14" width="10" height="72" fill="#e30613"/><rect x="40" y="18" width="80" height="12" fill="#111"/><rect x="40" y="36" width="56" height="6" fill="#111"/><circle cx="118" cy="68" r="18" fill="none" stroke="#111" stroke-width="5"/>`),
+      hex: ['#f5f5f2', '#111111', '#e30613'] },
+    { id: 'scandi', name: 'Scandinavian', aka: 'Nordic, hygge',
+      desc: "White, pale birch, soft gray and a muted sage or dusty blue. Bright, calm and practical.",
+      ref: "IKEA catalogues, Muuto, HAY",
+      prompt: "Scandinavian palette: white, pale birch wood, soft gray and muted sage",
+      ex: cs(['#f7f6f2', '#e2d3bc', '#c7cbc8', '#9fb3a3', '#6f8597']), hex: ['#f7f6f2', '#e2d3bc', '#c7cbc8', '#9fb3a3', '#6f8597'] },
+    { id: 'japandi', name: 'Japandi', aka: 'wabi-sabi, Japanese-Scandinavian',
+      desc: "Warm stone, charcoal, natural oak, clay and muted olive. Earthier and darker than Scandinavian; restful and handmade.",
+      ref: "Kinfolk interiors, ceramics studios, Muji",
+      prompt: "Japandi palette: warm stone, charcoal, natural oak, clay and muted olive",
+      ex: cs(['#ece5da', '#3a3836', '#b48a5e', '#a86f52', '#7c7d5c']), hex: ['#ece5da', '#b48a5e', '#a86f52', '#7c7d5c', '#3a3836'] },
+    { id: 'darkacademia', name: 'Dark academia', aka: 'old library, tweed',
+      desc: "Oxblood, forest green, tweed brown, parchment and ink black. Bookish, autumnal and a little gothic.",
+      ref: "Dead Poets Society, The Secret History, Oxford libraries",
+      prompt: "dark academia palette: oxblood, forest green, tweed brown, parchment and ink black",
+      ex: cs(['#1b1a17', '#5b1a1a', '#2f4232', '#7a5c3e', '#e6d8b8']), hex: ['#5b1a1a', '#2f4232', '#7a5c3e', '#e6d8b8', '#1b1a17'] },
+    { id: 'cottagecore', name: 'Cottagecore', aka: 'pastoral, prairie, garden',
+      desc: "Cream, sage, buttercup, faded rose and linen. Soft, rural and handmade, like a cottage garden.",
+      ref: "Studio Ghibli kitchens, Little Women, Beatrix Potter",
+      prompt: "cottagecore palette: cream, sage, buttercup yellow, faded rose and linen",
+      ex: cs(['#f6efdc', '#a9b98e', '#f1d27a', '#d9a2a0', '#e8dcc6']), hex: ['#f6efdc', '#a9b98e', '#f1d27a', '#d9a2a0', '#7a8a5c'] },
+    { id: 'solarpunk', name: 'Solarpunk', aka: 'hopeful futurism, green-tech',
+      desc: "Leaf green, solar gold, sky blue and white with warm wood. Optimistic, sustainable and sunny.",
+      ref: "solarpunk art, Ghibli's Castle in the Sky, green architecture renders",
+      prompt: "solarpunk palette: leaf green, solar gold, clear sky blue and white with warm wood",
+      ex: scene(['#bfe6f5', '#ffd166', '#7bc96f', '#2e8b57', '#c08a54']), hex: ['#7bc96f', '#2e8b57', '#ffd166', '#bfe6f5', '#c08a54'] },
+    { id: 'barbie', name: 'Barbiecore', aka: 'hot pink, maximal pink',
+      desc: "Every shade of saturated pink, from bubblegum to magenta, often head to toe. Playful, loud and unapologetic.",
+      ref: "Barbie (2023), Valentino's Pink PP collection",
+      prompt: "Barbiecore palette: saturated hot pink, bubblegum and magenta, pink on pink",
+      ex: cs(['#ffd6ec', '#e0218a', '#ff69b4', '#ff9ccf', '#b5005b']), hex: ['#e0218a', '#ff69b4', '#ff9ccf', '#ffd6ec', '#b5005b'] },
+    { id: 'millpink', name: 'Millennial pink', aka: 'Tumblr pink, rose quartz',
+      desc: "A muted, slightly orange pink paired with gray, cream and brass. Soft and knowing; a 2010s signature.",
+      ref: "Glossier, The Grand Budapest Hotel, Away suitcases",
+      prompt: "millennial pink palette: muted salmon-pink with warm gray, cream and brass",
+      ex: cs(['#f7e3dd', '#f3cfc6', '#e6a99d', '#b9b3ad', '#c7a46a']), hex: ['#f3cfc6', '#e6a99d', '#f7e3dd', '#b9b3ad', '#c7a46a'] },
+    { id: 'acid', name: 'Acid graphics', aka: 'brutalist rave, chrome and acid',
+      desc: "Acid green, chrome, black and hot orange, with distorted type. Aggressive, club-flyer energy.",
+      ref: "2020s rave posters, streetwear drops",
+      prompt: "acid graphics palette: acid green and hot orange on black, with chrome highlights",
+      ex: cs(['#0b0b0b', '#c6ff00', '#ff5e00', '#d9d9d9', '#7d7d7d']), hex: ['#0b0b0b', '#c6ff00', '#ff5e00', '#d9d9d9'] },
+    { id: 'popart', name: 'Pop art', aka: 'comic, Lichtenstein',
+      desc: "Flat primaries, hot pink and black outlines with Ben-Day dots. Bold, ironic and graphic.",
+      ref: "Roy Lichtenstein, Andy Warhol's Marilyns",
+      prompt: "pop art palette: flat primary red, yellow, cyan and hot pink with thick black outlines and Ben-Day dots",
+      ex: sv(`<defs><pattern id="pad" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.6" fill="#e5232a"/></pattern></defs><rect width="160" height="100" fill="#ffe14d"/><rect width="160" height="100" fill="url(#pad)" opacity=".5"/><ellipse cx="80" cy="50" rx="44" ry="30" fill="#fff" stroke="#111" stroke-width="3"/><circle cx="64" cy="46" r="8" fill="#16a2e0" stroke="#111" stroke-width="2"/><circle cx="96" cy="46" r="8" fill="#ff3ea5" stroke="#111" stroke-width="2"/>`),
+      hex: ['#ffe14d', '#e5232a', '#16a2e0', '#ff3ea5', '#111111'] },
+    { id: 'ukiyoe', name: 'Ukiyo-e', aka: 'Japanese woodblock print',
+      desc: "Prussian blue, indigo, soft vermilion, pale ochre and paper cream. Flat, quiet and graphic.",
+      ref: "Hokusai's Great Wave, Hiroshige's landscapes",
+      prompt: "ukiyo-e palette: Prussian blue, indigo, soft vermilion and pale ochre on cream paper",
+      ex: cs(['#efe4cc', '#1f3b63', '#2c5e8a', '#c8553d', '#d6b77a']), hex: ['#1f3b63', '#2c5e8a', '#c8553d', '#d6b77a', '#efe4cc'] },
+    { id: 'riso', name: 'Risograph', aka: 'riso print, soy-ink duplicator',
+      desc: "A handful of bright translucent inks (fluorescent pink, blue, yellow, teal) that overlap into new colors, on off-white paper with grain.",
+      ref: "zines, indie posters, Risograph print studios",
+      prompt: "risograph palette: fluorescent pink and medium blue inks overprinting to purple, slight misregistration, grain",
+      ex: sv(`<rect width="160" height="100" fill="#f6f1e7"/><g style="mix-blend-mode:multiply"><circle cx="64" cy="50" r="28" fill="#ff48b0" opacity=".9"/><circle cx="96" cy="50" r="28" fill="#0078bf" opacity=".9"/><rect x="66" y="64" width="30" height="20" fill="#ffe800" opacity=".9"/></g>` + grainOv(.3)),
+      hex: ['#ff48b0', '#0078bf', '#ffe800', '#00a95c', '#f6f1e7'] }
+  ]
+});
+
+/* ---------- film & grading ---------- */
+pool.groups.push({
+  id: 'stocks', title: 'Film stocks & processes', slot: 'Film stock',
+  intro: "The color signatures of real photographic films and old processes. Image models know these names well, so one stock name sets skin tones, contrast and grain together.",
+  terms: [
+    { id: 'portra', name: 'Kodak Portra', aka: 'Portra 400, Portra 160',
+      desc: "Soft contrast, warm and flattering skin tones, gentle pastel greens and fine grain. Reads as tender, natural and timeless.",
+      ref: "wedding and portrait photographers, Wes Anderson stills",
+      prompt: "shot on Kodak Portra 400: soft contrast, warm natural skin tones, gentle pastel color, fine grain",
+      ex: land({ sky: ['#b7cfd6', '#f2dcc2'], sun: '#fff1d6', far: '#b3c0ae', mid: '#94a27e', near: '#6e6a4c', fig: '#4a3a30', glow: 24, post: grainOv(.18) }) },
+    { id: 'ektar', name: 'Kodak Ektar', aka: 'Ektar 100',
+      desc: "Very saturated, punchy color with super-fine grain, especially in blues and reds. Landscape film; unkind to skin.",
+      ref: "travel and landscape film photography",
+      prompt: "shot on Kodak Ektar 100: vivid saturated blues and reds, crisp, ultra-fine grain",
+      ex: land({ sky: ['#1f6fd1', '#8cc6f2'], sun: '#fff4c2', far: '#3a7d4a', mid: '#2f8f3a', near: '#c0392b', fig: '#1b1b1b' }) },
+    { id: 'velvia', name: 'Fuji Velvia', aka: 'Velvia 50, slide film',
+      desc: "Slide film with intense saturation, deep blacks and vivid greens and magentas. Dramatic nature photography.",
+      ref: "National Geographic landscapes of the 90s",
+      prompt: "Fuji Velvia slide film look: intensely saturated greens and magentas, deep blacks, high contrast",
+      ex: land({ sky: ['#5b2a86', '#f06f8d'], sun: '#ffe37a', far: '#2e6b5c', mid: '#1f8f4a', near: '#0d2a1c', fig: '#000', glow: 20 }) },
+    { id: 'superia', name: 'Fujifilm cool greens', aka: 'Fuji Superia, Fuji 400H, Pro 400H',
+      desc: "Cooler than Kodak, with minty greens, cyan-leaning skies and clean whites. Fresh, airy and a little nostalgic.",
+      ref: "Japanese street photography, 90s snapshots",
+      prompt: "Fujifilm color: cool minty greens, cyan-leaning skies, clean whites, soft grain",
+      ex: land({ sky: ['#a7d3dc', '#e8f1ea'], sun: '#ffffff', far: '#9cc5b5', mid: '#6fae94', near: '#3f6f62', fig: '#24302e', post: grainOv(.18) }) },
+    { id: 'kodachrome', name: 'Kodachrome', aka: 'K64, National Geographic look',
+      desc: "Rich reds, deep blues, warm yellows and dense shadows, with an archival 50s to 80s feel. Saturated but never neon.",
+      ref: "Steve McCurry, Saul Leiter, Paul Simon's song",
+      prompt: "Kodachrome look: rich reds, deep blues, warm yellows, dense shadows, mid-century archival feel",
+      ex: land({ sky: ['#2d5aa0', '#a8c9e0'], sun: '#ffe3a0', far: '#6a7f5a', mid: '#b5482f', near: '#3a2a1f', fig: '#e3c12a' }) },
+    { id: 'cinestill', name: 'CineStill 800T', aka: 'tungsten film, halation',
+      desc: "Tungsten-balanced cinema film used at night: teal-blue shadows and red glowing halos around every light. The signature look of neon nights on film.",
+      spot: "red-orange halos bleeding around street lights and bright windows",
+      ref: "night street photography, music videos",
+      prompt: "CineStill 800T at night: cool teal shadows, red halation glow around every light source, visible grain",
+      ex: sv(`<defs><filter id="halo" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4"/></filter></defs><rect width="160" height="100" fill="#0e2a33"/><rect x="0" y="70" width="160" height="30" fill="#0a1d24"/>` + [[30, 30], [80, 22], [126, 36]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="9" fill="#ff3a1c" filter="url(#halo)"/><circle cx="${x}" cy="${y}" r="4" fill="#fff4dc"/><rect x="${x - 1}" y="${y + 4}" width="2" height="${70 - y - 4}" fill="#081419"/>`).join('') + `<rect x="54" y="52" width="30" height="18" fill="#ffd68a" filter="url(#halo)" opacity=".6"/><rect x="58" y="56" width="22" height="12" fill="#ffe7b8"/>` + grainOv(.35)) },
+    { id: 'technicolor', name: 'Technicolor', aka: 'three-strip Technicolor, Hollywood color',
+      desc: "Lush, saturated primaries with candy reds, deep blues and glowing skin. The look of 1930s to 50s Hollywood musicals.",
+      ref: "The Wizard of Oz, Singin' in the Rain, Black Narcissus",
+      prompt: "three-strip Technicolor look: lush saturated primaries, candy reds, glowing skin, painterly sets",
+      ex: land({ sky: ['#2a62c9', '#ffc96a'], sun: '#ffef9a', far: '#2e9a5a', mid: '#e3c12a', near: '#c41e3a', fig: '#1a1a1a', glow: 18 }) },
+    { id: 'twostrip', name: 'Two-strip color', aka: 'two-color Technicolor, red-cyan',
+      desc: "Early color film that only had two dyes, so everything is orange-red and cyan-green with no true blue or yellow. Strange, antique and dreamy.",
+      ref: "1920s color films, The Aviator's early scenes",
+      prompt: "two-strip color film look: only orange-red and cyan-green tones, no true blues or yellows",
+      ex: land({ sky: ['#7ab3a8', '#e7b49a'], sun: '#f2c6a8', far: '#7fa79a', mid: '#c46a4c', near: '#4b5f56', fig: '#2a2420' }) },
+    { id: 'polaroid', name: 'Polaroid', aka: 'instant film, SX-70',
+      desc: "Soft, slightly washed colors with odd shifts (cyan shadows, warm highlights), soft focus and a white border.",
+      ref: "Andy Warhol's Polaroids, 70s family snapshots",
+      prompt: "Polaroid instant film look: soft, washed color, cyan-tinted shadows, warm highlights, white frame",
+      ex: sv(`<rect width="160" height="100" fill="var(--tile)"/><g transform="rotate(-4 80 50)"><rect x="46" y="6" width="68" height="84" fill="#fbfaf5" stroke="#0002"/><svg x="51" y="11" width="58" height="58" viewBox="20 0 120 100" preserveAspectRatio="xMidYMid slice">${land({ sky: ['#a3c8c8', '#f3d6b4'], sun: '#fff1d2', far: '#93b2a8', mid: '#7d9a8c', near: '#4f6964', fig: '#3a3a40', glow: 26 }).replace(/<\/?svg[^>]*>/g, '')}</svg></g>`) },
+    { id: 'bleach', name: 'Bleach bypass', aka: 'skip bleach, silver retention',
+      desc: "Skipping the bleach step keeps silver in the film: colors drop toward gray while contrast and grit go up. Harsh, metallic and war-movie bleak.",
+      ref: "Saving Private Ryan, Se7en, Minority Report",
+      prompt: "bleach bypass look: desaturated, silvery, high contrast with gritty blacks",
+      ex: land({ sky: ['#7c8487', '#d3d6d2'], sun: '#f4f4ee', far: '#8b928a', mid: '#5b625a', near: '#262a27', fig: '#0a0a0a', post: grainOv(.35) }) },
+    { id: 'crossproc', name: 'Cross-processed', aka: 'xpro, cross-processing',
+      desc: "Slide film developed in negative chemicals (or the reverse): yellow-green highlights, blue or magenta shadows, blown contrast. Lo-fi and 90s.",
+      ref: "90s fashion and skate photography, lomography",
+      prompt: "cross-processed look: yellow-green highlights, blue-magenta shadows, punchy contrast",
+      ex: land({ sky: ['#2a3f9a', '#e7f070'], sun: '#ffffd0', far: '#5fae7e', mid: '#2b6f8f', near: '#2b1a5a', fig: '#100820', glow: 22 }) },
+    { id: 'cyanotype', name: 'Cyanotype', aka: 'blueprint photo, sun print',
+      desc: "An old iron-based print process that renders everything in Prussian blue and white. Botanical, archival and calm.",
+      ref: "Anna Atkins' botanical prints, blueprint art",
+      prompt: "cyanotype print: Prussian blue and white only, soft edges, paper texture",
+      ex: land({ sky: ['#0b3f73', '#5d8fbd'], sun: '#e8f1f8', far: '#2a5c8e', mid: '#174b7c', near: '#0b2f55', fig: '#e8f1f8', glow: 18, post: grainOv(.25) }), hex: ['#0b3f73', '#5d8fbd', '#e8f1f8'] }
+  ]
+});
+
+pool.groups.push({
+  id: 'grades', title: 'Grades & looks', slot: 'Grade',
+  intro: "Color grading is the color pass done after shooting. These named looks change the mood of a whole image or film; they also work as finishing words for illustrations.",
+  terms: [
+    { id: 'tealorange', name: 'Teal & orange', aka: 'blockbuster grade, orange-teal',
+      desc: "Skin and warm lights pushed toward orange, shadows and backgrounds pushed toward teal. The complementary split makes people pop; overused, it looks generic.",
+      ref: "Transformers, Mad Max: Fury Road, most trailers",
+      prompt: "teal and orange grade: warm orange skin and highlights, teal shadows and background",
+      ex: face({ bg: ['#0f4c5c', '#1f7a7a'], skin: '#f0a26a', skinD: '#c8754a', hair: '#2a1a12', cloth: '#0b2f38', split: .5 }) },
+    { id: 'splittone', name: 'Split toning', aka: 'split tone, color in highlights and shadows',
+      desc: "One color added to the highlights and a different one to the shadows, such as warm gold highlights with blue shadows. The quiet engine behind most cinematic grades.",
+      ref: "Lightroom presets, music videos",
+      prompt: "split toning: warm golden highlights and cool blue-green shadows",
+      ex: sv(swatchRow(10, ['#1c2a44', '#33475e', '#5b6a72', '#8e8c80', '#c6b48c', '#f2dfb0'], 50) + `<text x="40" y="76" class="dts">cool shadows</text><text x="120" y="76" class="dts">warm highlights</text>`) },
+    { id: 'faded', name: 'Faded & lifted blacks', aka: 'matte look, washed blacks, film fade',
+      desc: "The darkest tones are raised to a soft charcoal so nothing is truly black. Gentle, nostalgic and dreamy; a big part of the “film” look on social media.",
+      spot: "the shadows look gray or slightly colored, never inky black",
+      ref: "VSCO presets, indie film posters",
+      prompt: "faded matte look with lifted blacks, soft charcoal shadows, gentle contrast",
+      ex: land({ sky: ['#9aa7b0', '#e8dccb'], sun: '#fff6e0', far: '#9da49a', mid: '#7e8679', near: '#5b5f59', fig: '#4b4d4a', post: '<rect width="160" height="100" fill="#d9d2c4" opacity=".18"/>' }) },
+    { id: 'crushed', name: 'Crushed blacks', aka: 'deep shadows, inky blacks',
+      desc: "The dark tones are pushed all the way to pure black, hiding detail in the shadows. Bold, graphic and moody.",
+      ref: "The Batman, Sin City, fashion editorials",
+      prompt: "crushed blacks: deep inky shadows with no detail, high contrast",
+      ex: land({ sky: ['#0d0f14', '#7a5b3a'], sun: '#ffd68a', far: '#1a1c1f', mid: '#0a0a0b', near: '#000', fig: '#000', glow: 26 }) },
+    { id: 'desat', name: 'Desaturated', aka: 'muted grade, washed color, low saturation',
+      desc: "Color pulled close to gray across the whole image, keeping only a hint. Serious, bleak or documentary.",
+      ref: "The Road, Band of Brothers, Children of Men",
+      prompt: "heavily desaturated grade, just a hint of color remaining, cool and somber",
+      ex: land({ sky: ['#6f767c', '#b9bcb8'], sun: '#dcdcd4', far: '#7f8580', mid: '#646a64', near: '#3d413e', fig: '#1d1f1e' }) },
+    { id: 'colorsplash', name: 'Selective color', aka: 'color splash, color isolation',
+      desc: "The image is black and white except for one colored element. Instantly points at what matters; easy to overdo.",
+      ref: "the red coat in Schindler's List, Sin City",
+      prompt: "black and white image with only the [red umbrella] in full color",
+      ex: land({ sky: ['#5a5a5a', '#d4d4d4'], sun: '#f2f2f2', far: '#8a8a8a', mid: '#575757', near: '#262626', fig: '#d8231f', post: '<path d="M38 66 a8 6 0 0 1 16 0z" fill="#d8231f"/>' }) },
+    { id: 'matrix', name: 'Green tint', aka: 'Matrix green, sickly green, fluorescent',
+      desc: "The whole image washed with a cold green, like office fluorescent light or a computer screen. Uneasy, artificial and digital.",
+      ref: "The Matrix (inside the Matrix), Fincher's Fight Club",
+      prompt: "cold green-tinted grade like fluorescent light, uneasy and artificial",
+      ex: land({ sky: ['#1d2a1e', '#a8c49a'], sun: '#e6f5d0', far: '#5f7a58', mid: '#3e5a3e', near: '#1c2b1d', fig: '#0d140d' }) },
+    { id: 'fincher', name: 'Yellow-green urban', aka: 'Fincher look, sodium vapor, nicotine grade',
+      desc: "Muddy yellow-greens and dim browns, like old cigarette smoke or sodium street lights. Grimy, tense and paranoid.",
+      ref: "Se7en, Zodiac, Breaking Bad's Mexico scenes",
+      prompt: "grimy yellow-green grade, sodium-vapor light, desaturated browns, tense and paranoid",
+      ex: land({ sky: ['#4a4a24', '#c8b46a'], sun: '#f2e2a0', far: '#7a7444', mid: '#585530', near: '#2b2a18', fig: '#14130a' }) },
+    { id: 'pastelgrade', name: 'Pastel symmetry grade', aka: 'Wes Anderson look, candy grade',
+      desc: "Soft pinks, mint, mustard and powder blue with low contrast and very even light. Storybook, deadpan and precise.",
+      ref: "The Grand Budapest Hotel, Moonrise Kingdom, Asteroid City",
+      prompt: "Wes Anderson style grade: soft pinks, mint and mustard, low contrast, flat even light, centered symmetry",
+      ex: sv(`<rect width="160" height="100" fill="#f1bb7b" opacity=".35"/><rect width="160" height="62" fill="#f4b5bd"/><rect x="40" y="18" width="80" height="44" fill="#fd6467"/><rect x="50" y="26" width="60" height="10" fill="#f1bb7b"/>` + [56, 72, 88, 104].map(x => `<rect x="${x - 4}" y="42" width="8" height="20" fill="#85d4e3"/>`).join('') + `<rect y="62" width="160" height="38" fill="#9c964a" opacity=".55"/><rect x="74" y="70" width="12" height="22" fill="#5b1a18"/>`),
+      hex: ['#f1bb7b', '#fd6467', '#5b1a18', '#d67236', '#85d4e3', '#f4b5bd'] },
+    { id: 'moonlightgrade', name: 'Cyan & magenta night', aka: 'Moonlight grade, Euphoria lighting',
+      desc: "Night scenes lit in saturated cyan and magenta, with skin glowing in both. Intimate, dreamy and modern.",
+      ref: "Moonlight, Euphoria, Spring Breakers",
+      prompt: "night portrait lit with saturated cyan from one side and magenta from the other, glowing skin",
+      ex: face({ bg: ['#1a0d3a', '#2a0f4a'], skin: '#d77bd6', skinD: '#3fb7d6', hair: '#140a24', cloth: '#0d1430', split: .8 }) },
+    { id: 'dayfornight', name: 'Day for night', aka: 'American night, nuit américaine',
+      desc: "Shot in daylight, then graded deep blue and underexposed to look like moonlight. Theatrical, storybook night with sharp shadows.",
+      ref: "classic Westerns, Mad Max: Fury Road's night scenes",
+      prompt: "day-for-night grade: deep blue, underexposed daylight that reads as bright moonlight",
+      ex: land({ sky: ['#0b1838', '#3a5a8c'], sun: '#dfe8f5', sunR: 7, far: '#20365c', mid: '#162a4a', near: '#0a162c', fig: '#04080f', glow: 16 }) },
+    { id: 'sepiatone', name: 'Monochrome tint', aka: 'toned black and white, tinted mono',
+      desc: "A black-and-white image tinted with one color, like sepia, cyan, or the red of a darkroom. Unified and graphic.",
+      ref: "silent film tinting, music posters",
+      prompt: "monochrome image tinted entirely in [deep red], like a toned darkroom print",
+      ex: land({ sky: ['#3a0f12', '#e6a49a'], sun: '#fbe2dc', far: '#a35a54', mid: '#7a3530', near: '#3e1513', fig: '#1d0809', glow: 20 }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'light', title: 'Light & time of day', slot: 'Light',
+  intro: "Light recolors everything it touches, so naming the light often fixes a palette faster than naming colors.",
+  terms: [
+    { id: 'goldenhour', name: 'Golden hour', aka: 'magic hour, late afternoon sun',
+      desc: "The hour after sunrise or before sunset: low warm sunlight, long shadows, glowing edges and honeyed color. Nostalgic and kind.",
+      ref: "Terrence Malick's Days of Heaven, every perfume ad",
+      prompt: "golden hour light: low warm sun, long shadows, glowing amber edges",
+      ex: land({ sky: ['#f4a35a', '#ffe1a0'], sun: '#fff1c2', sunY: 56, far: '#c98a4a', mid: '#9a6438', near: '#4f3220', fig: '#2a1810', glow: 34 }) },
+    { id: 'bluehour', name: 'Blue hour', aka: 'twilight, l\'heure bleue',
+      desc: "The short time after sunset when the sky goes deep blue and artificial lights start to glow warm. Calm, melancholy and cinematic.",
+      ref: "city skyline photos, Collateral",
+      prompt: "blue hour: deep blue twilight sky with warm glowing windows and street lights",
+      ex: land({ sky: ['#1a2a5c', '#6d8cc7'], noSun: true, far: '#2a3a66', mid: '#1f2c52', near: '#121a36', fig: '#0a0f20', post: '<circle cx="120" cy="66" r="2" fill="#ffd27a"/><circle cx="130" cy="70" r="2" fill="#ffd27a"/><circle cx="20" cy="76" r="1.6" fill="#ffd27a"/>' }) },
+    { id: 'overcast', name: 'Overcast', aka: 'flat light, soft gray day',
+      desc: "Clouds act as a giant softbox: no hard shadows, low contrast, colors look true and slightly cool. Calm, honest and Nordic.",
+      ref: "Scandinavian TV drama, Ryan McGinley's quieter work",
+      prompt: "overcast flat light: soft shadowless illumination, muted cool colors",
+      ex: land({ sky: ['#b8bec2', '#d9dcdb'], noSun: true, far: '#a3aca6', mid: '#7f8c84', near: '#55605a', fig: '#2e3431' }) },
+    { id: 'harsh', name: 'Harsh noon sun', aka: 'hard light, midday sun',
+      desc: "Sun straight overhead: hard short shadows, bleached highlights and saturated color. Hot, honest, Mediterranean or desert.",
+      ref: "Slim Aarons, Call Me by Your Name, Breaking Bad's desert",
+      prompt: "harsh midday sun: hard short shadows, bleached highlights, saturated hot color",
+      ex: land({ sky: ['#2f7fd8', '#9ad0f5'], sun: '#ffffff', sunY: 14, far: '#d9b878', mid: '#c48a4a', near: '#8a5a2e', fig: '#111' }) },
+    { id: 'candle', name: 'Candlelight & tungsten', aka: 'warm interior, practical light',
+      desc: "Warm orange light from candles, lamps or bulbs falling off quickly into darkness. Cozy, intimate and old-world.",
+      ref: "Barry Lyndon, Dutch Golden Age paintings",
+      prompt: "lit only by warm candlelight: deep orange glow falling off into dark shadows",
+      ex: sv(`<defs><radialGradient id="cdl" cx=".45" cy=".55" r=".55"><stop offset="0" stop-color="#ffcf7a"/><stop offset=".35" stop-color="#c26a24"/><stop offset="1" stop-color="#120a05"/></radialGradient></defs><rect width="160" height="100" fill="url(#cdl)"/><rect x="68" y="56" width="8" height="24" fill="#f3e6c8"/><path d="M72 46 q-4 6 0 10 q4 -4 0 -10z" fill="#fff2c0"/><rect x="40" y="80" width="80" height="20" fill="#2a160a"/>`) },
+    { id: 'neonnight', name: 'Neon night', aka: 'mixed artificial light, signage glow',
+      desc: "Night lit by colored signs: magenta, cyan and red light spilling over wet surfaces. Electric, lonely and urban.",
+      ref: "Wong Kar-wai's Fallen Angels, Tokyo at night",
+      prompt: "neon night lighting: magenta and cyan sign glow reflecting on wet pavement",
+      ex: sv(`<defs><filter id="nnb" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter></defs><rect width="160" height="100" fill="#0c0a1c"/><rect x="20" y="16" width="40" height="10" rx="5" fill="#ff2bd6" filter="url(#nnb)"/><rect x="20" y="16" width="40" height="10" rx="5" fill="none" stroke="#ffd6f6" stroke-width="1.4"/><rect x="96" y="26" width="10" height="34" rx="5" fill="#22f0ff" filter="url(#nnb)"/><rect x="96" y="26" width="10" height="34" rx="5" fill="none" stroke="#d6fdff" stroke-width="1.4"/><rect y="70" width="160" height="30" fill="#141030"/><rect x="20" y="74" width="40" height="22" fill="#ff2bd6" opacity=".25" filter="url(#nnb)"/><rect x="96" y="72" width="10" height="26" fill="#22f0ff" opacity=".3" filter="url(#nnb)"/>`) },
+    { id: 'backlit', name: 'Backlit haze', aka: 'contre-jour, sun flare, hazy backlight',
+      desc: "The light source sits behind the subject, flooding the frame with glow and lifting the shadows into haze. Dreamy, hopeful and soft.",
+      ref: "indie-folk album covers",
+      prompt: "backlit by a low sun, hazy glow lifting the shadows, soft flare, subject partly dissolved in light",
+      ex: land({ sky: ['#f2c98a', '#fff2d6'], sun: '#ffffff', sunY: 58, sunR: 12, far: '#e8c99a', mid: '#c9a476', near: '#8a6a4a', fig: '#5a4030', glow: 60 }) },
+    { id: 'fog', name: 'Fog & atmosphere', aka: 'atmospheric perspective, mist, aerial perspective',
+      desc: "Each layer further away gets paler and bluer, as if seen through mist. Adds depth and quiet mystery with almost no effort.",
+      ref: "Chinese ink landscapes, Blade Runner 2049, Scottish hills",
+      prompt: "layers fading into mist: each distant layer paler and bluer (atmospheric perspective)",
+      ex: sv(`<rect width="160" height="100" fill="#e6ebee"/><path d="M0 50 L30 36 L60 46 L96 30 L130 44 L160 36 V100 H0Z" fill="#c9d3da"/><path d="M0 62 L36 50 L70 60 L110 46 L160 58 V100 H0Z" fill="#a3b3be"/><path d="M0 76 L40 64 L84 74 L124 62 L160 72 V100 H0Z" fill="#6f8494"/><path d="M0 90 L46 80 L100 88 L160 82 V100 H0Z" fill="#33434f"/>`), hex: ['#e6ebee', '#c9d3da', '#a3b3be', '#6f8494', '#33434f'] }
+  ]
+});
+
+/* ---------- named palettes ---------- */
+const T = (id, name, aka, desc, ref, bg, panel, fg, acc, dim, extra) => ({
+  id, name, aka, desc, ref,
+  prompt: `${name} color theme: background ${bg}, text ${fg}, accents ${acc.slice(0, 6).join(', ')}`,
+  ex: editor(bg, panel, fg, acc, dim), hex: [bg, fg, ...acc.slice(0, 6)], ...(extra || {})
+});
+pool.groups.push({
+  id: 'themes', title: 'Editor & terminal themes', slot: 'Theme palette',
+  intro: "Popular code and terminal color schemes. Each is a tested, open palette with exact hex codes, and most have official ports for websites, slides and apps, so they make good starting palettes for anything dark.",
+  terms: [
+    T('catmocha', 'Catppuccin Mocha', 'Catppuccin, soothing pastel theme', "Soft pastel accents (mauve, peach, sky, green) on a deep blue-gray base. Cozy, friendly and very readable; one of the most-ported themes there is.", "terminals, Neovim, Discord, Obsidian", '#1e1e2e', '#181825', '#cdd6f4', ['#f38ba8', '#a6e3a1', '#f9e2af', '#89b4fa', '#cba6f7', '#94e2d5', '#fab387'], '#6c7086'),
+    T('catlatte', 'Catppuccin Latte', 'Catppuccin light', "The light flavor of Catppuccin: warm off-white base with saturated versions of the same accents. Pairs with Mocha for light and dark modes.", "light-mode docs, slides", '#eff1f5', '#e6e9ef', '#4c4f69', ['#d20f39', '#40a02b', '#df8e1d', '#1e66f5', '#8839ef', '#179299', '#fe640b'], '#9ca0b0'),
+    T('dracula', 'Dracula', 'Dracula theme', "Bright candy accents (pink, purple, green, cyan) on a cool purple-gray. Punchy and playful for a dark theme.", "VS Code, terminals, Zed", '#282a36', '#21222c', '#f8f8f2', ['#ff79c6', '#50fa7b', '#f1fa8c', '#8be9fd', '#bd93f9', '#ffb86c', '#ff5555'], '#6272a4'),
+    T('nord', 'Nord', 'arctic, north-bluish', "Cool slate grays with frosty blues and muted aurora accents. Calm, clean and Scandinavian; it rarely looks garish.", "dotfiles, dashboards, Arctic-themed sites", '#2e3440', '#3b4252', '#d8dee9', ['#bf616a', '#a3be8c', '#ebcb8b', '#81a1c1', '#b48ead', '#88c0d0', '#d08770'], '#616e88'),
+    T('solarized', 'Solarized', 'Solarized Dark / Light', "A precisely engineered palette by Ethan Schoonover: 8 accents that work on both a deep teal-black and a cream background with the same contrast. Distinctive and low-glare.", "terminals since 2011, Vim", '#002b36', '#073642', '#839496', ['#dc322f', '#859900', '#b58900', '#268bd2', '#6c71c4', '#2aa198', '#cb4b16'], '#586e75', { hex: ['#002b36', '#073642', '#839496', '#fdf6e3', '#dc322f', '#859900', '#b58900', '#268bd2', '#6c71c4', '#2aa198'] }),
+    T('gruvbox', 'Gruvbox', 'retro groove', "Warm, earthy retro colors (mustard, rust, olive, faded aqua) on a brown-black. Feels like an old amber terminal with taste.", "Vim, tiling window managers", '#282828', '#3c3836', '#ebdbb2', ['#fb4934', '#b8bb26', '#fabd2f', '#83a598', '#d3869b', '#8ec07c', '#fe8019'], '#928374'),
+    T('tokyonight', 'Tokyo Night', 'Tokyo Night Storm', "Deep indigo night with soft neon blue, violet and orange, like Tokyo's lights from a distance. Modern and moody.", "VS Code, Neovim", '#1a1b26', '#16161e', '#c0caf5', ['#f7768e', '#9ece6a', '#e0af68', '#7aa2f7', '#bb9af7', '#7dcfff', '#ff9e64'], '#565f89'),
+    T('rosepine', 'Rosé Pine', 'Rose Pine', "Muted rose, gold, pine and foam on a dark violet. Romantic, soft and low-contrast; “all natural pine, faux fur and a bit of soho vibes”.", "terminals, Spotify skins, Obsidian", '#191724', '#1f1d2e', '#e0def4', ['#eb6f92', '#31748f', '#f6c177', '#9ccfd8', '#c4a7e7', '#ebbcba'], '#6e6a86'),
+    T('onedark', 'One Dark', 'Atom One Dark', "Balanced mid-saturation accents on a cool gray, from the Atom editor. The neutral, can't-go-wrong dark theme.", "Atom, VS Code", '#282c34', '#21252b', '#abb2bf', ['#e06c75', '#98c379', '#e5c07b', '#61afef', '#c678dd', '#56b6c2'], '#5c6370'),
+    T('monokai', 'Monokai', 'Monokai Classic', "Hot pink, lime and orange on an olive-black. Loud and confident; the classic Sublime Text look.", "Sublime Text, TextMate", '#272822', '#1e1f1c', '#f8f8f2', ['#f92672', '#a6e22e', '#e6db74', '#66d9ef', '#ae81ff', '#fd971f'], '#75715e'),
+    T('everforest', 'Everforest', 'forest theme', "Soft greens, sand and muted pastels on a gray-green base. Like reading in a shaded forest; very easy on the eyes.", "Neovim, tmux", '#2d353b', '#232a2e', '#d3c6aa', ['#e67e80', '#a7c080', '#dbbc7f', '#7fbbb3', '#d699b6', '#83c092'], '#859289'),
+    T('kanagawa', 'Kanagawa', 'inspired by The Great Wave', "Colors from Hokusai's Great Wave off Kanagawa: ink black, faded paper, wave blue, autumn red and spring green. Painterly and calm.", "Neovim, Hokusai's woodblock prints", '#1f1f28', '#16161d', '#dcd7ba', ['#c34043', '#98bb6c', '#e6c384', '#7e9cd8', '#957fb8', '#7aa89f', '#ffa066'], '#727169')
+  ]
+});
+
+pool.groups.push({
+  id: 'refpal', title: 'Film, art & game palettes', slot: 'Reference palette',
+  intro: "Palettes lifted from films, games, Pantone and your own gallery. Saying the source gives Claude the feel; the swatches give you the exact colors.",
+  terms: [
+    { id: 'budapest', name: 'Grand Budapest', aka: 'Wes Anderson pinks',
+      desc: "Rose, peach and pastry pink with a deep oxblood and burnt orange, from The Grand Budapest Hotel. Confectionery and deadpan.",
+      ref: "The Grand Budapest Hotel (2014); values from the wesanderson palette package",
+      prompt: "Grand Budapest Hotel palette: peach #f1bb7b, coral pink #fd6467, oxblood #5b1a18, burnt orange #d67236",
+      ex: scene(['#f4b5bd', '#f1bb7b', '#fd6467', '#d67236', '#5b1a18']), hex: ['#f1bb7b', '#fd6467', '#5b1a18', '#d67236'] },
+    { id: 'darjeeling', name: 'Darjeeling Limited', aka: 'Wes Anderson brights',
+      desc: "Pure red, teal, saffron, orange and sky blue from The Darjeeling Limited. Bold, sunny and travel-poster bright.",
+      ref: "The Darjeeling Limited (2007); wesanderson palette package",
+      prompt: "Darjeeling Limited palette: red #ff0000, teal #00a08a, saffron #f2ad00, orange #f98400, sky blue #5bbcd6",
+      ex: scene(['#5bbcd6', '#f2ad00', '#00a08a', '#f98400', '#ff0000']), hex: ['#ff0000', '#00a08a', '#f2ad00', '#f98400', '#5bbcd6'] },
+    { id: 'moonrise', name: 'Moonrise Kingdom', aka: 'Wes Anderson khaki and pastel',
+      desc: "Powder blue, ballet pink, khaki olive and sand yellow from Moonrise Kingdom. Scout-camp nostalgia.",
+      ref: "Moonrise Kingdom (2012); wesanderson palette package",
+      prompt: "Moonrise Kingdom palette: powder blue #85d4e3, pink #f4b5bd, khaki olive #9c964a, sand #cdc08c, butter yellow #fad77b",
+      ex: scene(['#85d4e3', '#fad77b', '#cdc08c', '#9c964a', '#f4b5bd']), hex: ['#85d4e3', '#f4b5bd', '#9c964a', '#cdc08c', '#fad77b'] },
+    { id: 'gameboy', name: 'Game Boy', aka: 'DMG green, 4-shade pea soup',
+      desc: "The original Game Boy screen: four shades of olive green, nothing else. Instant retro handheld nostalgia.",
+      ref: "Nintendo Game Boy (1989), Pokémon Red and Blue",
+      prompt: "original Game Boy palette, only four shades of green: #0f380f, #306230, #8bac0f, #9bbc0f",
+      ex: sv(`<rect width="160" height="100" fill="#9bbc0f"/><rect x="0" y="70" width="160" height="30" fill="#8bac0f"/>` + [[20, 52], [28, 44], [36, 52]].map(([x, y]) => `<rect x="${x}" y="${y}" width="8" height="8" fill="#306230"/>`).join('') + `<rect x="70" y="40" width="20" height="30" fill="#0f380f"/><rect x="74" y="44" width="4" height="4" fill="#9bbc0f"/><rect x="82" y="44" width="4" height="4" fill="#9bbc0f"/><rect x="0" y="70" width="160" height="4" fill="#306230"/><rect x="110" y="14" width="30" height="10" fill="#8bac0f"/>`),
+      hex: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'] },
+    { id: 'pico8', name: 'PICO-8', aka: 'fantasy console 16 colors',
+      desc: "The fixed 16-color palette of the PICO-8 fantasy console. Warm, cheerful and balanced; a favorite for pixel art and game jams.",
+      ref: "Celeste (the original PICO-8 version), Lexaloffle's PICO-8",
+      prompt: "pixel art using only the PICO-8 16-color palette",
+      ex: sv(['#000000', '#1d2b53', '#7e2553', '#008751', '#ab5236', '#5f574f', '#c2c3c7', '#fff1e8', '#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa'].map((c, i) => `<rect x="${16 + (i % 8) * 16}" y="${18 + Math.floor(i / 8) * 32}" width="16" height="32" fill="${c}"/>`).join('')),
+      hex: ['#000000', '#1d2b53', '#7e2553', '#008751', '#ab5236', '#5f574f', '#c2c3c7', '#fff1e8', '#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa'] },
+    { id: 'pantone', name: 'Pantone Color of the Year', aka: 'COTY',
+      desc: "Pantone's yearly pick, which then shows up everywhere from phones to sofas: Very Peri (2022), Viva Magenta (2023), Peach Fuzz (2024), Mocha Mousse (2025) and the soft white Cloud Dancer (2026). The hexes are Pantone's screen approximations.",
+      ref: "fashion, product and interior trends",
+      prompt: "built around Pantone's [Mocha Mousse #a47864] as the hero color, with warm neutrals",
+      ex: sv([['#6667ab', '22'], ['#bb2649', '23'], ['#ffbe98', '24'], ['#a47864', '25'], ['#f0eee9', '26']].map(([c, y], i) => `<g transform="rotate(${-8 + i * 4} ${30 + i * 25} 90)"><rect x="${14 + i * 25}" y="14" width="30" height="66" rx="2" fill="#fff" stroke="#0002"/><rect x="${16 + i * 25}" y="16" width="26" height="44" fill="${c}"/><text x="${18 + i * 25}" y="72" style="font:600 6.5px var(--mono);fill:#333">'${y}</text></g>`).join('')),
+      hex: ['#6667ab', '#bb2649', '#ffbe98', '#a47864', '#f0eee9'] }
+  ]
+});
+
+/* ---------- named colors & pigments ---------- */
+const NC = (id, name, aka, desc, ref, hex, prompt) => ({ id, name, aka, desc, ref, prompt: prompt || `${name} (${hex})`, ex: chip(hex, name), hex: [hex] });
+pool.groups.push({
+  id: 'iconic', title: 'Iconic named colors', slot: 'Named color',
+  intro: "Colors so tied to an artist, brand or object that their name is a color. Hexes are the common digital approximations.",
+  terms: [
+    NC('klein', 'International Klein Blue', 'IKB', "The ultramarine Yves Klein patented in 1960: so saturated it seems to vibrate and absorb you. Pure, spiritual and avant-garde.", "Yves Klein's monochromes", '#002fa7', 'International Klein Blue (#002fa7) as a deep, vibrating field of color'),
+    NC('tiffany', 'Tiffany Blue', 'robin egg blue, 1837 Blue', "The light robin-egg turquoise of Tiffany's boxes. Says gift, luxury and celebration.", "Tiffany & Co. boxes", '#81d8d0'),
+    NC('hermes', 'Hermès orange', 'Hermès box orange', "The warm, slightly burnt orange of Hermès boxes. Luxurious without being cold.", "Hermès packaging", '#f37021'),
+    NC('rossocorsa', 'Rosso Corsa', 'racing red, Ferrari red', "Italy's national racing red. Speed, passion and engineering pride.", "Ferrari, Alfa Romeo", '#d40000'),
+    NC('brg', 'British racing green', 'BRG', "The deep green of British racing cars. Heritage, craft and old money.", "Jaguar, Aston Martin, Bentley", '#004225'),
+    NC('majorelle', 'Majorelle Blue', 'Jardin Majorelle blue', "The intense violet-blue of Jacques Majorelle's garden villa in Marrakech, later Yves Saint Laurent's. Hot-climate, exotic, joyful.", "Jardin Majorelle, Marrakech", '#6050dc'),
+    NC('shocking', 'Shocking pink', 'Schiaparelli pink', "Elsa Schiaparelli's 1937 magenta-pink. Surreal, daring and fashion-forward.", "Schiaparelli couture", '#fc0fc0'),
+    NC('barbiepink', 'Barbie pink', 'Pantone 219 C', "The bright magenta-pink of Barbie's branding. Playful, confident and unapologetically pink.", "Mattel's Barbie", '#e0218a'),
+    NC('safetyorange', 'Safety orange', 'blaze orange, hi-vis orange', "The fluorescent orange of traffic cones and hunting vests, chosen to be seen against any background. Urgent, utilitarian, industrial.", "traffic cones, Off-White, Home Depot", '#ff7900'),
+    NC('cocacola', 'Coca-Cola red', 'Coke red', "A warm, saturated red associated with Coca-Cola and, through its ads, with the modern Santa Claus. Festive and bold.", "Coca-Cola branding", '#f40009'),
+    NC('cloud', 'Off-white', 'bone, eggshell, Cloud Dancer', "A warm white with a whisper of gray or yellow. Calmer and more expensive-looking than pure white, which can feel clinical.", "gallery walls, premium paper, Pantone 2026", '#f0eee9', 'warm off-white (#f0eee9) instead of pure white'),
+    NC('richblack', 'Rich black', 'soft black, near-black, ink black', "A deep black with a hint of color (blue, green or brown) instead of pure #000. Looks richer in print and gentler on screens.", "luxury packaging, dark-mode UI", '#14161a', 'rich near-black (#14161a) instead of pure black')
+  ]
+});
+
+pool.groups.push({
+  id: 'pigments', title: 'Artist pigments', slot: 'Pigment',
+  intro: "Paint colors with centuries of history. Naming a pigment gives a painterly, specific color and often an era: Prussian blue is Hokusai, ochre is cave paintings.",
+  terms: [
+    NC('ultramarine', 'Ultramarine', 'lapis lazuli blue, French ultramarine', "A deep, slightly violet blue once ground from lapis lazuli and worth more than gold. Renaissance painters saved it for the Virgin Mary's robes.", "Vermeer's Girl with a Pearl Earring", '#120a8f'),
+    NC('prussian', 'Prussian blue', 'Berlin blue, Paris blue', "A dark, inky blue-green discovered by accident in 1706. Cool, deep and ideal for shadows; the blue of Japanese woodblocks and blueprints.", "Hokusai's Great Wave, cyanotypes", '#003153'),
+    NC('vermilion', 'Vermilion', 'cinnabar, China red', "A brilliant orange-red made from cinnabar. Lacquer, temple gates and seals.", "Chinese lacquerware, Japanese torii gates", '#e34234'),
+    NC('ochre', 'Yellow ochre', 'ochre, raw sienna', "An earthy, muted yellow-brown clay pigment, used since the first cave paintings. Warm, natural and humble.", "Lascaux cave paintings, Aboriginal art", '#cc7722'),
+    NC('sienna', 'Burnt sienna', 'roasted sienna', "Sienna earth roasted to a warm reddish brown. Terracotta roofs, skin shadows and Tuscan walls.", "Tuscan architecture, Bob Ross", '#e97451'),
+    NC('umber', 'Raw umber', 'umber, Van Dyke-ish brown', "A cool, greenish dark brown earth. The workhorse dark for underpaintings and old-master shadows.", "Rembrandt's shadows", '#826644'),
+    NC('viridian', 'Viridian', 'chromium green', "A cool, transparent blue-green. Deep water, glass and conifers.", "Impressionist landscapes", '#40826d'),
+    NC('paynes', "Payne's gray", 'blue-gray', "A dark blue-gray watercolor pigment that stands in for black. Stormy skies, rain and slate.", "watercolor skies", '#536878'),
+    NC('naples', 'Naples yellow', 'lead antimonate yellow', "A soft, creamy pale yellow. Sunlit skin, butter and old plaster.", "Italian frescoes", '#fada5e'),
+    NC('cadred', 'Cadmium red', 'cad red', "A fully saturated, warm, opaque red. The brightest red on a painter's palette.", "Matisse, modern painters", '#e30022'),
+    NC('alizarin', 'Alizarin crimson', 'rose madder', "A cool, transparent, slightly blue-red. Wine, roses and deep glazes.", "old-master glazes, botanical painting", '#e32636'),
+    NC('tyrian', 'Tyrian purple', 'royal purple, imperial purple', "An ancient dye made from sea snails, so costly only emperors wore it. Regal, deep and wine-colored.", "Roman emperors' togas", '#66023c'),
+    NC('verdigris', 'Verdigris', 'patina green, copper green', "The blue-green crust that grows on old copper and bronze. Weathered, coastal and historic.", "the Statue of Liberty, copper roofs", '#43b3ae'),
+    NC('celadon', 'Celadon', 'jade glaze green', "A pale gray-green from Chinese and Korean ceramic glazes. Quiet, cool and refined.", "Song dynasty ceramics, Goryeo celadon", '#ace1af'),
+    NC('indigo', 'Indigo', 'indigo dye, denim blue', "A dark, slightly violet blue plant dye. Denim, Japanese aizome and boro textiles.", "raw denim, shibori", '#2a3a6b'),
+    NC('egyptian', 'Egyptian blue', 'Pompeian blue', "The world's first synthetic pigment, a bright clean blue from ancient Egypt. Tomb paintings and faience.", "ancient Egyptian murals", '#1034a6')
+  ]
+});
+
+/* ---------- gradients & treatments ---------- */
+pool.groups.push({
+  id: 'treat', title: 'Gradients & color treatments', slot: 'Treatment',
+  intro: "Ways to apply color, rather than which colors. Pair one with a palette: “a grainy gradient in sunset colors”, “a duotone in Klein blue and bone”.",
+  terms: [
+    { id: 'lineargrad', name: 'Linear gradient', aka: 'two-stop gradient, fade',
+      desc: "Color blends in a straight line from one to another. Clean and simple; the in-between colors matter, so pick hues that don't go muddy in the middle.",
+      ref: "Instagram's logo, app backgrounds",
+      prompt: "smooth linear gradient from [deep violet] to [warm coral], no muddy midpoint",
+      ex: hg('linear-gradient(135deg,#4b2bd1,#d94fa8 55%,#ffa26b)') },
+    { id: 'radialgrad', name: 'Radial gradient', aka: 'spotlight gradient, glow',
+      desc: "Color spreads outward from a center point, like a glow or spotlight. Draws the eye to the middle.",
+      ref: "product hero shots, sun glows",
+      prompt: "radial gradient glow from a bright center fading to dark edges",
+      ex: hg('radial-gradient(circle at 50% 55%,#ffe9a8,#f2a93b 30%,#7a2e1b 70%,#1b0d0a)') },
+    { id: 'conic', name: 'Conic gradient', aka: 'angular gradient, sweep, color wheel',
+      desc: "Color sweeps around a center point like a clock hand. Pie charts, color wheels and holographic sheens.",
+      ref: "color pickers, iridescent logos",
+      prompt: "conic gradient sweeping through the full hue circle",
+      ex: `<div class="hx"><div class="conic" style="background:conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)"></div><div class="conic" style="background:conic-gradient(from 200deg,#0f2a63,#2a6fdb,#9cf6c9,#0f2a63)"></div></div>` },
+    { id: 'mesh', name: 'Mesh gradient', aka: 'freeform gradient, blob gradient',
+      desc: "Several colors blend in soft, organic patches rather than a line. Lush, modern and very 2020s web.",
+      ref: "Stripe's homepage, Apple wallpapers",
+      prompt: "soft mesh gradient of [peach, lilac and aqua] blending in organic patches",
+      ex: `<div class="hx" style="position:relative;overflow:hidden;background:#ffd9c2"><div class="mesh"><i style="width:70%;height:90%;left:-10%;top:-20%;background:#ff9a8b"></i><i style="width:60%;height:80%;right:-10%;top:-10%;background:#a18cd1"></i><i style="width:70%;height:70%;left:30%;bottom:-30%;background:#7ee8fa"></i></div></div>` },
+    { id: 'aurora', name: 'Aurora gradient', aka: 'blurred blobs, glow orbs',
+      desc: "Big, blurry, slowly drifting color shapes on a dark background, like the northern lights. Popular for AI and tech brands.",
+      ref: "AI product launch pages, Linear's site",
+      prompt: "aurora gradient: large blurred drifting color orbs of [teal, violet and magenta] on near-black",
+      ex: `<div class="hx" style="position:relative;overflow:hidden;background:#07080f"><div class="mesh aurora"><i style="width:60%;height:70%;left:-5%;top:10%;background:#11c9a8"></i><i style="width:55%;height:70%;left:35%;top:-15%;background:#7b4dff"></i><i style="width:40%;height:50%;right:-5%;bottom:-5%;background:#ff3ea5"></i></div></div>` },
+    { id: 'grainygrad', name: 'Grainy gradient', aka: 'noise gradient, textured gradient',
+      desc: "A gradient with fine noise on top, which hides banding and makes digital color feel printed and tactile.",
+      ref: "2020s posters, Spotify Wrapped",
+      prompt: "grainy gradient from [orange] to [pink] with visible fine noise texture",
+      ex: sv(`<defs><linearGradient id="ggr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7a3d"/><stop offset="1" stop-color="#e83f8f"/></linearGradient></defs><rect width="160" height="100" fill="url(#ggr)"/>` + grainOv(.55)) },
+    { id: 'gradmap', name: 'Gradient map', aka: 'tone mapping to colors',
+      desc: "Every tone in an image is replaced by a color from a gradient: shadows become one color, highlights another. The engine behind duotones and stylized photo looks.",
+      ref: "Photoshop gradient maps, album covers",
+      prompt: "gradient map the image: shadows to [deep indigo], midtones to [magenta], highlights to [peach]",
+      ex: land({ sky: ['#3a1a6b', '#ffc59a'], sun: '#ffe7cc', far: '#b84a8a', mid: '#7a2a7a', near: '#3a1a6b', fig: '#1a0d33', glow: 24 }) },
+    { id: 'duotone', name: 'Duotone', aka: 'two-color image',
+      desc: "An image reduced to two colors, one for darks and one for lights. Unifies mixed photos and feels graphic and branded.",
+      ref: "Spotify campaign art",
+      prompt: "duotone treatment: every image in [deep navy] for darks and [hot pink] for lights",
+      ex: land({ sky: ['#ff5f9e', '#ffb3d0'], sun: '#ffe0ec', far: '#c2407f', mid: '#6a2a77', near: '#1b1f5e', fig: '#1b1f5e', glow: 20 }), hex: ['#1b1f5e', '#ff5f9e'] },
+    { id: 'tritone', name: 'Tritone', aka: 'three-color image',
+      desc: "Like a duotone with a third color in the midtones. Richer, more painterly, still unified.",
+      ref: "jazz record sleeves, editorial photography",
+      prompt: "tritone treatment: [black] shadows, [teal] midtones, [cream] highlights",
+      ex: land({ sky: ['#1f6f6a', '#f2e6c8'], sun: '#fffaf0', far: '#4e8f86', mid: '#1f6f6a', near: '#111', fig: '#000', glow: 18 }), hex: ['#111111', '#1f6f6a', '#f2e6c8'] },
+    { id: 'posterize', name: 'Posterized', aka: 'banded tones, reduced colors, cel bands',
+      desc: "Smooth tones broken into a few flat bands of color. Graphic, screen-printed or retro-digital.",
+      ref: "Warhol, Obama Hope poster, early web graphics",
+      prompt: "posterized into [4] flat tonal bands, no smooth gradients",
+      ex: sv(swatchRow(0, ['#1b2a4a', '#3a5a7a', '#c25a3a', '#f2b45a', '#fbe7c0'], 100, 0, 160).replace(/rx="3"/g, '') + `<circle cx="112" cy="48" r="16" fill="#fff6e0"/>`) },
+    { id: 'blocking', name: 'Color blocking', aka: 'blocks of solid color',
+      desc: "Large, hard-edged areas of flat solid color placed side by side. Bold, modern and fashion-led.",
+      ref: "Mondrian, Yves Saint Laurent's 1965 dress, Google Material",
+      prompt: "color blocking: large hard-edged areas of solid [mustard], [cobalt] and [blush]",
+      ex: sv(`<rect width="70" height="100" fill="#e0a526"/><rect x="70" width="90" height="56" fill="#2348a8"/><rect x="70" y="56" width="50" height="44" fill="#f3c2b5"/><rect x="120" y="56" width="40" height="44" fill="#111"/>`) },
+    { id: 'overprint', name: 'Overprint', aka: 'multiply, transparent inks, riso overlap',
+      desc: "Translucent inks printed on top of each other, so where they overlap a third color appears. Handmade and luminous.",
+      ref: "risograph zines, screen prints",
+      prompt: "overprinted translucent inks: [pink] and [blue] overlap to make [purple]",
+      ex: sv(`<rect width="160" height="100" fill="#f6f1e7"/><g style="mix-blend-mode:multiply"><rect x="26" y="18" width="64" height="64" fill="#ff48b0" opacity=".85"/><circle cx="104" cy="50" r="34" fill="#0078bf" opacity=".85"/><rect x="60" y="40" width="70" height="22" fill="#ffe800" opacity=".85"/></g>` + grainOv(.25)) },
+    { id: 'spotinks', name: 'Spot inks', aka: 'flat color separation, ink layers',
+      desc: "The image is built from a few solid inks, each with a job, and shading comes from dots or grain rather than blending. Tight, controllable color.",
+      ref: "travel posters",
+      prompt: "flat color separation in [5] spot inks: [ink] for [job], [ink] for [job]; no blended gradients",
+      ex: sv(`<g transform="translate(6 30)"><rect width="30" height="30" fill="#fff" stroke="var(--line)"/><circle cx="15" cy="17" r="10" fill="#f2a93b"/></g><g transform="translate(42 30)"><rect width="30" height="30" fill="#fff" stroke="var(--line)"/><rect y="18" width="30" height="12" fill="#1f5e66"/></g><g transform="translate(78 30)"><rect width="30" height="30" fill="#fff" stroke="var(--line)"/><polygon points="15,6 15,24 8,24" fill="#3a2a1a"/></g><text x="39" y="49" class="dts">+</text><text x="75" y="49" class="dts">+</text><text x="113" y="49" class="dts">=</text><g transform="translate(120 30)"><rect width="34" height="30" fill="#fff" stroke="var(--line)"/><circle cx="17" cy="17" r="10" fill="#f2a93b"/><rect y="18" width="34" height="12" fill="#1f5e66"/><polygon points="17,6 17,24 10,24" fill="#3a2a1a"/></g>`) },
+    { id: 'halftone', name: 'CMYK halftone', aka: 'process dots, Ben-Day, print dots',
+      desc: "Color built from tiny dots of cyan, magenta, yellow and black at different angles. Comic-book, newsprint, printed-matter texture.",
+      ref: "comics, Lichtenstein, vintage magazines",
+      prompt: "visible CMYK halftone dots, comic-print texture",
+      ex: sv(`<defs><pattern id="htc" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(15)"><circle cx="3.5" cy="3.5" r="2.4" fill="#00aeef"/></pattern><pattern id="htm" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(75)"><circle cx="3.5" cy="3.5" r="2" fill="#ec008c"/></pattern><pattern id="hty" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="2.6" fill="#fff200"/></pattern></defs><rect width="160" height="100" fill="#fbf8f0"/><g style="mix-blend-mode:multiply"><circle cx="62" cy="46" r="32" fill="url(#htc)"/><circle cx="96" cy="46" r="32" fill="url(#htm)"/><circle cx="80" cy="64" r="32" fill="url(#hty)"/></g>`) },
+    { id: 'irid', name: 'Iridescent', aka: 'holographic, pearlescent, oil slick',
+      desc: "Color that shifts through pinks, golds, mints and blues as the angle changes, like a soap bubble or holographic foil. Futuristic and Y2K.",
+      ref: "holographic packaging, beetle shells",
+      prompt: "iridescent holographic sheen shifting through pink, gold, mint and blue",
+      ex: `<div class="hx irid"></div>` },
+    { id: 'chromab', name: 'Chromatic aberration', aka: 'RGB split, color fringing',
+      desc: "Red, green and blue channels slightly misaligned so edges get colored fringes. Glitchy, lens-like or VHS.",
+      ref: "glitch art, Spider-Verse, cheap lenses",
+      prompt: "slight chromatic aberration: red and cyan fringes on high-contrast edges",
+      ex: sv(`<rect width="160" height="100" fill="#111"/><g style="mix-blend-mode:screen"><text x="78" y="64" text-anchor="middle" style="font:800 44px var(--display)" fill="#ff0040">RGB</text><text x="82" y="64" text-anchor="middle" style="font:800 44px var(--display)" fill="#00e0ff">RGB</text><text x="80" y="64" text-anchor="middle" style="font:800 44px var(--display)" fill="#00ff70" opacity=".6">RGB</text></g>`) },
+    { id: 'bloom', name: 'Glow & bloom', aka: 'light bloom, soft glow, Orton effect',
+      desc: "Bright areas bleed soft light into their surroundings. Dreamy, magical and warm; too much looks like a 2000s video game.",
+      ref: "Ghibli skies, dreamy wedding photos",
+      prompt: "soft bloom around highlights, light bleeding gently into the surroundings",
+      ex: land({ sky: ['#f6c3a3', '#fff1dc'], sun: '#ffffff', sunR: 12, far: '#e2b4a0', mid: '#c48c80', near: '#7a5a60', fig: '#4a3540', glow: 70, glowC: '#fff6e8' }) }
+  ]
+});
+
+/* ---------- UI & data color ---------- */
+pool.groups.push({
+  id: 'uicolor', title: 'UI color systems', slot: 'UI color',
+  intro: "How color is organized in apps and websites. These words get you a palette that survives dark mode, states and accessibility checks, not just a pretty screenshot.",
+  terms: [
+    { id: 'tokens', name: 'Color tokens', aka: 'design tokens, semantic tokens, roles',
+      desc: "Colors named by job (surface, text-muted, accent, danger) rather than by value (blue-500). Swapping themes then changes values while the names stay put.",
+      ref: "Material 3 color roles, Radix, shadcn/ui CSS variables",
+      prompt: "define colors as semantic tokens (background, surface, text, text-muted, border, accent, danger) as CSS variables",
+      ex: sv([['surface', '#f4f5f7'], ['text', '#161c27'], ['muted', '#8a93a3'], ['border', '#dce1e8'], ['accent', '#2b50d8'], ['danger', '#d1384a']].map(([n, c], i) => `<rect x="${i % 2 ? 84 : 14}" y="${12 + Math.floor(i / 2) * 27}" width="18" height="18" rx="4" fill="${c}" stroke="#0002"/><text x="${(i % 2 ? 84 : 14) + 24}" y="${24 + Math.floor(i / 2) * 27}" class="dtl">--${n}</text>`).join('')) },
+    { id: 'scale', name: '50-900 color scale', aka: 'color ramp, shade scale, 10-step palette',
+      desc: "Each hue built as a ladder of about ten steps from very light (50) to very dark (900 or 950). Gives you backgrounds, borders, text and hover states from one hue.",
+      ref: "Tailwind CSS palette, Radix's 12-step scales",
+      prompt: "build each color as a 50-950 scale; use 50-100 for backgrounds, 500-600 for accents, 800-900 for text",
+      ex: sv([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => `<rect x="${10 + i * 14}" y="20" width="13" height="40" fill="hsl(226 70% ${96 - i * 8.6}%)"/><text x="${16.5 + i * 14}" y="70" class="dts">${[50, 100, 200, 300, 400, 500, 600, 700, 800, 900][i]}</text>`).join('')) },
+    { id: 'oklch', name: 'OKLCH', aka: 'perceptual color, OKLab, uniform lightness',
+      desc: "A color space where equal steps of lightness actually look equal. Scales built in OKLCH don't get muddy, and every hue at the same L has the same contrast.",
+      ref: "Tailwind v4's palette, Evil Martians' OKLCH picker",
+      prompt: "build the palette in OKLCH so every hue at the same lightness has matching contrast",
+      ex: sv(`<text x="14" y="16" class="dtl">HSL 50% lightness</text>` + swatchRow(20, [0, 60, 120, 200, 260, 310].map(h => `hsl(${h} 90% 50%)`), 22) + `<text x="14" y="60" class="dtl">OKLCH 70% lightness</text>` + swatchRow(64, [25, 95, 145, 220, 265, 330].map(h => `oklch(70% .15 ${h})`), 22)) },
+    { id: 'neutrals', name: 'Tinted neutrals', aka: 'warm gray, cool gray, slate, stone',
+      desc: "Grays with a hint of the brand hue mixed in: slate (blue), stone (warm), sage (green). They make an interface feel considered instead of default.",
+      ref: "Tailwind's slate, zinc and stone; Linear's blue-gray",
+      prompt: "use warm stone neutrals (grays tinted slightly toward [brown]) for surfaces and text",
+      ex: sv(['cool', 'pure', 'warm'].map((n, r) => [96, 86, 70, 50, 30, 14].map((l, i) => `<rect x="${44 + i * 18}" y="${12 + r * 27}" width="16" height="21" rx="3" fill="hsl(${[220, 0, 32][r]} ${[14, 0, 12][r]}% ${l}%)"/>`).join('') + `<text x="38" y="${25 + r * 27}" class="dts" style="text-anchor:end">${n}</text>`).join('')) },
+    { id: 'darkmode', name: 'Dark mode palette', aka: 'dark theme, night mode',
+      desc: "Not just inverted: near-black blue or gray instead of pure black, off-white text instead of pure white, and accents lightened and desaturated so they don't glow.",
+      ref: "GitHub dark, Apple's dark appearance, Material dark theme",
+      prompt: "dark mode: #121417-ish background, off-white text, accents lightened and slightly desaturated, no pure black or white",
+      ex: sv(`<rect x="0" y="0" width="80" height="100" fill="#f6f7f9"/>${uiCard(10, 12, 60, 76, '#ffffff', '#dfe3e8')}${bar(18, 22, 34, '#1b1f24')}${bar(18, 32, 44, '#8a93a3', 3)}${bar(18, 40, 38, '#8a93a3', 3)}<rect x="18" y="66" width="30" height="12" rx="6" fill="#2b50d8"/><rect x="80" y="0" width="80" height="100" fill="#121417"/>${uiCard(90, 12, 60, 76, '#1b1e23', '#2a2f37')}${bar(98, 22, 34, '#e8ebf0')}${bar(98, 32, 44, '#7d8590', 3)}${bar(98, 40, 38, '#7d8590', 3)}<rect x="98" y="66" width="30" height="12" rx="6" fill="#86a2ff"/>`) },
+    { id: 'elevation', name: 'Surface elevation', aka: 'layered surfaces, tonal elevation',
+      desc: "In dark mode, higher layers (cards, menus, dialogs) get slightly lighter instead of casting shadows. Light mode uses shadows; dark mode uses tone.",
+      ref: "Material 3 tonal elevation, macOS dark mode",
+      prompt: "in dark mode, show elevation by lightening surfaces step by step (background, card, menu, dialog)",
+      ex: sv(`<rect width="160" height="100" fill="#101215"/>${uiCard(14, 14, 120, 76, '#181b20')}${uiCard(30, 26, 100, 56, '#20242b')}${uiCard(50, 38, 76, 40, '#2a2f37')}${uiCard(72, 50, 50, 24, '#353b45')}`) },
+    { id: 'contrast', name: 'Contrast ratio', aka: 'WCAG AA, 4.5:1, accessible contrast',
+      desc: "How different text is from its background, measured as a ratio. WCAG AA asks for 4.5:1 for body text and 3:1 for large text and icons. Light gray on white usually fails.",
+      ref: "WCAG 2.2, WebAIM contrast checker",
+      prompt: "all text meets WCAG AA contrast (4.5:1 body, 3:1 large text and UI icons)",
+      ex: sv(`<rect x="10" y="12" width="66" height="76" rx="6" fill="#ffffff" stroke="#dfe3e8"/><text x="43" y="50" text-anchor="middle" style="font:600 18px var(--body)" fill="#bfc5ce">Aa</text><text x="43" y="76" text-anchor="middle" style="font:500 7px var(--mono)" fill="#d1384a">1.7:1 ✕</text><rect x="84" y="12" width="66" height="76" rx="6" fill="#ffffff" stroke="#dfe3e8"/><text x="117" y="50" text-anchor="middle" style="font:600 18px var(--body)" fill="#4b5466">Aa</text><text x="117" y="76" text-anchor="middle" style="font:500 7px var(--mono)" fill="#1e8e63">7.6:1 ✓</text>`) },
+    { id: 'notalone', name: "Don't rely on color alone", aka: 'redundant encoding, icons plus color',
+      desc: "Pair every color meaning with a second cue (an icon, label, pattern or position) so people with color-vision deficiency, or a grayscale printout, still get it.",
+      ref: "WCAG 1.4.1, error fields with an icon and message",
+      prompt: "never use color as the only signal; pair status colors with icons and text labels",
+      ex: sv([['#1e8e63', '✓', 'Passed', 20], ['#d9900f', '!', 'Slow', 48], ['#d1384a', '✕', 'Failed', 76]].map(([c, i, l, y]) => `<rect x="24" y="${y - 10}" width="112" height="20" rx="10" fill="${c}" fill-opacity=".14"/><circle cx="38" cy="${y}" r="6" fill="${c}"/><text x="38" y="${y + 2.6}" text-anchor="middle" style="font:700 7px var(--body);fill:#fff">${i}</text><text x="50" y="${y + 2.5}" class="dtl">${l}</text>`).join('')) },
+    { id: 'semantic', name: 'Semantic status colors', aka: 'success, warning, danger, info',
+      desc: "A fixed set of colors that always mean the same thing: green for success, amber for warning, red for danger, blue for info. Keep them apart from the brand palette.",
+      ref: "CI dashboards, form validation, toasts",
+      prompt: "semantic status colors kept separate from the brand: success green, warning amber, danger red, info blue",
+      ex: sv([['#1e8e63', 'success'], ['#d9900f', 'warning'], ['#d1384a', 'danger'], ['#2b6fd8', 'info']].map(([c, n], i) => `<rect x="14" y="${8 + i * 22}" width="132" height="18" rx="4" fill="${c}" fill-opacity=".14" stroke="${c}" stroke-opacity=".5"/><rect x="14" y="${8 + i * 22}" width="4" height="18" fill="${c}"/><text x="26" y="${19.5 + i * 22}" class="dtl">${n}</text>`).join('')) },
+    { id: 'states', name: 'State layers', aka: 'hover, pressed, focus, disabled',
+      desc: "Each interactive color needs variations for hover, pressed, focused and disabled. Usually a step darker or a translucent overlay, plus a visible focus ring.",
+      ref: "Material 3 state layers, Radix scales steps 9-10",
+      prompt: "include hover (one step darker), pressed (two steps), visible focus ring, and 40%-opacity disabled states",
+      ex: sv([['default', '#2b50d8', 1, 0], ['hover', '#2340a8', 1, 0], ['pressed', '#1a2f80', 1, 0], ['focus', '#2b50d8', 1, 1], ['disabled', '#2b50d8', .4, 0]].map(([n, c, o, f], i) => `${f ? `<rect x="${42}" y="${4 + i * 19}" width="76" height="17" rx="8.5" fill="none" stroke="#86a2ff" stroke-width="2"/>` : ''}<rect x="45" y="${6.5 + i * 19}" width="70" height="12" rx="6" fill="${c}" opacity="${o}"/><text x="80" y="${14.8 + i * 19}" text-anchor="middle" style="font:600 6.5px var(--body);fill:#fff">${n}</text>`).join('')) },
+    { id: 'dynamic', name: 'Dynamic color', aka: 'Material You, wallpaper-based theming',
+      desc: "The whole theme is generated from one seed color, often pulled from the user's wallpaper, into tonal palettes for primary, secondary, tertiary and neutrals.",
+      ref: "Android 12+ Material You, Material Theme Builder",
+      prompt: "generate a Material 3 dynamic color scheme from the seed color [#6750a4]",
+      ex: sv(`<rect x="10" y="14" width="40" height="72" rx="6" fill="#d6b48c"/><circle cx="30" cy="40" r="10" fill="#7a5a3a"/><path d="M10 70 Q30 56 50 68 V86 H10Z" fill="#5a6a3a"/><path d="M56 50 H70" class="ar"/>` + [['#7a5a3a', '#f3dcc2', '#ffefe0'], ['#6b5d4f', '#f2e0d0', '#fff3ea'], ['#4f6a3a', '#d6eac2', '#f1f8e9'], ['#7a7067', '#ece0d6', '#fbf6f2']].map((r, i) => r.map((c, j) => `<rect x="${78 + j * 24}" y="${14 + i * 18}" width="22" height="16" rx="3" fill="${c}"/>`).join('')).join('')) }
+  ]
+});
+
+pool.groups.push({
+  id: 'datacolor', title: 'Data & chart color', slot: 'Data color',
+  intro: "Color in charts has one job: to make the data readable. Pick the palette type from the shape of the data, then pick the colors.",
+  terms: [
+    { id: 'categorical', name: 'Categorical palette', aka: 'qualitative palette, series colors',
+      desc: "Distinct hues for things with no order (products, teams, regions). Keep it to about 6-8; beyond that, people can't tell them apart.",
+      ref: "Tableau 10, D3's category10",
+      prompt: "categorical palette of 6 distinct, equally prominent hues for unordered series",
+      ex: sv(['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'].map((c, i) => `<rect x="${18 + i * 22}" y="${86 - [44, 62, 30, 52, 70, 38][i]}" width="16" height="${[44, 62, 30, 52, 70, 38][i]}" rx="2" fill="${c}"/>`).join('') + `<path d="M12 86H150" class="sm"/>`), hex: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'] },
+    { id: 'sequential', name: 'Sequential palette', aka: 'single-hue ramp, light to dark',
+      desc: "One hue from light to dark for ordered values (low to high). Darker means more; readers get it without a legend.",
+      ref: "choropleth maps, GitHub's contribution graph",
+      prompt: "sequential single-hue palette from pale to dark [blue] for low-to-high values",
+      ex: sv([...Array(28)].map((_, i) => { const v = [.1, .4, .7, .2, .9, .5, .3, .6, .8, .2, .4, 1, .6, .3, .5, .7, .2, .9, .4, .6, .8, .3, .1, .5, .7, .9, .4, .6][i]; return `<rect x="${20 + (i % 7) * 18}" y="${14 + Math.floor(i / 7) * 18}" width="16" height="16" rx="3" fill="hsl(145 ${30 + v * 40}% ${92 - v * 62}%)"/>`; }).join('')) },
+    { id: 'diverging', name: 'Diverging palette', aka: 'two-sided scale, red-blue',
+      desc: "Two hues meeting at a neutral middle, for data with a meaningful center (above or below average, gain or loss).",
+      ref: "election swing maps, temperature anomalies",
+      prompt: "diverging palette: [blue] for below zero, neutral gray at zero, [red] for above",
+      ex: sv(swatchRow(26, ['#2166ac', '#67a9cf', '#d1e5f0', '#f7f7f7', '#fddbc7', '#ef8a62', '#b2182b'], 36) + `<text x="20" y="78" class="dts">−</text><text x="80" y="78" class="dts">0</text><text x="140" y="78" class="dts">+</text>`), hex: ['#2166ac', '#67a9cf', '#d1e5f0', '#f7f7f7', '#fddbc7', '#ef8a62', '#b2182b'] },
+    { id: 'highlight', name: 'Highlight one series', aka: 'gray plus accent, focus color',
+      desc: "Everything in gray except the one series the chart is about. The fastest way to make a chart say one thing.",
+      ref: "The Economist, Financial Times charts",
+      prompt: "all series in light gray except [our product], highlighted in the accent color",
+      ex: sv(`<path d="M18 10V86H150" class="sm"/>` + [[70, 64, 66, 58, 60, 54], [40, 46, 52, 48, 56, 60], [76, 72, 78, 74, 70, 72]].map(r => `<polyline points="${r.map((y, i) => `${24 + i * 24},${y}`).join(' ')}" fill="none" stroke="var(--g3)" stroke-width="1.6"/>`).join('') + `<polyline points="24,80 48,70 72,60 96,40 120,30 144,18" fill="none" stroke="#e1527a" stroke-width="2.6"/><circle cx="144" cy="18" r="3" fill="#e1527a"/>`) },
+    { id: 'okabe', name: 'Okabe-Ito palette', aka: 'color-blind safe palette',
+      desc: "Eight colors chosen to stay distinguishable for the common forms of color blindness. The default safe choice for scientific charts.",
+      ref: "Okabe & Ito (2008), Nature's figure guidelines",
+      prompt: "use the color-blind-safe Okabe-Ito palette (#e69f00, #56b4e9, #009e73, #f0e442, #0072b2, #d55e00, #cc79a7)",
+      ex: sv(['#e69f00', '#56b4e9', '#009e73', '#f0e442', '#0072b2', '#d55e00', '#cc79a7', '#000000'].map((c, i) => `<circle cx="${22 + (i % 4) * 38}" cy="${32 + Math.floor(i / 4) * 36}" r="13" fill="${c}"/>`).join('')),
+      hex: ['#e69f00', '#56b4e9', '#009e73', '#f0e442', '#0072b2', '#d55e00', '#cc79a7', '#000000'] },
+    { id: 'viridis', name: 'Viridis', aka: 'perceptually uniform colormap, magma, plasma',
+      desc: "A purple-to-teal-to-yellow ramp designed so equal data steps look equal, it prints in grayscale and works for color-blind readers. Its siblings are magma, inferno and plasma.",
+      ref: "matplotlib's default colormap, heatmaps",
+      prompt: "use the viridis colormap (purple to teal to yellow) for the continuous scale",
+      ex: hg('linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725)'), hex: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'] },
+    { id: 'rainbowbad', name: 'Avoid rainbow scales', aka: 'jet colormap, spectral misuse',
+      desc: "Rainbow ramps create fake boundaries (the yellow band looks like a jump) and fail for color-blind readers. Ask for a perceptual ramp instead.",
+      ref: "the old MATLAB 'jet' default",
+      prompt: "no rainbow or jet colormaps; use a perceptually uniform ramp",
+      ex: sv(`<defs><linearGradient id="jet"><stop offset="0" stop-color="#00007f"/><stop offset=".15" stop-color="#0000ff"/><stop offset=".35" stop-color="#00ffff"/><stop offset=".5" stop-color="#7fff7f"/><stop offset=".65" stop-color="#ffff00"/><stop offset=".85" stop-color="#ff0000"/><stop offset="1" stop-color="#7f0000"/></linearGradient><linearGradient id="vir"><stop offset="0" stop-color="#440154"/><stop offset=".25" stop-color="#3b528b"/><stop offset=".5" stop-color="#21918c"/><stop offset=".75" stop-color="#5ec962"/><stop offset="1" stop-color="#fde725"/></linearGradient></defs><rect x="14" y="16" width="132" height="24" rx="3" fill="url(#jet)"/><text x="80" y="50" class="dts">rainbow: fake bands ✕</text><rect x="14" y="58" width="132" height="24" rx="3" fill="url(#vir)"/><text x="80" y="92" class="dts">perceptual: even steps ✓</text>`) }
+  ]
+});
+
+/* ---------- subjects: one page each ----------
+   To add a subject, push groups into pool.groups above, then add an entry here:
+   { id, title, blurb, preview: termId, groups: [groupId, ...] }
+*/
+const G = Object.fromEntries(pool.groups.map(g => [g.id, g]));
+const WORKBOOK = {
+  recipe: [
+    ['An '], ['accented analogous', 'accented'], [' palette of amber and gold with one teal accent, '], ['sun-bleached', 'sunbleached'], [' rather than saturated, under '],
+    ['backlit haze', 'backlit'], [', graded like '], ['Kodak Portra', 'portra'], [' with '], ['lifted blacks', 'faded'], ['. Printed as five '], ['spot inks', 'spotinks'],
+    [', each with one '], ['role', 'roles'], ['.']
+  ],
+  areas: [
+    { id: 'theory', title: 'Harmony & theory', preview: 'accented', blurb: 'Color-wheel harmonies, the dials every color has, and the effects that change how colors read together.', groups: ['harmony', 'dials'] },
+    { id: 'moods', title: 'Moods & places', preview: 'americana', blurb: 'Palette families like pastel, earthy and jewel tones, plus palettes borrowed from seasons and landscapes.', groups: ['families', 'places'] },
+    { id: 'aesthetics', title: 'Named aesthetics', preview: 'synthwave', blurb: 'Styles whose colors are their identity: synthwave, Bauhaus, dark academia, risograph and more.', groups: ['aesthetics'] },
+    { id: 'film', title: 'Film & grading', preview: 'goldenhour', blurb: 'Film stocks, color grades and the color of light, for photos, video and cinematic images.', groups: ['stocks', 'grades', 'light'] },
+    { id: 'palettes', title: 'Named palettes', preview: 'catmocha', blurb: 'Exact, tested palettes to borrow: editor themes, Wes Anderson films, game consoles, Pantone and your own gallery.', groups: ['themes', 'refpal'] },
+    { id: 'colors', title: 'Named colors & pigments', preview: 'klein', blurb: 'Single colors with a name and a story, from Klein blue and Hermès orange to Prussian blue and ochre.', groups: ['iconic', 'pigments'] },
+    { id: 'treatments', title: 'Gradients & treatments', preview: 'grainygrad', blurb: 'How color is applied: gradients, duotones, overprints, halftones and glows.', groups: ['treat'] },
+    { id: 'ui', title: 'UI & data color', preview: 'darkmode', blurb: 'Tokens, scales, dark mode, contrast and chart palettes that hold up in real products.', groups: ['uicolor', 'datacolor'] }
+  ].map(a => ({ ...a, groups: a.groups.map(id => G[id]) }))
+};
+const MEDIUMS = ['Image or poster', 'Illustration', 'Photo or video grade', 'UI theme', 'Brand identity', 'Chart or data viz'];
+
+/* ---------- readings: a real prompt, read for its color ---------- */
+const READINGS = [];
+
+/* ---------- rendering ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+};
+const picks = new Set(store.get('cp-picks', []));
+let medium = store.get('cp-medium', '');
+const TERMS = {};
+WORKBOOK.areas.forEach(a => a.groups.forEach(g => g.terms.forEach(t => TERMS[t.id] = { t, g, a })));
+const totalTerms = Object.keys(TERMS).length;
+let pendingJump = null;
+
+// readable label color on a swatch
+function inkOn(hex) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+  const L = c => { c /= 255; return c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; };
+  return .2126 * L(r) + .7152 * L(g) + .0722 * L(b) > .3 ? '#111' : '#fff';
+}
+const hexHTML = t => t.hex ? `<div class="hexes${t.hex.length > 7 ? ' many' : ''}">${t.hex.map(h => `<button type="button" data-hex="${h}" style="background:${h};color:${inkOn(h)}" title="Copy ${h}" aria-label="Copy ${h}">${h}</button>`).join('')}</div>` : '';
+
+const cardHTML = (t, g) => `
+  <article class="card${picks.has(t.id) ? ' picked' : ''}" id="t-${t.id}" data-search="${esc((t.name + ' ' + (t.aka || '') + ' ' + t.desc + ' ' + (t.ref || '') + ' ' + (t.spot || '') + ' ' + g.title + ' ' + (t.hex || []).join(' ')).toLowerCase())}">
+    <div class="ex">${t.ex}</div>${hexHTML(t)}
+    <div class="cbody">
+      <h3>${esc(t.name)}</h3>
+      ${t.aka ? `<div class="aka">Also called ${esc(t.aka)}</div>` : ''}
+      <p class="desc">${esc(t.desc)}</p>
+      ${t.spot ? `<p class="ref"><b>Spot it</b>${esc(t.spot)}</p>` : ''}
+      ${t.ref ? `<p class="ref"><b>Think</b>${esc(t.ref)}</p>` : ''}
+      <div class="phrase">
+        <code id="p-${t.id}">${esc(t.prompt)}</code>
+        <div class="btns">
+          <button type="button" class="btn add" data-add="${t.id}" aria-pressed="${picks.has(t.id)}">${picks.has(t.id) ? 'Added' : 'Add to prompt'}</button>
+          <button type="button" class="btn" data-copy="${t.id}">Copy phrase</button>
+        </div>
+      </div>
+    </div>
+  </article>`;
+const groupHTML = (g, sub) => `
+  <section class="group" id="g-${g.id}" aria-labelledby="h-${g.id}">
+    <div class="ghead">${sub ? `<div class="eyebrow">${esc(sub)}</div>` : ''}<h2 id="h-${g.id}">${esc(g.title)}</h2><p>${esc(g.intro)}</p></div>
+    <div class="cards">${g.terms.map(t => cardHTML(t, g)).join('')}</div>
+  </section>`;
+const emptyMsg = `<p class="empty" id="empty" hidden>Nothing matches that search. Try a plainer word like "warm", "pink", "film", "dark" or a hex code.</p>`;
+
+function renderHome() {
+  $('#home').hidden = false; $('#subject').hidden = true; $('#main').innerHTML = '';
+  $('#homeCount').textContent = `${totalTerms} cards in ${WORKBOOK.areas.length} subjects`;
+  $('#sentence').innerHTML = WORKBOOK.recipe.map(([txt, id]) => {
+    if (!id || !TERMS[id]) return esc(txt);
+    return `<a class="chip" href="#${TERMS[id].a.id}" data-jump="${id}"><span>${esc(txt)}</span><small>${esc(TERMS[id].g.slot)}</small></a>`;
+  }).join('');
+  $('#tiles').innerHTML = WORKBOOK.areas.map(a => `
+    <a class="tile" href="#${a.id}">
+      <div class="ex" aria-hidden="true">${TERMS[a.preview] ? TERMS[a.preview].t.ex.replace(/id="([^"]+)"/g, 'id="tile-$1"').replace(/url\(#([^)]+)\)/g, 'url(#tile-$1)') : ''}</div>
+      <div class="tbody"><h3>${esc(a.title)}</h3><p>${esc(a.blurb)}</p>
+      <div class="tmeta">${a.groups.reduce((n, g) => n + g.terms.length, 0)} cards · ${a.groups.map(g => esc(g.title)).join(' · ')}</div></div>
+    </a>`).join('');
+  const chip = id => TERMS[id] ? `<a class="chip" href="#${TERMS[id].a.id}" data-jump="${id}"><span>${esc(TERMS[id].t.name)}</span><small>${esc(TERMS[id].g.slot)}</small></a>` : '';
+  $('#reading').innerHTML = READINGS.map(r => `
+    <h2 id="readingH">Read a real prompt: ${esc(r.title)}</h2>
+    <p class="lead">${esc(r.intro)}</p>
+    <div class="rgrid">
+      <figure class="rfig"><img src="${r.img}" alt="${esc(r.alt)}" loading="lazy"><div class="sampled">${r.sampled.map(h => `<span style="background:${h};color:${inkOn(h)}">${h}</span>`).join('')}</div><figcaption>${esc(r.by)}</figcaption></figure>
+      <ol class="rparts">${r.parts.map(p => `<li><blockquote>“${esc(p.q)}”</blockquote>${p.uses.length ? `<div class="uses">${p.uses.map(chip).join('')}</div>` : ''}${p.note ? `<p class="note"><b>Sharpen</b>${esc(p.note)}</p>` : ''}</li>`).join('')}</ol>
+    </div>`).join('');
+  $('#results').innerHTML = WORKBOOK.areas.map(a => a.groups.map(g => groupHTML(g, a.title)).join('')).join('') + emptyMsg;
+  filter($('#qh'), $('#results'), true);
+}
+
+function renderSubject(a) {
+  $('#home').hidden = true; $('#subject').hidden = false; $('#results').innerHTML = '';
+  $('#subTitle').textContent = a.title;
+  $('#subBlurb').textContent = a.blurb;
+  const i = WORKBOOK.areas.indexOf(a), next = WORKBOOK.areas[(i + 1) % WORKBOOK.areas.length];
+  $('#nav').innerHTML = a.groups.map(g => `<a href="#g-${g.id}" data-g="${g.id}">${esc(g.title)}<span>${g.terms.length}</span></a>`).join('');
+  $('#main').innerHTML = a.groups.map(g => groupHTML(g)).join('') + emptyMsg + `<a class="next" href="#${next.id}">Next subject: ${esc(next.title)} →</a>`;
+  $('#q').value = '';
+}
+
+function route() {
+  const id = location.hash.slice(1);
+  const a = WORKBOOK.areas.find(x => x.id === id);
+  if (a) renderSubject(a);
+  else if (!id || !document.getElementById(id)) renderHome();
+  else return; // in-page anchor such as #g-harmony
+  if (pendingJump) { const j = pendingJump; pendingJump = null; setTimeout(() => jumpTo(j), 60); }
+  else if (a || !id) window.scrollTo(0, 0);
+}
+
+function compose() {
+  const subj = $('#subject-in').value.trim() || '[what you are coloring]';
+  const lines = [`Color direction for ${subj}${medium ? ` (${medium.toLowerCase()})` : ''}:`, ''];
+  const hexLines = [];
+  let n = 0;
+  WORKBOOK.areas.forEach(a => a.groups.forEach(g => {
+    const ps = g.terms.filter(t => picks.has(t.id));
+    if (!ps.length) return;
+    n += ps.length;
+    lines.push(`- ${g.slot}: ${ps.map(t => t.prompt).join('; ')}`);
+    ps.forEach(t => { if (t.hex && !/#[0-9a-f]{6}/i.test(t.prompt)) hexLines.push(`- ${t.name}: ${t.hex.join(', ')}`); });
+  }));
+  if (!n) lines.push('- (add cards from the workbook)');
+  if (hexLines.length) lines.push('', 'Reference hex codes:', ...hexLines);
+  if (n) lines.push('', 'Give each color one job (background, main subject, shadow, accent) and don\'t introduce colors outside this direction.');
+  if (n && medium === 'UI theme') lines.push('Define the colors as semantic tokens, cover light and dark mode, and keep text at WCAG AA contrast.');
+  if (n && medium === 'Chart or data viz') lines.push('Make sure the chart still reads for color-blind viewers and in grayscale.');
+  return { text: lines.join('\n'), n };
+}
+
+function renderTray() {
+  const { text, n } = compose();
+  $('#out').textContent = text;
+  const names = [...picks].filter(id => TERMS[id]).map(id => TERMS[id].t.name);
+  $('#count').innerHTML = n
+    ? `${n} card${n > 1 ? 's' : ''} picked<small>${esc(names.join(' · '))}</small>`
+    : `No cards picked yet<small>Press "Add to prompt" on any card to start</small>`;
+  $('#mediums').innerHTML = MEDIUMS.map(m => `<button type="button" class="qchip" data-medium="${esc(m)}" aria-pressed="${m === medium}">${esc(m)}</button>`).join('');
+}
+
+function copyText(text, btn, fallbackEl, keepLabel) {
+  const done = ok => { if (keepLabel) { btn.style.outline = '2px solid var(--ok)'; setTimeout(() => btn.style.outline = '', 900); return; } const o = btn.textContent; btn.textContent = ok ? 'Copied' : 'Selected, press Ctrl+C'; setTimeout(() => btn.textContent = o, 1400); };
+  const select = () => { if (!fallbackEl) return; const r = document.createRange(); r.selectNodeContents(fallbackEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+  try {
+    navigator.clipboard.writeText(text).then(() => done(true), () => { select(); done(false); });
+  } catch (e) { select(); done(false); }
+}
+
+function jumpTo(id) {
+  const el = document.getElementById('t-' + id);
+  if (!el || el.hidden) return;
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+
+function filter(input, scope, homeMode) {
+  const q = input.value.trim().toLowerCase();
+  let any = false;
+  scope.querySelectorAll('.group').forEach(g => {
+    let vis = 0;
+    g.querySelectorAll('.card').forEach(c => { const ok = !q || c.dataset.search.includes(q); c.hidden = !ok; if (ok) vis++; });
+    g.hidden = !vis; if (vis) any = true;
+    const nav = document.querySelector(`#nav [data-g="${g.id.slice(2)}"]`); if (nav) nav.hidden = !vis;
+  });
+  const empty = scope.querySelector('#empty'); if (empty) empty.hidden = any;
+  if (homeMode) { $('#results').hidden = !q; $('#tiles').hidden = !!q; $('#recipe').hidden = !!q; $('#reading').hidden = !!q; }
+}
+
+document.addEventListener('click', e => {
+  const add = e.target.closest('[data-add]');
+  if (add) {
+    const id = add.dataset.add;
+    picks.has(id) ? picks.delete(id) : picks.add(id);
+    store.set('cp-picks', [...picks]);
+    const on = picks.has(id);
+    add.setAttribute('aria-pressed', on); add.textContent = on ? 'Added' : 'Add to prompt';
+    document.getElementById('t-' + id).classList.toggle('picked', on);
+    renderTray(); return;
+  }
+  const hx = e.target.closest('[data-hex]');
+  if (hx) { copyText(hx.dataset.hex, hx, null, true); return; }
+  const md = e.target.closest('[data-medium]');
+  if (md) { medium = medium === md.dataset.medium ? '' : md.dataset.medium; store.set('cp-medium', medium); renderTray(); return; }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { const el = document.getElementById('p-' + cp.dataset.copy); copyText(el.textContent, cp, el); return; }
+  const j = e.target.closest('[data-jump]');
+  if (j) {
+    e.preventDefault();
+    const target = TERMS[j.dataset.jump].a.id;
+    pendingJump = j.dataset.jump;
+    if (location.hash.slice(1) === target) route(); else location.hash = target;
+  }
+});
+
+window.addEventListener('hashchange', route);
+$('#q').addEventListener('input', () => filter($('#q'), $('#main')));
+$('#qh').addEventListener('input', () => filter($('#qh'), $('#results'), true));
+$('#toggle').addEventListener('click', () => {
+  const body = $('#trayBody'), open = body.hidden;
+  body.hidden = !open; $('#toggle').setAttribute('aria-expanded', open); $('#toggle').textContent = open ? 'Hide prompt' : 'Show prompt';
+});
+$('#copyAll').addEventListener('click', e => copyText(compose().text, e.currentTarget, $('#out')));
+$('#clear').addEventListener('click', () => {
+  picks.clear(); store.set('cp-picks', []);
+  document.querySelectorAll('.card.picked').forEach(c => c.classList.remove('picked'));
+  document.querySelectorAll('[data-add]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.textContent = 'Add to prompt'; });
+  renderTray();
+});
+$('#subject-in').value = store.get('cp-subject', '');
+$('#subject-in').addEventListener('input', () => { store.set('cp-subject', $('#subject-in').value); renderTray(); });
+
+route();
+renderTray();
+</script>
+
+</body></html>

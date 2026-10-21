@@ -1,0 +1,218 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]{display:none!important}#reading:empty{display:none}</style></head><body>
+<title>Workbook Library</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: the shelf that holds the specimen books. Same paper, ink and faces as the workbooks; one grid of spines grouped by what you are making. */
+:root{
+  --bg:#F2F4F7; --panel:#FFFFFF; --ink:#161C27; --ink2:#4B5466; --ink3:#7C8597; --line:#DCE1E8;
+  --accent:#2B50D8; --accent-soft:#E3E9FC;
+  --see:#2B50D8; --build:#1F8A80; --say:#C0532F;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141B; --panel:#181D26; --ink:#E8ECF2; --ink2:#A9B1BF; --ink3:#7A8394; --line:#2A313D;
+  --accent:#86A2FF; --accent-soft:#1E2846;
+  --see:#86A2FF; --build:#4FC7BB; --say:#F08A62;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#10141B; --panel:#181D26; --ink:#E8ECF2; --ink2:#A9B1BF; --ink3:#7A8394; --line:#2A313D;
+  --accent:#86A2FF; --accent-soft:#1E2846;
+  --see:#86A2FF; --build:#4FC7BB; --say:#F08A62;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1180px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.top{padding-block:44px 28px;display:grid;gap:14px;max-width:760px}
+.eyebrow{font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--ink2)}
+.top h1{font-size:clamp(38px,6.4vw,64px);font-weight:760;line-height:1;font-variation-settings:"opsz" 96}
+.top p{margin:0;color:var(--ink2);font-size:17px;max-width:60ch}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px}
+.search{flex:1 1 280px;max-width:440px;font:15px var(--body);padding:10px 13px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.f{font:500 13px var(--body);border-radius:999px;padding:6px 12px;border:1px solid var(--line);background:var(--panel);color:var(--ink2);cursor:pointer}
+.f[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+.group{padding-block:12px 32px}
+.ghead{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.ghead h2{font-size:26px;font-weight:720}
+.ghead p{margin:0;color:var(--ink2);font-size:14.5px}
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.book{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);gap:14px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 16px 14px;transition:border-color .2s,transform .2s}
+.book:hover{border-color:var(--c);transform:translateY(-2px)}
+.glyph{width:52px;height:52px;border-radius:10px;background:color-mix(in srgb,var(--c) 13%,transparent);display:grid;place-items:center}
+.glyph svg{width:34px;height:34px;fill:none;stroke:var(--c);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.glyph svg .fill{fill:var(--c);stroke:none}
+.bbody{display:grid;gap:5px;min-width:0}
+.book h3{font-size:19px;font-weight:700;line-height:1.2}
+.book h3 a{color:var(--ink);text-decoration:none}
+.book h3 a::after{content:"";position:absolute;inset:0;border-radius:12px}
+.book p{margin:0;font-size:14px;color:var(--ink2)}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
+.use{font:500 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--c)}
+.copy{position:relative;z-index:1;font:600 12.5px var(--body);border-radius:7px;padding:5px 10px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink2)}
+.copy:hover{border-color:var(--ink3);color:var(--ink)}
+.copy.done{border-color:var(--c);color:var(--c)}
+.tools{margin-bottom:22px}
+.trow{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.tool{display:grid;gap:3px;padding:14px 16px;border-radius:12px;background:var(--ink);color:var(--bg);text-decoration:none}
+.tool b{font:700 17px var(--display)}
+.tool span{font-size:13.5px;opacity:.8}
+.tool:hover{background:var(--accent)}
+.empty{color:var(--ink2);padding:12px 0 28px}
+
+.how{border-top:1px solid var(--line);padding-top:28px;margin-top:8px;display:grid;gap:16px}
+.how h2{font-size:24px}
+.ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin:0;padding:0;list-style:none}
+.ways li{display:grid;gap:4px;align-content:start}
+.ways strong{font-weight:600}
+.ways span{color:var(--ink2);font-size:14px}
+.foot{color:var(--ink3);font-size:13px;margin-top:28px;max-width:70ch}
+@media (prefers-reduced-motion: reduce){.book{transition:none}.book:hover{transform:none}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow" id="count">Workbooks</div>
+    <h1>Workbook Library</h1>
+    <p>Every workbook in one place. Each one gives you the names for something you can picture or hear but can't quite describe, with a picture, a plain explanation and a phrase to paste into a prompt.</p>
+    <div class="bar">
+      <input class="search" id="q" type="search" placeholder="Find a workbook, e.g. lighting, charts, tone…" aria-label="Find a workbook">
+      <div class="filters" id="filters" role="group" aria-label="Filter by what you're making"></div>
+    </div>
+  </header>
+
+  <section class="tools" aria-label="Tools"><div class="trow" id="tools"></div></section>
+
+  <main id="shelves"></main>
+
+  <section class="how" aria-labelledby="howH">
+    <h2 id="howH">Using these at work</h2>
+    <ul class="ways" id="ways"></ul>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+const MODE = "site";
+const BOOKS = [{"slug": "visual-vocabulary", "title": "Visual Vocabulary", "group": "see", "glyph": "vocab", "use": "Image prompts", "desc": "Names for the look in your head: rendering styles, compositions, views and finishes.", "keys": "style render isometric illustration aesthetic look", "url": "https://claude.ai/artifact/K63JS4fvBxoy8VRQMRryCq", "file": "visual-vocabulary.html"}, {"slug": "color-palettes", "title": "Color & Palettes", "group": "see", "glyph": "color", "use": "Image & design prompts", "desc": "Color relationships, named palettes, film grades and real hex codes you can copy.", "keys": "colour hex palette gradient grade", "url": "https://claude.ai/artifact/QeuBoj9kiF8gU5bpB2V5We", "file": "color-palettes.html"}, {"slug": "typography", "title": "Typography", "group": "see", "glyph": "type", "use": "Design prompts", "desc": "Typeface families, famous fonts, pairings, page setting and lettering styles.", "keys": "font typeface serif sans lettering", "url": "https://claude.ai/artifact/L7M8h2vzBYrGBa6gXVtrse", "file": "typography.html"}, {"slug": "photography-lighting", "title": "Photography & Lighting", "group": "see", "glyph": "photo", "use": "Image prompts", "desc": "Shot sizes, angles, lenses, lighting setups, times of day, film stocks and photographers.", "keys": "camera lens light shot film portrait", "url": "https://claude.ai/artifact/JWVwWyLkrpUN2V3UzxKUM2", "file": "photography-lighting.html"}, {"slug": "art-movements", "title": "Illustration & Art Movements", "group": "see", "glyph": "art", "use": "Image prompts", "desc": "Art styles from cave walls to Superflat, with the tells that give each one away.", "keys": "painting illustration style history poster", "url": "https://claude.ai/artifact/QiJUqLhFoPPprk2Z3WxNRc", "file": "art-movements.html"}, {"slug": "film-cinematography", "title": "Film & Cinematography", "group": "see", "glyph": "film", "use": "Video & scene prompts", "desc": "Coverage, staging, editing, film lighting and grades, aspect ratios, genres, and the directors people name.", "keys": "film cinema movie shot editing cut director cinematographer aspect ratio storyboard", "url": "https://claude.ai/artifact/CQ3H5C1VZ7rdJcLmcAB7Gk", "file": "film-cinematography.html"}, {"slug": "motion", "title": "Motion & Animation", "group": "see", "glyph": "motion", "use": "UI & video prompts", "desc": "Easing, springs, transitions, micro-interactions and camera moves, each one a live demo.", "keys": "animation easing transition camera video", "url": "https://claude.ai/artifact/BcNSy4F45XHafeCkiNTXgb", "file": "motion.html"}, {"slug": "materials-textures", "title": "Materials & Textures", "group": "see", "glyph": "mat", "use": "Image & product prompts", "desc": "Woods, stones, cloth, metals, sheens, wear, print processes and paper stocks, each with a drawn swatch.", "keys": "material texture surface finish wood stone fabric metal paper print risograph letterpress", "url": "https://claude.ai/artifact/RkiQDgeEeyvXcw98B4P7rC", "file": "materials-textures.html"}, {"slug": "architecture-interiors", "title": "Architecture & Interiors", "group": "see", "glyph": "arch", "use": "Image & scene prompts", "desc": "Buildings, rooms and places, from ziggurats to solarpunk towers.", "keys": "building room interior space place", "url": "https://claude.ai/artifact/YKFRUBu2uP2b2oMZEgT25J", "file": "architecture-interiors.html"}, {"slug": "brand-identity", "title": "Brand & Identity", "group": "see", "glyph": "brand", "use": "Logo & brand prompts", "desc": "Kinds of logo, mark styles, brand archetypes, identity systems and design-system terms.", "keys": "logo brand identity archetype design system tokens lockup wordmark naming", "url": "https://claude.ai/artifact/4zrCJiUggvitkN7HeyWgyM", "file": "brand-identity.html"}, {"slug": "ui-patterns", "title": "UI Patterns", "group": "build", "glyph": "ui", "use": "Product & UI prompts", "desc": "Interface patterns for terminal, web, iOS, Android, watch, Vision Pro, desktop and AI apps.", "keys": "interface component screen app mobile web", "url": "https://claude.ai/artifact/KJbvksiZAqbJjMiq9jwno9", "file": "ui-patterns.html"}, {"slug": "data-visualization", "title": "Data Visualization", "group": "build", "glyph": "dataviz", "use": "Chart & dashboard prompts", "desc": "Chart types, visual encodings, scales, color schemes, dashboard layouts and annotation.", "keys": "chart graph dashboard data plot", "url": "https://claude.ai/artifact/1QwCai82hXaYc6wct2gEvE", "file": "data-visualization.html"}, {"slug": "diagrams", "title": "Diagrams", "group": "build", "glyph": "diag", "use": "Diagram prompts", "desc": "Architecture, sequence, flow and concept diagrams, the craft of explaining, and diagrams as code.", "keys": "diagram sequence c4 flowchart swimlane mind map mermaid explain", "url": "https://claude.ai/artifact/Vryw6ncjWTR8CJkQmRapC1", "file": "diagrams.html"}, {"slug": "software-architecture", "title": "Software Architecture", "group": "build", "glyph": "soft", "use": "Coding prompts", "desc": "Architectural styles, messaging and data patterns, APIs, reliability and design patterns.", "keys": "code system design pattern api backend", "url": "https://claude.ai/artifact/XvUzuaYEEhYCvvmqngiE6K", "file": "software-architecture.html"}, {"slug": "prompting-ai", "title": "Prompting & AI", "group": "build", "glyph": "prompt", "use": "AI prompts", "desc": "Roles, few-shot examples, chain of thought, output control and eval phrasing, each with a tiny transcript.", "keys": "llm claude chatgpt system prompt few-shot eval agent", "url": "https://claude.ai/artifact/6hEXvz5D9RBXnjGmjL2kei", "file": "prompting-ai.html"}, {"slug": "voice-tone", "title": "Voice & Tone", "group": "say", "glyph": "voice", "use": "Writing prompts", "desc": "Voices, registers, structures, rhetorical moves and formats from error messages to liner notes.", "keys": "writing copy tone register words", "url": "https://claude.ai/artifact/Fb39dZ7k3y5AUQxMu8FUkZ", "file": "voice-tone.html"}, {"slug": "product-ux-writing", "title": "Product & UX Writing", "group": "say", "glyph": "uxw", "use": "Product copy prompts", "desc": "Microcopy for buttons, forms, empty states, errors, onboarding, billing, notifications and AI features.", "keys": "microcopy ux writing content design copy error empty state onboarding button label", "url": "https://claude.ai/artifact/DG977HXpFFuMt758PXt7sE", "file": "product-ux-writing.html"}, {"slug": "music-sound", "title": "Music & Sound", "group": "say", "glyph": "music", "use": "Music & audio prompts", "desc": "Genres, instruments, rhythm, harmony, song structure and production, with playable sketches.", "keys": "genre instrument audio song sound", "url": "https://claude.ai/artifact/G8iECKreCNB1SM5qwqUwGF", "file": "music-sound.html"}];
+const GROUPS = [
+  {key:"see", name:"Seeing", blurb:"Images, color, type, motion and places", color:"var(--see)"},
+  {key:"build", name:"Building", blurb:"Interfaces, data and software", color:"var(--build)"},
+  {key:"say", name:"Saying", blurb:"Writing and sound", color:"var(--say)"}
+];
+const GLYPHS = {
+  vocab:'<rect x="5" y="9" width="14" height="14" rx="2"/><circle cx="25" cy="13" r="5"/><path d="M21 29l5-9 5 9z"/>',
+  ui:'<rect x="4" y="6" width="26" height="22" rx="3"/><path d="M4 12h26M9 17h8M9 22h12"/>',
+  color:'<circle cx="12" cy="13" r="7"/><circle cx="22" cy="13" r="7"/><circle cx="17" cy="22" r="7"/>',
+  type:'<path d="M5 27L12 7l7 20M8 20h8"/><path d="M23 17c4-3 7-1 7 3v7M30 22c-6-1-8 5-3 5 2 0 3-1 3-3"/>',
+  photo:'<rect x="4" y="10" width="26" height="17" rx="3"/><path d="M12 10l2-4h6l2 4"/><circle cx="17" cy="18" r="5"/>',
+  art:'<path d="M17 4c7 0 13 5 13 11 0 4-3 5-6 5h-3c-2 0-3 2-2 4 1 3-1 6-4 6C9 30 4 24 4 17S10 4 17 4z"/><circle class="fill" cx="11" cy="15" r="2"/><circle class="fill" cx="16" cy="10" r="2"/><circle class="fill" cx="23" cy="11" r="2"/>',
+  motion:'<path d="M4 27C14 27 14 7 30 7"/><circle class="fill" cx="30" cy="7" r="2.6"/><circle class="fill" cx="4" cy="27" r="2.6"/>',
+  arch:'<path d="M4 29h26M7 29V13l10-7 10 7v16"/><path d="M14 29v-8h6v8M11 16h3M20 16h3"/>',
+  voice:'<path d="M6 7h22v15H15l-6 5v-5H6z"/><path d="M11 13h12M11 17h8"/>',
+  music:'<path d="M12 25V8l16-3v17"/><circle cx="9" cy="25" r="3.4"/><circle cx="25" cy="22" r="3.4"/>',
+  soft:'<rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="4" y="23" width="8" height="7" rx="1.5"/><rect x="22" y="23" width="8" height="7" rx="1.5"/><path d="M17 11v6M8 23v-6h18v6"/>',
+  prompt:'<rect x="4" y="6" width="26" height="22" rx="3"/><path d="M9 13l4 3-4 3M16 20h8"/>',
+  uxw:'<rect x="4" y="12" width="26" height="11" rx="5.5"/><path d="M10 17.5h10"/><path d="M24 26l2 4 1.5-2 2.5.5z"/>',
+  brand:'<circle cx="17" cy="15" r="9"/><path d="M13 15l3 3 5-6"/><path d="M8 30h18"/>',
+  mat:'<rect x="5" y="5" width="24" height="24" rx="3"/><path d="M5 13c6-3 12 3 24 0M5 21c6-3 12 3 24 0"/>',
+  diag:'<rect x="4" y="5" width="10" height="7" rx="1.5"/><rect x="20" y="22" width="10" height="7" rx="1.5"/><circle cx="25" cy="9" r="4"/><path d="M9 12v8h11M25 13v9"/>',
+  film:'<rect x="4" y="9" width="26" height="19" rx="2"/><path d="M4 14h26M9 9l3 5M16 9l3 5M23 9l3 5"/>',
+  dataviz:'<path d="M5 29h25"/><path d="M8 29V18M14 29V11M20 29V21M26 29V7"/>'
+};
+const $ = s => document.querySelector(s);
+let filter = "all";
+
+function bookHTML(b){
+  const g = GROUPS.find(x => x.key === b.group);
+  const href = MODE === "online" ? b.url : b.file;
+  const link = MODE === "site" ? new URL(b.file, location.href).href : b.url;
+  const copy = MODE === "offline" ? "" : `<button class="copy" data-url="${link}" aria-label="Copy link to ${b.title}">Copy link</button>`;
+  return `<article class="book" style="--c:${g.color}">
+    <div class="glyph" aria-hidden="true"><svg viewBox="0 0 34 34">${GLYPHS[b.glyph]}</svg></div>
+    <div class="bbody">
+      <h3><a href="${href}" target="_blank" rel="noopener">${b.title}</a></h3>
+      <p>${b.desc}</p>
+      <div class="meta"><span class="use">${b.use}</span>${copy}</div>
+    </div>
+  </article>`;
+}
+
+function render(){
+  const q = $("#q").value.trim().toLowerCase();
+  const hit = b => (filter === "all" || b.group === filter) &&
+    (!q || (b.title + " " + b.desc + " " + b.use + " " + b.keys).toLowerCase().includes(q));
+  let html = "", shown = 0;
+  for (const g of GROUPS){
+    const list = BOOKS.filter(b => b.group === g.key && hit(b));
+    if (!list.length) continue;
+    shown += list.length;
+    html += `<section class="group"><div class="ghead"><h2>${g.name}</h2><p>${g.blurb}</p></div><div class="shelf">${list.map(bookHTML).join("")}</div></section>`;
+  }
+  $("#shelves").innerHTML = shown ? html : `<p class="empty">No workbook matches “${q.replace(/[<>&]/g,"")}”. Try a broader word, or clear the search.</p>`;
+}
+
+const TOOLS = MODE !== "online" ? [
+  ["recipe.html", "Prompt Recipe Builder →", "Search every card at once and copy one brief."],
+  ["cheat-sheets/", "Cheat sheets →", "A printable PDF of every term and phrase, one per workbook."]
+] : [
+  ["https://claude.ai/artifact/La8gMUdsJUeyDBeVJCMAH3", "Prompt Recipe Builder →", "Search every card at once, copy one brief, and save it as a reusable style."]
+];
+$("#tools").innerHTML = TOOLS.map(([h, t, d]) => `<a class="tool" href="${h}" target="_blank" rel="noopener"><b>${t}</b><span>${d}</span></a>`).join("");
+$("#count").textContent = `${BOOKS.length} workbooks`;
+$("#filters").innerHTML = [{key:"all",name:"All"}, ...GROUPS].map(g =>
+  `<button class="f" data-k="${g.key}" aria-pressed="${g.key === "all"}">${g.name}</button>`).join("");
+$("#filters").addEventListener("click", e => {
+  const b = e.target.closest(".f"); if (!b) return;
+  filter = b.dataset.k;
+  document.querySelectorAll(".f").forEach(x => x.setAttribute("aria-pressed", x === b));
+  render();
+});
+$("#q").addEventListener("input", render);
+$("#shelves").addEventListener("click", async e => {
+  const b = e.target.closest(".copy"); if (!b) return;
+  e.preventDefault();
+  try { await navigator.clipboard.writeText(b.dataset.url); b.textContent = "Copied"; }
+  catch { b.textContent = b.dataset.url; }
+  b.classList.add("done");
+  setTimeout(() => { b.textContent = "Copy link"; b.classList.remove("done"); }, 1800);
+});
+
+const WAYS = MODE === "site" ? [
+  ["Bookmark this page", "Every workbook is one click away, in any browser, signed in to nothing."],
+  ["Send a teammate one workbook", "Press Copy link on a card and paste it into chat or email. Anyone with the address can open it."],
+  ["Save picks as you go", "Picks and saved styles are kept in your own browser, on this device."],
+  ["Print a cheat sheet", "Each workbook has a PDF of every term and phrase, linked from the cheat sheets folder."]
+] : MODE === "offline" ? [
+  ["Open from any folder", "Every workbook here is a single HTML file. Double-click index.html, or open any workbook on its own. Nothing needs installing."],
+  ["Put it on a shared drive", "Copy this whole folder to OneDrive, SharePoint, Google Drive or a network share and the links between files keep working."],
+  ["Host it as a small site", "Drop the folder into an internal static host or a GitHub Pages repo and everyone gets one address for the whole library."],
+  ["Fonts are the only thing online", "Pages load their fonts from Google Fonts. Without internet they fall back to your system fonts and everything else still works, including the prompt tray."]
+] : [
+  ["Bookmark this page", "Open it while signed in to Claude and every workbook is one click away. Each card opens its workbook in a new tab."],
+  ["Send a teammate one workbook", "Press Copy link on a card and paste it into chat or email. They can open it once that workbook is shared by link from its Share menu."],
+  ["Share the whole library", "Share this page and the workbooks by link from each Share menu, then send this one address to your team."],
+  ["Work without Claude", "The offline pack has the same workbooks, the recipe builder and printable cheat sheets as plain files. Put the folder on a shared drive or an internal site and it works in any browser."]
+];
+$("#ways").innerHTML = WAYS.map(([t, d]) => `<li><strong>${t}</strong><span>${d}</span></li>`).join("");
+$("#foot").textContent = MODE === "site"
+  ? "Built with Claude in the Workbooks project. Picks you make are saved in your own browser only."
+  : MODE === "offline"
+  ? "Offline pack of the Workbooks project, exported October 2026. Picks you make in a workbook are saved in your own browser only."
+  : "Each workbook keeps your picks in your own browser. New workbooks land on this shelf as they are made.";
+render();
+</script>
+
+</body></html>

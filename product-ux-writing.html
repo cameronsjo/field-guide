@@ -1,0 +1,1651 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}#reading:empty{display:none}</style></head><body>
+<title>Product &amp; UX Writing Workbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+/* Layout: a content designer's copy deck (sibling of UI Patterns and Voice & Tone). Home page of topic tiles, one page per topic with a sticky section index, cards whose example is a small interface mock carrying its real strings, a string key under each mock and a struck "Was" line where the old copy is worth seeing, and a prompt tray docked at the bottom. Plum review ink is the accent; a highlighter marks the words that do the work. */
+:root{
+  --bg:#EEECF1; --panel:#FBFAFC; --ink:#1C1724; --ink2:#4F4859; --ink3:#857D90; --line:#DCD7E2;
+  --accent:#7A2D74; --accent-soft:#F1E2EE; --ok:#2C7A4B; --ok-soft:#DDF0E3; --warn:#B4441F; --warn-soft:#F8E3DA; --caution:#8A6200; --caution-soft:#F8EDC9;
+  --tile:#F4F2F6; --sheet:#FFFFFF; --hl:#F7E37A;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141118; --panel:#1C1822; --ink:#ECE8F1; --ink2:#B3ABBE; --ink3:#7D7589; --line:#2E2836;
+  --accent:#E59AD9; --accent-soft:#3A2238; --ok:#62C98F; --ok-soft:#173828; --warn:#F2906A; --warn-soft:#3D2016; --caution:#E5BE5A; --caution-soft:#3A2F10;
+  --tile:#18151D; --sheet:#221D29; --hl:#6B5A12;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#141118; --panel:#1C1822; --ink:#ECE8F1; --ink2:#B3ABBE; --ink3:#7D7589; --line:#2E2836;
+  --accent:#E59AD9; --accent-soft:#3A2238; --ok:#62C98F; --ok-soft:#173828; --warn:#F2906A; --warn-soft:#3D2016; --caution:#E5BE5A; --caution-soft:#3A2F10;
+  --tile:#18151D; --sheet:#221D29; --hl:#6B5A12;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1240px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);font-weight:650;text-wrap:balance;margin:0;letter-spacing:-.015em}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+mark{background:var(--hl);color:inherit;border-radius:2px;padding:0 .08em}
+
+header.top{padding-block:40px 24px;display:grid;gap:14px;max-width:800px}
+.eyebrow{font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--ink2)}
+header.top h1{font-size:clamp(38px,6vw,64px);line-height:1;font-weight:700;letter-spacing:-.03em}
+header.top h1 .q{color:var(--accent);font-weight:500}
+header.top p{margin:0;color:var(--ink2);font-size:17px;max-width:64ch}
+.steps{display:flex;flex-wrap:wrap;gap:8px 20px;margin:4px 0 0;padding:0;list-style:none;color:var(--ink2);font-size:14px}
+.steps li{display:flex;gap:8px;align-items:baseline}
+.steps b{font:500 12px var(--mono);color:var(--accent)}
+header.top .search{max-width:420px;margin-top:6px}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px clamp(16px,3vw,28px);display:grid;gap:14px;margin-bottom:28px;min-width:0}
+.panel h2{font-size:26px}
+.panel .lead{margin:0;color:var(--ink2);max-width:72ch}
+.recipes{display:grid;gap:18px}
+.rcp{display:grid;gap:4px;border-top:1px solid var(--line);padding-top:14px}
+.rcp:first-child{border-top:0;padding-top:0}
+.rcp .eyebrow{color:var(--ink3)}
+.sentence{font-size:clamp(16px,2vw,18.5px);line-height:2.3;margin:0}
+.chip{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;vertical-align:middle;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:4px 9px 3px;margin:0 1px;font-weight:600}
+.chip small{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+.chip:hover{outline:1.5px solid var(--accent)}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:4px 0 0;padding:0;list-style:none}
+.tips li{border-top:1px solid var(--line);padding-top:10px;font-size:14px;color:var(--ink2)}
+.tips li strong{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+
+/* one screen, every state */
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:500 13.5px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.brief{font:500 12px var(--mono);color:var(--ink3);letter-spacing:.04em}
+.brief b{color:var(--ink);font-weight:500}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.scell{background:var(--tile);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:8px;align-content:start;min-width:0}
+.scell>a{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.1em;text-decoration:none;color:var(--accent)}
+
+/* swap list */
+.swap{display:grid;gap:0}
+.sw{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr);gap:6px 18px;border-top:1px solid var(--line);padding-block:10px;align-items:baseline}
+.sw.h{border-top:0;padding-top:0;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3)}
+.sw s{color:var(--ink3);text-decoration-color:var(--warn);text-decoration-thickness:2px}
+.sw .to{font-weight:600}
+.sw .why{font-size:13.5px;color:var(--ink2)}
+.sw .why a{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em;text-decoration:none;margin-left:4px;white-space:nowrap}
+@media (max-width:700px){.sw{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sw .why{grid-column:1/-1}.sw.h span:last-child{display:none}}
+
+.xwrap{overflow-x:auto;margin-inline:-4px;padding-inline:4px}
+.xt{border-collapse:collapse;width:100%;min-width:820px;font-size:14px}
+.xt th,.xt td{text-align:left;vertical-align:top;padding:10px 10px;border-top:1px solid var(--line)}
+.xt thead th{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-top:0;padding-top:0}
+.xt tbody th{font-weight:600;width:15%}
+.xt tbody th small{display:block;font-weight:400;color:var(--ink3);font-size:12.5px;margin-top:2px}
+.xt td a{display:inline-block;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:6px;padding:2px 7px;margin:0 2px 4px 0;font-weight:500;font-size:13.5px}
+.xt td a:hover{outline:1.5px solid var(--accent)}
+.xt td.cut a{background:var(--warn-soft)}
+
+.layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:32px;align-items:start}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:12px}
+.search{width:100%;font:15px var(--body);padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.index nav{display:grid;gap:2px}
+.index nav a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink2);padding:6px 10px;border-radius:7px;font-size:14px}
+.index nav a span{font:12px var(--mono);color:var(--ink3);font-variant-numeric:tabular-nums}
+.index nav a:hover{background:var(--panel);color:var(--ink)}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  .index{top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:10px;z-index:5;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+  .index nav{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .index nav a{white-space:nowrap;background:var(--panel);border:1px solid var(--line);padding:5px 10px}
+}
+
+.group{padding-block:8px 36px;scroll-margin-top:90px}
+.ghead{display:grid;gap:4px;margin-bottom:16px;max-width:72ch}
+.ghead h2{font-size:30px}
+.ghead p{margin:0;color:var(--ink2)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:100px;transition:box-shadow .3s;min-width:0}
+.card.flash{box-shadow:0 0 0 3px var(--accent)}
+.card.picked{border-color:var(--accent)}
+.cbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
+.cbody h3{font-size:21px;line-height:1.2}
+.aka{font-size:12.5px;color:var(--ink3);margin-top:-4px}
+.desc{margin:0;font-size:14.5px;color:var(--ink2)}
+.ref{margin:0;font-size:13px;color:var(--ink2)}
+.ref b{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-right:5px}
+.ref.do b{color:var(--ok)}
+.ref.not b{color:var(--warn)}
+.phrase{margin-top:auto;display:grid;gap:8px;padding-top:6px}
+.phrase code{display:block;font:12.5px/1.5 var(--mono);background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:600 13px var(--body);border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btn:hover{border-color:var(--ink3)}
+.btn.add[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.empty{color:var(--ink2);padding:24px 0}
+.foot{border-top:1px solid var(--line);margin-top:12px;padding-block:20px;color:var(--ink3);font-size:13px;max-width:72ch}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px;margin-bottom:32px}
+.tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-decoration:none;color:var(--ink);transition:border-color .2s,transform .2s}
+.tile:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tbody{padding:14px 16px 16px;display:grid;gap:6px;min-width:0}
+.tbody h3{font-size:24px}
+.tbody p{margin:0;color:var(--ink2);font-size:14.5px}
+.tmeta{font:12px/1.5 var(--mono);color:var(--ink3)}
+#results{margin-bottom:28px}
+.subhead{padding-block:28px 20px;display:grid;gap:8px;max-width:780px}
+.subhead h1{font-size:clamp(34px,5vw,52px);line-height:1.02;font-weight:700;letter-spacing:-.025em}
+.subhead p{margin:0;color:var(--ink2);font-size:17px}
+.back{font:500 13px var(--mono);text-decoration:none;color:var(--accent)}
+.next{display:inline-block;margin-block:8px 24px;font-weight:600;text-decoration:none;color:var(--accent);font-size:16px}
+.ghead .eyebrow{margin-bottom:2px}
+@media (max-width:900px){.subhead{padding-block:20px 8px}}
+@media (prefers-reduced-motion: reduce){.tile{transition:none}.tile:hover{transform:none}}
+
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(30,15,40,.08);padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:10}
+.tray-in{max-width:1240px;margin:0 auto;display:grid;gap:12px}
+.tray-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tray-bar .count{font-weight:600;flex:1;min-width:0}
+.tray-bar .count small{display:block;font-weight:400;color:var(--ink2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tray-body{display:grid;gap:10px;max-height:62vh;overflow:auto}
+.tray-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.tray-body label{font-size:13px;color:var(--ink2);display:block;margin-bottom:3px}
+.tray-body input{width:100%;font:15px var(--body);padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.stacks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.stacks button{font:12.5px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:3px 9px;cursor:pointer}
+.stacks button:hover{border-color:var(--accent);color:var(--ink)}
+.fmt{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fmt button{font:600 13px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:8px;padding:6px 11px;cursor:pointer}
+.fmt button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.fmt small{color:var(--ink3);font-size:12.5px}
+.tray-body pre{margin:0;max-height:34vh;overflow:auto;background:var(--bg);border-radius:9px;padding:12px;font:13px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* ======================================================
+   MOCK KIT. Every example is a small interface with real
+   strings, a string key underneath, and sometimes the old
+   copy struck through. Plain CSS, no images.
+   ====================================================== */
+.ex{background:var(--tile);border-bottom:1px solid var(--line);padding:16px;min-height:190px;display:flex;flex-direction:column;justify-content:center;gap:8px;position:relative;min-width:0}
+.key{font:500 10.5px/1.3 var(--mono);color:var(--ink3);letter-spacing:.02em;overflow-wrap:anywhere}
+.key::before{content:"#";color:var(--accent);margin-right:2px}
+.was{display:flex;gap:8px;align-items:baseline;font-size:13px;color:var(--ink3);min-width:0}
+.was b{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--warn);flex:none}
+.was s{text-decoration-color:var(--warn);text-decoration-thickness:1.5px;overflow-wrap:anywhere}
+.m{font-family:var(--body);color:var(--ink);font-size:13.5px;line-height:1.4;min-width:0}
+.m-card{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:0 6px 18px rgba(40,20,50,.07);display:grid;gap:8px}
+.m-h{font-weight:700;font-size:14.5px}
+.m-b{color:var(--ink2)}
+.m-btns{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.m-btn{font:600 12.5px var(--body);border-radius:7px;padding:5px 10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);white-space:nowrap}
+.m-btn.p{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.m-btn.d{background:var(--warn);border-color:var(--warn);color:var(--panel)}
+.m-btn.l{border-color:transparent;background:none;color:var(--accent);padding-inline:4px}
+.m-link{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.m-toast{display:flex;gap:10px;align-items:center;background:var(--ink);color:var(--panel);border-radius:10px;padding:10px 14px;font:500 13.5px var(--body)}
+.m-toast .u{margin-left:auto;font-weight:700;color:var(--hl)}
+.m-in{border:1.5px solid var(--line);border-radius:7px;padding:7px 10px;background:var(--sheet);font:13.5px var(--body);color:var(--ink)}
+.m-in.e{border-color:var(--warn)}
+.m-in.ph{color:var(--ink3)}
+.m-lbl{font:600 12.5px var(--body);color:var(--ink);display:flex;justify-content:space-between;gap:8px}
+.m-lbl small{font-weight:400;color:var(--ink3)}
+.m-err{font:13px var(--body);color:var(--warn)}
+.m-okt{font:13px var(--body);color:var(--ok)}
+.m-hint{font:13px var(--body);color:var(--ink3)}
+.m-push{display:grid;grid-template-columns:28px 1fr;gap:4px 10px;background:var(--sheet);border-radius:14px;padding:10px 12px;box-shadow:0 6px 18px rgba(40,20,50,.1)}
+.m-push .ic{width:28px;height:28px;border-radius:7px;background:var(--accent);grid-row:span 2}
+.m-push .t{font-weight:700;font-size:13.5px;display:flex;justify-content:space-between;gap:8px}
+.m-push .t small{font-weight:400;color:var(--ink3)}
+.m-push .b{font-size:13px;color:var(--ink2)}
+.m-ctr{text-align:center;display:grid;gap:6px;justify-items:center}
+.m-glyph{width:38px;height:38px;border-radius:10px;border:2px dashed var(--ink3);display:grid;place-items:center;font:600 16px var(--mono);color:var(--ink3)}
+.m-big{font:700 40px/1 var(--display);color:var(--accent)}
+.m-mono{font:12.5px/1.55 var(--mono);color:var(--ink);white-space:pre-wrap;background:var(--sheet);border-radius:8px;padding:10px 12px;border:1px solid var(--line);overflow-wrap:anywhere}
+.m-mono .c{color:var(--ink3)}
+.m-mono .k{color:var(--accent)}
+.m-mail{display:grid;gap:6px}
+.m-mail .hd{font:12px var(--mono);color:var(--ink3);border-bottom:1px solid var(--line);padding-bottom:6px}
+.m-mail .hd b{color:var(--ink);font-weight:500}
+.m-ul{margin:0;padding-left:18px;display:grid;gap:3px}
+.m-tag{display:inline-block;font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;border-radius:4px;padding:1px 5px;background:var(--accent-soft);color:var(--accent);margin-right:4px}
+.m-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.m-chk{display:flex;gap:8px;align-items:center;font-size:13px}
+.m-chk i{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--accent);flex:none}
+.m-chk i.on{background:var(--accent)}
+.m-chk.done span{color:var(--ink3);text-decoration:line-through}
+.m-spin{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--accent);animation:spin 1s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.m-bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.m-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.m-ban{display:flex;gap:10px;align-items:flex-start;border-radius:9px;padding:9px 12px;font-size:13px;background:var(--accent-soft);color:var(--ink)}
+.m-ban b{font-weight:700}
+.m-ban .a{margin-left:auto;font-weight:700;color:var(--accent);white-space:nowrap}
+.m-ban.w{background:var(--caution-soft)}.m-ban.w .a{color:var(--caution)}
+.m-ban.e{background:var(--warn-soft)}.m-ban.e .a{color:var(--warn)}
+.m-ban.o{background:var(--ok-soft)}.m-ban.o .a{color:var(--ok)}
+.m-dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px;background:var(--accent)}
+.m-ban.w .m-dot{background:var(--caution)}.m-ban.e .m-dot{background:var(--warn)}.m-ban.o .m-dot{background:var(--ok)}
+.m-menu{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:0 8px 22px rgba(40,20,50,.1);display:grid;min-width:0}
+.m-menu span{padding:6px 10px;border-radius:6px;font-size:13.5px;display:flex;justify-content:space-between;gap:12px}
+.m-menu span small{color:var(--ink3);font:12px var(--mono)}
+.m-menu span.d{color:var(--warn)}
+.m-menu span.on{background:var(--accent-soft)}
+.m-menu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
+.m-set{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:center;padding-block:8px;border-top:1px solid var(--line)}
+.m-set:first-child{border-top:0;padding-top:0}
+.m-set .n{font-weight:600}
+.m-set .d{grid-column:1;font-size:12.5px;color:var(--ink3)}
+.m-sw{grid-row:span 2;width:32px;height:18px;border-radius:9px;background:var(--line);position:relative}
+.m-sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--sheet);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.m-sw.on{background:var(--accent)}.m-sw.on::after{left:16px}
+.m-tabs{display:flex;gap:14px;border-bottom:1px solid var(--line);font-size:13.5px;overflow:hidden}
+.m-tabs span{padding-bottom:6px;color:var(--ink2);white-space:nowrap}
+.m-tabs span.on{color:var(--ink);font-weight:600;box-shadow:inset 0 -2px var(--accent)}
+.m-tip{position:relative;background:var(--ink);color:var(--panel);border-radius:8px;padding:8px 11px;font-size:12.5px;max-width:240px;justify-self:center}
+.m-tip::after{content:"";position:absolute;left:50%;top:100%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--ink)}
+.m-tip b{display:block;font-size:13px}
+.m-tip .r{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;opacity:.85}
+.m-ib{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--sheet);font:600 14px var(--mono);color:var(--ink2);justify-self:center}
+.m-skel{height:10px;border-radius:5px;background:var(--line)}
+.m-chat{display:grid;gap:8px}
+.m-chat .u{justify-self:end;background:var(--accent-soft);border-radius:12px 12px 3px 12px;padding:7px 11px;max-width:85%;font-size:13px}
+.m-chat .a{justify-self:start;background:var(--sheet);border:1px solid var(--line);border-radius:12px 12px 12px 3px;padding:8px 11px;max-width:92%;font-size:13px;display:grid;gap:5px}
+.m-chat .a small{color:var(--ink3);font-size:11.5px}
+.m-pill{display:inline-block;border:1px solid var(--line);background:var(--sheet);border-radius:99px;padding:4px 10px;font-size:12.5px;color:var(--ink2)}
+.m-src{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font:600 10px var(--mono);vertical-align:1px;padding-inline:3px}
+.m-sms{justify-self:start;background:var(--line);border-radius:14px 14px 14px 4px;padding:8px 12px;font-size:13px;max-width:90%}
+.m-plans{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m-plan{background:var(--sheet);border:1px solid var(--line);border-radius:9px;padding:10px;display:grid;gap:3px;font-size:12.5px;align-content:start}
+.m-plan.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.m-plan .n{font-weight:700;font-size:13.5px}
+.m-plan .p{font:700 17px var(--display)}
+.m-plan .p small{font:400 11px var(--body);color:var(--ink3)}
+.m-plan .f{color:var(--ink2)}
+.m-ann{position:relative}
+.m-ann mark{box-shadow:0 0 0 1px var(--hl)}
+.m-cnt{font:11.5px var(--mono);color:var(--ink3);text-align:right}
+.m-cnt.e{color:var(--warn)}
+.m-step{font:500 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--accent)}
+@media (prefers-reduced-motion: reduce){.ex *{animation:none!important}}
+</style>
+
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Product &amp; UX Writing <span class="q">Workbook</span></h1>
+      <p>The words inside a product: buttons, labels, errors, empty states, onboarding, confirmations, notifications and the copy around AI features. It sits between UI Patterns (what the screen is) and Voice &amp; Tone (how it sounds). Every card shows the pattern in a small mock with its real strings, and a phrase you can paste into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Pick a topic and find the moment you're writing for</li>
+        <li><b>2</b>Press Add on the patterns and principles that fit</li>
+        <li><b>3</b>Name the screen and who's on it, then copy a copy request or a content guide</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="states" aria-labelledby="statesH">
+      <h2 id="statesH">One screen, every state</h2>
+      <p class="lead">Most screens are designed in their happy state and written in none of the others. Pick a screen and read across: the same feature on its first day, while it loads, when a search finds nothing, when it fails, offline, and when you're done. Tap a label to open its card.</p>
+      <div class="seg" id="screens" role="group" aria-label="Screen"></div>
+      <div class="brief" id="sbrief"></div>
+      <div class="sgrid" id="sgrid"></div>
+    </section>
+
+    <section class="panel" id="swaps" aria-labelledby="swapsH">
+      <h2 id="swapsH">The swap list</h2>
+      <p class="lead">The quickest edits in product writing. Each line is a phrase that turns up in almost every first draft, what to write instead, and the card that explains why.</p>
+      <div class="swap" id="swaplist"></div>
+    </section>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a copy request</h2>
+      <p class="lead">A request for product copy that comes back usable names the screen, the moment the person is in, the components that need words, the principles to hold to, and what to cut. Here are three. Tap any word to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Describe the moment, not the screen</strong>"Someone's card was declined while they were checking out a gift for tomorrow" gets better copy than "payment error screen".</li>
+        <li><strong>Give the real nouns</strong>Paste your product's actual names for things (projects, boards, spaces) and ask for one term per concept. Models drift into synonyms otherwise.</li>
+        <li><strong>Ask for a string table</strong>Request keys, strings and character counts in a table. You get copy you can paste into code and a check on length in one go.</li>
+        <li><strong>Ask for every state</strong>Name the empty, loading, error and success states up front, or you'll get only the happy path.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Copy by moment</h2>
+      <p class="lead">Start from where the person is and read across: the components that need words, the pattern that usually fits, the principle that matters most, and what to cut. Every name links to its card.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All topics</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot">A companion to the UI Patterns and Voice &amp; Tone workbooks. Every string is written for this page around a few made-up products (a trail app, a shared-files tool, a team inbox, a meal-kit service). The text under each mock that starts with # is a string key in the style of a copy deck, so you can see how the words would be filed in code.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt" role="group" aria-label="Prompt format">
+        <button type="button" data-fmt="request" aria-pressed="true">Copy request</button>
+        <button type="button" data-fmt="guide" aria-pressed="false">Content guide</button>
+        <small id="fmtNote">A one-off ask for the copy on one screen or flow.</small>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What screen or flow?</label>
+          <input id="subject-in" type="text" placeholder="e.g. the checkout page, first-run onboarding">
+        </div>
+        <div>
+          <label for="aud-in">Who's on it, trying to do what? (optional)</label>
+          <input id="aud-in" type="text" placeholder="e.g. a new admin inviting their team">
+        </div>
+        <div>
+          <label for="len-in">Constraints (optional)</label>
+          <input id="len-in" type="text" placeholder="e.g. buttons under 20 characters">
+          <div class="stacks" id="lens"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script>
+/* ---------- mock helpers ---------- */
+const X = (html, key = '', was = '') => `${html}${was ? `<div class="was"><b>Was</b><s>${was}</s></div>` : ''}${key ? `<div class="key">${key}</div>` : ''}`;
+const bt = a => a.map(([t, c]) => `<span class="m-btn ${c || ''}">${t}</span>`).join('');
+const dlg = (h, b, a) => `<div class="m m-card"><div class="m-h">${h}</div><div class="m-b">${b}</div><div class="m-btns">${bt(a)}</div></div>`;
+const toast = (t, u = '') => `<div class="m m-toast"><span>${t}</span>${u ? `<span class="u">${u}</span>` : ''}</div>`;
+const field = (l, v, o = {}) => `<div class="m m-card" style="gap:5px"><div class="m-lbl"><span>${l}</span>${o.opt ? `<small>${o.opt}</small>` : ''}</div><div class="m-in${o.err ? ' e' : ''}${o.ph ? ' ph' : ''}">${v}</div>${o.err ? `<div class="m-err">${o.err}</div>` : ''}${o.ok ? `<div class="m-okt">${o.ok}</div>` : ''}${o.hint ? `<div class="m-hint">${o.hint}</div>` : ''}${o.cnt ? `<div class="m-cnt${o.cnt[1] ? ' e' : ''}">${o.cnt[0]}</div>` : ''}</div>`;
+const empty = (g, h, b, a = []) => `<div class="m m-card m-ctr"><span class="m-glyph">${g}</span><div class="m-h">${h}</div><div class="m-b">${b}</div>${a.length ? `<div class="m-row" style="justify-content:center">${bt(a)}</div>` : ''}</div>`;
+const ban = (k, t, a = '') => `<div class="m m-ban ${k}"><span class="m-dot"></span><span>${t}</span>${a ? `<span class="a">${a}</span>` : ''}</div>`;
+const push = (app, t, b, time = 'now') => `<div class="m m-push"><span class="ic"></span><div class="t">${t}<small>${app} · ${time}</small></div><div class="b">${b}</div></div>`;
+const menu = items => `<div class="m m-menu">${items.map(i => i === '-' ? '<hr>' : `<span class="${i[2] || ''}">${i[0]}${i[1] ? `<small>${i[1]}</small>` : ''}</span>`).join('')}</div>`;
+const sets = rows => `<div class="m m-card" style="gap:0">${rows.map(([n, d, on]) => `<div class="m-set"><span class="n">${n}</span><span class="m-sw${on ? ' on' : ''}"></span><span class="d">${d}</span></div>`).join('')}</div>`;
+const tabs = (a, on = 0) => `<div class="m m-tabs">${a.map((t, i) => `<span class="${i === on ? 'on' : ''}">${t}</span>`).join('')}</div>`;
+const tip = (b, t, r = '') => `<div class="m m-tip">${b ? `<b>${b}</b>` : ''}${t}${r ? `<div class="r">${r}</div>` : ''}</div>`;
+const chat = pairs => `<div class="m m-chat">${pairs.map(([w, t]) => `<div class="${w}">${t}</div>`).join('')}</div>`;
+const mail = (from, subj, html) => `<div class="m m-card m-mail"><div class="hd">From <b>${from}</b><br>Subject <b>${subj}</b></div><div class="m-b">${html}</div></div>`;
+const mono = html => `<div class="m-mono">${html}</div>`;
+const prog = (label, pct, sub) => `<div class="m m-card"><div class="m-row" style="justify-content:space-between"><b>${label}</b><span class="m-hint">${pct}%</span></div><div class="m-bar"><i style="width:${pct}%"></i></div>${sub ? `<div class="m-hint">${sub}</div>` : ''}</div>`;
+const card = (inner, st = '') => `<div class="m m-card" style="${st}">${inner}</div>`;
+const row = (a, j = 'flex-end') => `<div class="m-row" style="justify-content:${j}">${bt(a)}</div>`;
+const chk = (items) => items.map(([t, on]) => `<div class="m-chk${on ? ' done' : ''}"><i class="${on ? 'on' : ''}"></i><span>${t}</span></div>`).join('');
+const hl = s => `<mark>${s}</mark>`;
+
+/* ---------- workbook content ----------
+   Each section is a group pushed into pool.groups:
+   { id, title, slot, intro, terms:[{ id, name, aka, desc, how?, not?, ref?, prompt, ex }] }
+*/
+const pool = { groups: [] };
+
+/* ===== Principles ===== */
+pool.groups.push({
+  id: 'clarity', title: 'Clarity', slot: 'Principle',
+  intro: `The handful of habits that do most of the work. People don't read interfaces, they scan them for the next thing to do, so every one of these is about getting the useful word in front of the eye sooner.`,
+  terms: [
+    { id: 'frontload', name: `Front-load the point`, aka: `lead with the outcome, inverted pyramid for UI`,
+      desc: `Put the words that matter first in every heading, label and sentence. Eyes land on the first two or three words and leave; if those words are "In order to" or "Please note that", the person has learned nothing.`,
+      how: `start with the object or the outcome; move conditions to the end`,
+      not: `"In order to continue, you'll need to verify your email"`,
+      ref: `NN/g "F-shaped pattern", "first two words" guideline`,
+      prompt: `front-load every string: the outcome or the object in the first two or three words, conditions and reasons after`,
+      ex: X(ban('w', `${hl('Verify your email')} to keep sharing files. We sent a link to sam@trailhead.app.`, 'Resend'), 'files.banner.verify', `In order to continue sharing, you'll need to verify your email`) },
+    { id: 'verbs', name: `Specific verbs`, aka: `action verbs, say what happens`,
+      desc: `A control says exactly what it will do, using the verb from the person's own head. "Send invoice", "Archive project", "Download PDF". Generic verbs like Submit, Process, Manage or Continue make people guess.`,
+      how: `the verb the person would use out loud, plus the object when it isn't obvious`,
+      not: `Submit, Process, Proceed, Manage, Handle`,
+      ref: `Material Design "Writing: be specific", Microsoft Writing Style Guide "Use simple verbs"`,
+      prompt: `use specific verbs that say exactly what will happen ("Send invoice", "Archive project"), never generic ones like Submit or Proceed`,
+      ex: X(dlg(`Send invoice #1042?`, `Mara Chen will get an email with a link to pay $1,280.00.`, [['Keep editing'], ['Send invoice', 'p']]), 'invoice.send.confirm', 'Submit · Cancel') },
+    { id: 'plainwords', name: `Everyday words`, aka: `plain language, no jargon`,
+      desc: `Pick the short word people already use. Use, not utilize. Start, not initiate. Help, not facilitate. Plain words are faster to read for everyone, including experts in a hurry and people reading in their second language.`,
+      how: `the word you'd use explaining it to a friend at the next desk`,
+      not: `utilize, leverage, facilitate, prior to, in the event that`,
+      ref: `plainlanguage.gov, GOV.UK "Words to avoid", Hemingway Editor`,
+      prompt: `use everyday words a 12-year-old would know; replace "utilize", "initiate", "prior to" and similar with use, start, before`,
+      ex: X(card(`<div class="m-h">Before you start</div><div class="m-b">You'll need your account number. It's on the top right of any bill.</div>`), 'setup.prereq.body', `Prior to initiating setup, please ensure you have your account number available`) },
+    { id: 'userside', name: `Name it from the user's side`, aka: `user's mental model, outside-in naming`,
+      desc: `Label things by what people recognize, not how the system is built. A person turns on "Email me when someone comments", they don't configure "Comment webhook notifications". Internal names, database fields and team names never reach the screen.`,
+      how: `describe the effect the person will notice, in their words`,
+      not: `sync tokens, entities, objects, workflows, instances`,
+      ref: `Kinneret Yifrah "Microcopy: The Complete Guide", "speak the user's language" (Nielsen's heuristic #2)`,
+      prompt: `name every setting and feature by the effect the person will notice, never by the internal system or data model`,
+      ex: X(sets([[`Email me when someone comments`, `On files you own or follow`, true], [`Weekly summary`, `Every Monday morning`, false]]), 'settings.notify.comments', `Enable comment event webhook notifications`) },
+    { id: 'oneidea', name: `One idea per message`, aka: `one job per string, single purpose`,
+      desc: `Each tooltip, toast, banner or dialog carries one thing to know or one thing to do. When a message tries to explain, upsell and warn at once, people skim past all three. Split it, or cut the two that matter least.`,
+      how: `if it needs "and also", it's two messages`,
+      not: `a banner that announces, explains, links to docs and offers a discount`,
+      prompt: `give each message exactly one idea or one action; split or cut anything that tries to do two jobs`,
+      ex: X(toast(`Moved to Archive`, 'Undo'), 'files.toast.archived', `Moved to Archive. Tip: archived files don't count toward storage! Upgrade for unlimited archives`) },
+    { id: 'concise', name: `Cut to the useful`, aka: `concise, economical, omit needless words`,
+      desc: `Delete every word that doesn't change what the person does next. Concise isn't the same as short: a longer sentence that answers the real question beats a short one that leaves them stuck. Cut filler, keep information.`,
+      how: `read each word and ask what breaks if it's gone`,
+      not: `"simply", "just", "please note", "in order to", "at this time"`,
+      ref: `Strunk & White "Omit needless words", Google developer style guide`,
+      prompt: `cut every word that doesn't change what the reader does next; keep the information, lose the filler ("simply", "please note", "at this time")`,
+      ex: X(field('Workspace name', 'Trailhead Design', { hint: `Shown to people you invite. You can change it later.` }), 'workspace.name.hint', `Please note that the workspace name you choose at this time will simply be visible to all users who are invited to join`) },
+    { id: 'active', name: `Active voice, clear actor`, aka: `who did what`,
+      desc: `Say who did the thing. "We couldn't save your changes" or "Mara removed you from this project" tells people where to look. Passive voice ("Your changes could not be saved") hides the actor and often the fix. Passive is fine when the actor really doesn't matter.`,
+      how: `subject, verb, object; "we" for the product, "you" for the person`,
+      not: `"An error has been encountered", "Changes were not saved"`,
+      prompt: `use active voice with a clear actor: "we" for the product, "you" for the reader, a name when another person did it`,
+      ex: X(ban('', `<b>Mara Chen</b> removed you from Spring Catalog. Ask Mara if you still need access.`), 'project.removed.banner', `You have been removed from this project`) },
+    { id: 'positive', name: `Say what to do`, aka: `positive framing, instructions over prohibitions`,
+      desc: `Tell people what works rather than what doesn't. "Use 8 or more characters" is an instruction; "Password cannot be fewer than 8 characters" is a rule they have to invert in their heads. Double negatives are the worst case.`,
+      how: `instructions in the positive; the condition, then what to do`,
+      not: `"cannot be less than", "do not fail to", "not unlike", "disable … off"`,
+      prompt: `phrase instructions positively, as what to do, and never use double negatives`,
+      ex: X(field('Password', '••••••', { err: `Use 8 or more characters.` }), 'auth.password.too_short', `Password must not be fewer than 8 characters`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'mechanics', title: 'Consistency & mechanics', slot: 'Mechanics',
+  intro: `The house rules that make a product sound like one product. Most of these are decisions you make once, write down, and then apply to every string.`,
+  terms: [
+    { id: 'sentencecase', name: `Sentence case`, aka: `capitalize only the first word`,
+      desc: `Capitalize the first word and proper nouns, nothing else, in buttons, headings, menus and tabs. It reads faster, looks calmer, and saves arguments about whether "To" and "With" get capitals. Title Case is a house choice some platforms still make; pick one and hold it.`,
+      how: `"Create new project", "Billing and invoices"`,
+      not: `Title Case In Some Places And not others`,
+      ref: `Material Design, Microsoft Writing Style Guide, GOV.UK all use sentence case; Apple HIG uses title case for some controls`,
+      prompt: `use sentence case for every heading, button, menu item and tab; capitalize only the first word and proper nouns`,
+      ex: X(menu([[`Create new project`, '⌘N'], [`Import from Figma`], [`Duplicate project`], '-', [`Billing and invoices`]]), 'menu.file.*', `Create New Project · Import From Figma`) },
+    { id: 'oneterm', name: `One name per thing`, aka: `consistent terminology, controlled vocabulary`,
+      desc: `If it's a "workspace" in the sidebar it's a workspace in the settings, the email and the help center. Synonyms make people think there are two different things. Keep a word list and make the same choice every time, including verbs: sign in or log in, delete or remove, never both.`,
+      how: `one noun per concept, one verb per action, written down in a word list`,
+      not: `workspace, team, org and account for the same thing`,
+      ref: `see the word list card under Methods`,
+      prompt: `use exactly one term for each concept and one verb for each action throughout; never alternate synonyms (e.g. always "workspace", always "sign in")`,
+      ex: X(card(`<div class="m-h">Leave ${hl('workspace')}?</div><div class="m-b">You'll lose access to every project in Trailhead Design. An admin can invite you back to the ${hl('workspace')}.</div><div class="m-btns">${bt([['Stay'], ['Leave workspace', 'd']])}</div>`), 'workspace.leave.confirm', `Leave team? You'll lose access to this organization's account`) },
+    { id: 'numerals', name: `Numerals and real numbers`, aka: `digits, specific counts`,
+      desc: `Use digits for numbers in interfaces, even small ones ("3 files", not "three files"): they're easier to scan. And give the real number when you have it. "Delete 12 photos" and "Saved 2 minutes ago" beat "Delete selected items" and "Saved recently".`,
+      how: `digits, exact counts, real times`,
+      not: `"some", "several", "a few items", "recently"`,
+      prompt: `use digits for all numbers and give exact counts and times wherever the product knows them ("Delete 12 photos", "Saved 2 minutes ago")`,
+      ex: X(dlg(`Delete 12 photos?`, `They'll stay in Recently deleted for 30 days.`, [['Cancel'], ['Delete 12 photos', 'd']]), 'photos.delete.confirm', `Delete selected items? This action may be reversible for a limited time`) },
+    { id: 'youvsmy', name: `You, we and my`, aka: `pronouns, point of view`,
+      desc: `Talk to the person as "you" and about the product as "we". Avoid mixing "my" and "your" for the same thing ("My files" in the nav, "Your files" on the page). If you use "my", keep it for labels the person would say to themselves, and never in the same flow as "your".`,
+      how: `"your" in body copy; "my" only in a self-talk label, consistently`,
+      not: `"My account" in the menu, "Your account settings" on the page`,
+      ref: `Microsoft Writing Style Guide "Person", Mailchimp content style guide`,
+      prompt: `address the reader as "you" and the product as "we"; don't mix "my" and "your" for the same thing`,
+      ex: X(tabs([`Your files`, `Shared with you`, `Recent`]), 'nav.files.tabs', `My Files · Shared with you · My recent`) },
+    { id: 'punct', name: `UI punctuation`, aka: `periods, exclamation marks, ellipses`,
+      desc: `No periods on labels, buttons, headings or single-sentence tooltips; periods on full sentences in body text and multi-sentence help. Exclamation marks for real celebrations only, and at most one. An ellipsis on a menu item means "this opens something that needs more input".`,
+      how: `labels bare, sentences punctuated, "Rename…" when a dialog follows`,
+      not: `"Save!", "Settings.", "Great!!"`,
+      ref: `Apple HIG "Ellipsis in menu items", Material Design "Punctuation"`,
+      prompt: `no periods on labels, buttons or headings; full stops on full sentences; at most one exclamation mark and only for real wins; an ellipsis on menu items that open a dialog`,
+      ex: X(menu([[`Rename…`, 'F2'], [`Move to…`], [`Make a copy`], '-', [`Delete`, '⌫', 'd']]), 'files.menu.*', `Rename. · Move To! · Make a copy...`) },
+    { id: 'dates', name: `Dates, times and units`, aka: `formatting, relative time`,
+      desc: `Use relative time for the recent past ("2 minutes ago", "Yesterday at 4:12 PM") and absolute dates beyond a week. Spell months, never write 03/04 (it's March 4 or April 3 depending on who's reading). Always show units and the time zone when time matters across people.`,
+      how: `"Due Fri, Mar 14", "5:00 PM ET", "2.4 GB of 15 GB"`,
+      not: `"03/04/26", "17:00" for a US audience, numbers without units`,
+      ref: `Unicode CLDR date formats, Intl.DateTimeFormat, Microsoft style guide "Date and time"`,
+      prompt: `write dates with spelled months, relative time for the last week, time zones when people are in different places, and units on every number`,
+      ex: X(card(`<div class="m-row" style="justify-content:space-between"><b>Invoice #1042</b><span class="m-tag">Due Fri, Mar 14</span></div><div class="m-hint">Sent yesterday at 4:12 PM ET · Viewed 2 times</div>`), 'invoice.meta', `Due 03/14 · Sent 2026-03-06T21:12Z · Views: 2`) },
+    { id: 'contractions', name: `Contractions`, aka: `can't, you'll, we're`,
+      desc: `Use common contractions (you'll, can't, we're, it's) for a natural voice. Skip them where they cause confusion, like "can't" vs "can" in a critical warning someone might misread, and avoid unusual ones like "it'll've" or "should've" in UI.`,
+      how: `you'll, we're, don't, it's; spell out "cannot" only for emphasis`,
+      not: `"You will not be able to" everywhere; "y'all", "'twill"`,
+      prompt: `use common contractions (you'll, can't, we're) for a natural voice, but spell out a negative where misreading it would be costly`,
+      ex: X(ban('e', `You ${hl('cannot')} undo a workspace deletion. Export anything you want to keep first.`, 'Export'), 'workspace.delete.warning', `You won't be able to undo this`) },
+    { id: 'linktext', name: `Descriptive link text`, aka: `meaningful links, accessible links`,
+      desc: `A link says where it goes or what it does, so it still makes sense read alone. Screen readers list links out of context; "click here" and "learn more" ten times over tells nobody anything. Put the link on the words that name the destination.`,
+      how: `"Read the refund policy", "See plans"`,
+      not: `"click here", "learn more", "this link", bare URLs`,
+      ref: `WCAG 2.2 success criterion 2.4.4 Link Purpose (In Context)`,
+      prompt: `write link text that names the destination or action and makes sense out of context; never "click here" or a bare "learn more"`,
+      ex: X(card(`<div class="m-b">Refunds take 5 to 10 business days to reach your card. <span class="m-link">Read the refund policy</span></div>`), 'billing.refund.help', `To learn more about refunds, click here`) },
+    { id: 'inclusive', name: `Inclusive language`, aka: `accessible, bias-free writing`,
+      desc: `Write for every body, ability and identity. Describe the action, not the gesture ("Select", not "Click" or "See"), use gender-neutral words ("they", "everyone"), avoid idioms and metaphors that don't translate, and never use disability as a metaphor ("crazy fast", "blind spot").`,
+      how: `"select", "turn on", "they", "everyone"; literal over idiomatic`,
+      not: `"click", "see below", "guys", "sanity check", "whitelist"`,
+      ref: `Microsoft "Bias-free communication", Google developer style guide "Inclusive documentation", 18F content guide`,
+      prompt: `use inclusive, input-neutral language: "select" not "click", gender-neutral pronouns, no idioms or disability metaphors, "allowlist" not "whitelist"`,
+      ex: X(card(`<div class="m-h">Allowlist</div><div class="m-b">Only email domains on this list can join. ${hl('Select')} a domain to edit it.</div>`), 'security.allowlist', `Whitelist · Click on a domain to edit it, guys`) },
+    { id: 'l10n', name: `Localization-ready strings`, aka: `i18n-friendly copy, translatable strings`,
+      desc: `Write whole sentences with placeholders, never sentences assembled from fragments, since word order changes between languages. Handle plurals with the platform's plural rules, not "file(s)". Leave room: German and Finnish run 30 to 40 percent longer than English.`,
+      how: `one complete string with named placeholders and plural forms`,
+      not: `"You have " + n + " new " + noun; "file(s)"; text baked into images`,
+      ref: `ICU MessageFormat, Unicode CLDR plural rules, W3C "Internationalization best practices"`,
+      prompt: `write strings that localize cleanly: complete sentences with named placeholders, proper plural forms (no "file(s)"), and room for 40% text expansion`,
+      ex: X(mono(`<span class="k">files.shared</span> =
+{count, plural,
+  one {{name} shared 1 file}
+  other {{name} shared # files}}`), 'files.shared', `{name} shared {count} file(s)`) }
+  ]
+});
+
+/* ===== Controls & labels ===== */
+pool.groups.push({
+  id: 'actions', title: 'Buttons & actions', slot: 'Component',
+  intro: `The words people press. A button label is a promise about what happens next, so it should be a verb, as specific as the space allows, and kept the same when the action shows up again in a toast or a menu.`,
+  terms: [
+    { id: 'buttonverb', name: `Button label`, aka: `CTA label, action label`,
+      desc: `Starts with a verb and names the object when it isn't obvious: "Save draft", "Invite 3 people", "Download PDF". Two or three words is typical. The label should still make sense if it's the only thing someone reads on the screen.`,
+      how: `verb + object, sentence case, under about 25 characters`,
+      not: `OK, Yes, Submit, Go, Click here`,
+      ref: `NN/g "OK-Cancel or Cancel-OK?", Material Design "Buttons"`,
+      prompt: `write button labels that start with a verb and name the object ("Save draft", "Invite 3 people"), two or three words, never OK or Submit`,
+      ex: X(card(`<div class="m-h">Invite people to Spring Catalog</div><div class="m-hint">mara@, theo@, priya@</div>${row([['Cancel'], ['Invite 3 people', 'p']])}`), 'invite.cta', `OK`) },
+    { id: 'btnpair', name: `Primary and secondary pair`, aka: `button pair, dismiss vs confirm`,
+      desc: `When two buttons sit together, each one says its outcome, so the person never has to read the body to decode "Yes" and "No". The safe or backing-out choice says what it keeps ("Keep editing", "Stay"), not just "Cancel", when Cancel would be ambiguous.`,
+      how: `two outcomes, both verbs: "Discard changes" / "Keep editing"`,
+      not: `Yes / No, OK / Cancel when cancel could mean either thing`,
+      prompt: `when two buttons sit together, label both with their outcome ("Keep editing" and "Discard changes"), never Yes/No or an ambiguous Cancel`,
+      ex: X(dlg(`Discard your changes?`, `Your edits to "Q3 roadmap" haven't been saved.`, [['Keep editing'], ['Discard changes', 'd']]), 'editor.discard.confirm', `Are you sure? · Yes · No`) },
+    { id: 'cta', name: `Call to action`, aka: `marketing CTA, value-led button`,
+      desc: `On a landing or upgrade surface the button can carry the benefit in the person's voice: "Start my free trial", "Get the template". Here "my" is fine because it completes the sentence "I want to…". Keep the commitment honest, and put the price or catch near the button, not after it.`,
+      how: `"I want to ___" test; the cost or terms right under it`,
+      not: `"Learn more" as the main CTA; hiding "then $12/month" two clicks later`,
+      ref: `Joanna Wiebe / Copyhackers "button copy" tests, Unbounce CTA research`,
+      prompt: `write the call-to-action as the benefit in the reader's voice ("Start my free trial"), with the price or terms stated right under the button`,
+      ex: X(card(`<div class="m-h" style="font-size:17px">Plan meals in 5 minutes a week</div>${row([['Start my free trial', 'p']], 'flex-start')}<div class="m-hint">14 days free, then $9/month. Cancel anytime in Settings.</div>`), 'landing.hero.cta', `Learn more`) },
+    { id: 'destructivebtn', name: `Destructive action`, aka: `delete button, danger action`,
+      desc: `The label repeats the exact verb and object of the damage ("Delete project", "Remove Mara"), is styled as a warning, and is never the default focus. Pair it with a backing-out option, and put permanence in the body copy, not the button.`,
+      how: `"Delete project", red, not pre-focused, consequence in the body`,
+      not: `"Confirm", "Proceed", "Yes, I'm sure"`,
+      ref: `Apple HIG "Alerts: destructive actions", GitHub "Danger zone"`,
+      prompt: `label destructive buttons with the exact verb and object ("Delete project"), style them as a warning, and state permanence in the body text`,
+      ex: X(card(`<div class="m-h">Danger zone</div><div class="m-b">Deleting Spring Catalog removes its 48 files for everyone. This can't be undone.</div>${row([['Delete project', 'd']], 'flex-start')}`), 'project.settings.delete', `Proceed`) },
+    { id: 'linkaction', name: `Link vs button`, aka: `navigation vs action`,
+      desc: `Links take you somewhere; buttons do something. Copy follows the same split: a link names a destination ("Billing history"), a button names an action ("Download invoice"). A link written as an action, or a button that just navigates, makes people unsure whether anything will change.`,
+      how: `nouns for places, verbs for actions`,
+      not: `a link that says "Delete", a button that says "Our pricing"`,
+      prompt: `use links for destinations (named as nouns) and buttons for actions (named as verbs); never mix the two`,
+      ex: X(card(`<div class="m-row" style="justify-content:space-between"><b>March invoice</b><span class="m-btn">Download invoice</span></div><span class="m-link">Billing history</span>`), 'billing.invoice.row', `Link: "Download" · Button: "History"`) },
+    { id: 'menuitems', name: `Menu items`, aka: `overflow menu, context menu`,
+      desc: `Short verb phrases in sentence case, ordered by frequency, with destructive items last and separated. Don't repeat the object on every line when the menu belongs to one object ("Rename", not "Rename file"). Shortcuts sit to the right.`,
+      how: `verbs, most-used first, dangerous last behind a divider`,
+      not: `"File rename", "Option: share", Delete in the middle`,
+      ref: `Apple HIG "Menus", Microsoft "Menus and context menus"`,
+      prompt: `write menu items as short verbs in sentence case, most-used first, destructive actions last behind a divider, without repeating the object`,
+      ex: X(menu([[`Open`, '↵'], [`Share…`, '⌘S'], [`Rename…`], [`Move to…`], '-', [`Delete`, '⌫', 'd']]), 'file.context.*', `Delete file · Open file · Rename file`) },
+    { id: 'iconlabel', name: `Icon labels and accessible names`, aka: `aria-label, tooltip label, alt text for controls`,
+      desc: `Every icon-only button has a name: a visible tooltip on hover and an accessible label for screen readers, both naming the action ("Add comment", not "Speech bubble"). Images that carry meaning get alt text that says what matters; decorative ones get none.`,
+      how: `the action as the name; alt text for meaning, empty alt for decoration`,
+      not: `aria-label="icon", "button", "image123.png"`,
+      ref: `WCAG 2.2 1.1.1 Non-text Content and 4.1.2 Name, Role, Value; W3C alt decision tree`,
+      prompt: `give every icon-only control a tooltip and accessible name that states its action, and write alt text that says what an image means, not what it looks like`,
+      ex: X(`<div class="m" style="display:grid;gap:10px;justify-items:center">${tip('', 'Add comment')}<span class="m-ib">+</span></div>${mono(`&lt;button aria-label="Add comment"&gt;`)}`, 'editor.toolbar.comment', `aria-label="speech-bubble-icon"`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'forms', title: 'Forms & fields', slot: 'Component',
+  intro: `Forms are where products ask people for things, so they're where friction and distrust live. The copy's job is to answer each question before the person has to ask it.`,
+  terms: [
+    { id: 'labels', name: `Field label`, aka: `input label`,
+      desc: `A short noun phrase that stays visible above the field, even after someone types. Names the thing in the person's words ("Name on card", not "Cardholder"), and never ends in a colon or a question unless the whole form is conversational.`,
+      how: `visible, above the field, a noun phrase`,
+      not: `labels only as placeholders; "Enter your…" as a label`,
+      ref: `GOV.UK Design System "Text input", Adam Silver "Form Design Patterns"`,
+      prompt: `write field labels as short noun phrases in the person's words, always visible above the field, without colons`,
+      ex: X(`<div class="m m-card" style="gap:5px"><div class="m-lbl">Name on card</div><div class="m-in">Sam Ortiz</div><div class="m-lbl" style="margin-top:4px">Billing ZIP code</div><div class="m-in ph">94110</div></div>`, 'checkout.card.labels', `Cardholder: · Enter your postal code here`) },
+    { id: 'placeholder', name: `Placeholder text`, aka: `ghost text, input hint`,
+      desc: `An example of a good answer, written so nobody mistakes it for a real value ("e.g. Q3 launch plan"). Never the only label, never instructions people need while typing, since both vanish on the first keystroke and low-contrast gray is hard to read.`,
+      how: `"e.g." plus a realistic example; the label and hint carry the rules`,
+      not: `the field's only label; "Enter text here"; rules that disappear`,
+      ref: `NN/g "Placeholders in form fields are harmful"`,
+      prompt: `use placeholder text only for a short "e.g." example of a good answer; never as the label or for instructions`,
+      ex: X(field('Project name', 'e.g. Q3 launch plan', { ph: true }), 'project.create.name', `Enter project name (must be unique, max 60 chars)`) },
+    { id: 'helper', name: `Helper text`, aka: `hint text, field description`,
+      desc: `One line under (or between label and) the field answering the question someone would have before they get it wrong: the format, why you need it, or what happens with it. It's also the place to reassure about privacy.`,
+      how: `answer "why do you need this?" or "what format?" in one line`,
+      not: `restating the label; a paragraph of policy`,
+      prompt: `write one line of helper text per field that answers the question a person would have before they make a mistake: format, reason or privacy`,
+      ex: X(field('Phone number', '(555) 014-2210', { opt: 'Optional', hint: `Only for delivery updates on the day. We never call.` }), 'checkout.phone.hint', `Phone number is used for communication purposes`) },
+    { id: 'optional', name: `Required and optional`, aka: `asterisks, (optional)`,
+      desc: `Most fields should be required; mark the few that aren't with "(optional)" in the label. A wall of red asterisks needs a legend and still makes people wonder. If a lot of fields are optional, ask whether you need them at all.`,
+      how: `mark the exception: "(optional)"`,
+      not: `asterisks on every field with "* indicates required" at the bottom`,
+      ref: `GOV.UK "Question pages", Baymard Institute checkout research`,
+      prompt: `mark only the optional fields, with "(optional)" in the label, and assume everything else is required`,
+      ex: X(`<div class="m m-card" style="gap:5px"><div class="m-lbl">Company</div><div class="m-in">Trailhead</div><div class="m-lbl" style="margin-top:4px"><span>Job title</span><small>Optional</small></div><div class="m-in ph">e.g. Product designer</div></div>`, 'signup.fields', `Company* · Job title · * = required`) },
+    { id: 'inlinevalid', name: `Inline validation`, aka: `field error, live validation`,
+      desc: `Validate when someone leaves a field, not on every keystroke, and write the message as the fix: what to change, with an example. Say what's wrong in the field's own words, and keep it next to the field so a screen reader announces it there.`,
+      how: `"Enter a date like 14 March 2026"; shown on blur`,
+      not: `"Invalid input", red borders with no words, errors while typing`,
+      ref: `GOV.UK "Error message" component, Luke Wroblewski inline validation study`,
+      prompt: `write inline validation as the fix with an example ("Enter a date like 14 March 2026"), shown when the person leaves the field`,
+      ex: X(field('Start date', '14/32/2026', { err: `Enter a real date, like 14 March 2026.` }), 'trip.start.invalid', `Invalid input`) },
+    { id: 'charlimit', name: `Character counter`, aka: `length limit, remaining characters`,
+      desc: `Show the limit before people hit it, count what's left rather than what's used once they're close, and say what to do when they go over instead of silently truncating. "12 characters too long" is clearer than "-12".`,
+      how: `"40 characters left"; over the limit, "12 characters too long"`,
+      not: `silent truncation; "-12"; a limit you only learn on submit`,
+      prompt: `show a character counter that counts remaining characters near the limit and says "N characters too long" when over, never silently truncating`,
+      ex: X(field('Short description', 'Offline trail maps for every national park in the US, plus…', { err: '', cnt: ['12 characters too long', true] }), 'listing.desc.counter', `-12`) },
+    { id: 'passwordrules', name: `Password requirements`, aka: `password rules, strength meter`,
+      desc: `Show the rules up front, as a checklist that ticks off while typing, not as an error after submit. Write each rule as a plain target ("8 or more characters"). If the rules are strict, explain why in one line, or better, loosen them.`,
+      how: `checklist visible before typing, ticks as each rule is met`,
+      not: `rules revealed one at a time through errors`,
+      ref: `NIST SP 800-63B (length over complexity), NN/g password guidance`,
+      prompt: `show password requirements before typing as a checklist that ticks off live, each rule written as a plain target`,
+      ex: X(card(`<div class="m-lbl">Create a password</div><div class="m-in">••••••••</div>${chk([[`8 or more characters`, true], [`Not a password you've used here before`, true], [`Not a common password`, false]])}`, 'gap:6px'), 'auth.password.rules', `Error: password does not meet complexity requirements`) },
+    { id: 'formtitle', name: `Form heading and intro`, aka: `form title, page heading for a task`,
+      desc: `Title the form with the task, as the person would describe it ("Request a refund"), then one line on what they'll need and how long it takes. Knowing the cost up front is what keeps people from bailing halfway.`,
+      how: `task as the title; "You'll need… It takes about 3 minutes."`,
+      not: `"Form", "Refund request submission form", no intro`,
+      prompt: `title forms with the task in the person's words and add one line on what they'll need and how long it takes`,
+      ex: X(card(`<div class="m-h" style="font-size:17px">Request a refund</div><div class="m-b">You'll need your order number. It takes about 2 minutes, and we'll email you a decision within a day.</div>`), 'refund.form.intro', `Refund Request Submission Form`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'navigation', title: 'Navigation & structure', slot: 'Component',
+  intro: `The words that tell people where they are and where they can go. They get read most and thought about least, which is why bad navigation labels survive for years.`,
+  terms: [
+    { id: 'pagetitle', name: `Page titles and headings`, aka: `screen titles, H1s`,
+      desc: `Name the page by what's on it or what the person does there, and match the nav label that brought them. Headings inside a page work as a table of contents someone can scan: each one should make sense alone.`,
+      how: `the same words as the link that led here; scannable subheads`,
+      not: `"Welcome to the Dashboard", "Overview" on every page`,
+      ref: `GOV.UK "Writing for GOV.UK: titles", WCAG 2.4.2 Page Titled`,
+      prompt: `title each page with what's on it, matching the navigation label that led there, and write subheadings that make sense when scanned alone`,
+      ex: X(card(`<div class="m-hint">Billing ›</div><div class="m-h" style="font-size:18px">Invoices</div><div class="m-hint">Download past invoices or change who receives them.</div>`), 'billing.invoices.title', `Welcome to Your Billing Dashboard Overview`) },
+    { id: 'navlabels', name: `Navigation labels`, aka: `sidebar items, menu labels, information scent`,
+      desc: `One or two words, nouns, and distinct from each other. Each label should predict what's behind it well enough that people don't have to click to find out. Avoid clever names for core sections; save personality for somewhere it can't get people lost.`,
+      how: `plain nouns, mutually exclusive, matched to the page title`,
+      not: `"Explore", "Hub", "Resources" and "Learn" side by side`,
+      ref: `Peter Pirolli "information scent", NN/g "Menu design" checklist`,
+      prompt: `write navigation labels as plain one- or two-word nouns that clearly predict what's behind them and don't overlap`,
+      ex: X(menu([[`Inbox`, '12', 'on'], [`Assigned to me`, '3'], [`Drafts`], [`Sent`], '-', [`Settings`]]), 'nav.sidebar.*', `Hub · Explore · My Stuff · Resources`) },
+    { id: 'tablabels', name: `Tabs and filters`, aka: `segmented controls, filter chips`,
+      desc: `Short, parallel and the same grammatical form: all nouns or all adjectives. Counts help when they change what people do ("Open 12"). A filter chip that's on should read as a state ("Unread"), not a command ("Show unread").`,
+      how: `parallel nouns or states, optional counts`,
+      not: `"All", "Show archived", "Mine!" in one row`,
+      prompt: `write tabs and filter chips as short parallel labels in the same grammatical form, with counts where they help`,
+      ex: X(tabs([`Open 12`, `Waiting 3`, `Closed`]), 'inbox.tabs', `All Items · Show Waiting · Done!`) },
+    { id: 'settingsrow', name: `Settings and toggles`, aka: `preferences, switch labels`,
+      desc: `The label names the thing that's on or off; a line under it says what changes. Never put a verb in a toggle's label ("Enable sync"), because "Enable sync: off" is a double take. The toggle's state is the verb.`,
+      how: `noun label ("Auto-save"), one-line effect underneath`,
+      not: `"Turn on notifications" as a toggle label; no description`,
+      ref: `Apple HIG "Toggles", Material Design "Switches"`,
+      prompt: `write toggle labels as the thing being turned on or off (not a verb), each with one line describing what changes`,
+      ex: X(sets([[`Auto-save`, `Saves your draft every 30 seconds`, true], [`Spell check`, `Underlines words it doesn't recognize`, false]]), 'settings.editor.*', `Enable auto-save functionality`) },
+    { id: 'searchbox', name: `Search placeholder`, aka: `search hint, search field`,
+      desc: `Tell people what they can search for, using real examples of the things in your product ("Search files, people and comments"). It's a small spot that quietly teaches scope.`,
+      how: `"Search [the things it actually searches]"`,
+      not: `"Search…" when it only searches one thing; "Type here"`,
+      prompt: `write the search placeholder to say exactly what it searches ("Search files, people and comments")`,
+      ex: X(field('', 'Search files, people and comments', { ph: true }).replace('<div class="m-lbl"><span></span></div>', ''), 'search.placeholder', `Search…`) },
+    { id: 'tooltip', name: `Tooltip`, aka: `hover hint, info popover`,
+      desc: `A short supplement, never the only home for something people must know. One sentence, no period if it's a fragment. It explains what a control does or defines a term; if it needs a heading, a list or a link, it wants to be a popover or a help article.`,
+      how: `one line that adds information the label couldn't fit`,
+      not: `restating the label; critical info only on hover (touch users never see it)`,
+      ref: `NN/g "Tooltip guidelines", Material Design "Tooltips"`,
+      prompt: `write tooltips as one short line that adds information the label can't hold, never repeating the label and never hiding essential info`,
+      ex: X(`<div class="m" style="display:grid;gap:8px;justify-items:center">${tip('', 'Viewers can comment but not edit')}<span class="m-pill">Viewer ▾</span></div>`, 'share.role.viewer.tip', `Viewer role`) }
+  ]
+});
+
+/* ===== States & feedback ===== */
+pool.groups.push({
+  id: 'emptystates', title: 'Empty states', slot: 'Empty state',
+  intro: `What a screen says when there's nothing to show. There are several different kinds of nothing, and each wants different words: a first visit is a welcome, a search with no results is a dead end to route around, and an inbox at zero is a small win.`,
+  terms: [
+    { id: 'firstuse', name: `First use`, aka: `zero state, new-user empty state`,
+      desc: `The screen before the person has made anything. Says what will live here and why it's worth having, then offers one clear way to start, ideally the smallest possible first step. This is onboarding in disguise, so it carries more weight than it looks.`,
+      how: `what goes here + why it's useful + one action`,
+      not: `"No data", "Nothing here yet" with no next step`,
+      ref: `Material Design "Empty states", Kinneret Yifrah "Microcopy" ch. on empty states`,
+      prompt: `write a first-use empty state: one line on what will appear here and why it's useful, and one button for the smallest first step`,
+      ex: X(empty('▢', `Plan your first trip`, `Saved trails, maps and packing lists for a trip all live here, ready offline.`, [['Plan a trip', 'p']]), 'trips.empty.first_use', `No trips found.`) },
+    { id: 'noresults', name: `No results`, aka: `empty search, zero results`,
+      desc: `Repeat what they searched for, so they can spot a typo, and offer a way forward: a broader search, a spelling suggestion, or a way to create the thing they were looking for. Never blame the query.`,
+      how: `echo the query; suggest a fix; offer to create it`,
+      not: `"Your search returned 0 results", "Invalid search"`,
+      ref: `Baymard Institute "No results page" research`,
+      prompt: `write a no-results state that repeats the search term, suggests a fix (spelling, broader terms, clearing filters) and offers to create the thing if that makes sense`,
+      ex: X(empty('?', `No files match "roadmpa"`, `Did you mean <span class="m-link">roadmap</span>? Or search all workspaces.`, [['Search all workspaces']]), 'search.empty.no_results', `Your search returned 0 results.`) },
+    { id: 'filtered', name: `Filtered to nothing`, aka: `no matches for filters`,
+      desc: `The data exists but the person's own filters hide all of it. Say so, name the filters, and offer to clear them in one press. Otherwise people think their stuff is gone.`,
+      how: `"Nothing matches these filters" + the filters + "Clear filters"`,
+      not: `the same message you show to a brand-new user`,
+      prompt: `write a filtered-empty state that says the filters hide everything, names the active filters, and offers a one-press "Clear filters"`,
+      ex: X(empty('⌀', `No open tasks assigned to Theo`, `2 filters are on: Open, Assignee is Theo.`, [['Clear filters']]), 'tasks.empty.filtered', `No tasks.`) },
+    { id: 'caughtup', name: `All done`, aka: `inbox zero, caught up, cleared state`,
+      desc: `The person emptied it on purpose. Mark the moment lightly, tell them what happens next (new items will show up here), and don't push a new task at them. A little warmth fits here because nothing is wrong.`,
+      how: `a small acknowledgement + when it'll fill again`,
+      not: `"No items" (sounds like a failure); a confetti cannon`,
+      prompt: `write an "all caught up" state that lightly acknowledges the person cleared it and says when new items will appear, without pushing another task`,
+      ex: X(empty('✓', `You're all caught up`, `New requests from your team will show up here.`), 'inbox.empty.caught_up', `0 items in queue`) },
+    { id: 'noaccess', name: `No access`, aka: `permission empty state, restricted`,
+      desc: `The thing exists but this person can't see it. Say that plainly, say who can grant access (by name, if you know it), and give them a way to ask. Don't pretend it doesn't exist if they followed a link to it.`,
+      how: `"You don't have access" + who owns it + "Request access"`,
+      not: `a 404 for something that exists; "Forbidden"`,
+      prompt: `write a no-access state that says the person doesn't have access, names who can grant it, and offers a "Request access" action`,
+      ex: X(empty('⚿', `You need access to Spring Catalog`, `Mara Chen owns this project. We'll send Mara your request.`, [['Request access', 'p']]), 'project.empty.no_access', `403 Forbidden`) },
+    { id: 'notenough', name: `Not enough data yet`, aka: `pending data, chart empty state`,
+      desc: `For analytics, recommendations or streaks that need time before they mean anything. Say what's being collected, how long until there's something to see, and show a preview of what it will look like.`,
+      how: `"Check back in 3 days" + what you'll see then`,
+      not: `an empty chart with axes and no explanation`,
+      prompt: `write a "not enough data yet" state that says what's being collected and when there will be something to see`,
+      ex: X(card(`<div class="m-row" style="gap:3px;align-items:flex-end;height:44px">${[30, 45, 25, 60, 40, 55, 35].map(h => `<i style="display:block;width:14px;height:${h}%;border-radius:3px;background:var(--line)"></i>`).join('')}</div><div class="m-h">Your weekly trends start Monday</div><div class="m-b">We need 7 days of hikes to show your pace and elevation over time.</div>`), 'stats.empty.collecting', `Insufficient data`) },
+    { id: 'loadfail', name: `Couldn't load`, aka: `error empty state, failed fetch`,
+      desc: `The area is empty because something broke, not because there's nothing there. Say that it didn't load (so people don't think their data is gone), give the likely reason if you know it, and offer Try again.`,
+      how: `"We couldn't load your files" + reason + "Try again"`,
+      not: `"No files" when the request failed`,
+      prompt: `write a load-failure state that makes clear the data exists but didn't load, gives the reason if known, and offers "Try again"`,
+      ex: X(empty('!', `We couldn't load your files`, `Your files are safe. Check your connection and try again.`, [['Try again']]), 'files.empty.load_failed', `No files.`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'progress', title: 'Loading & progress', slot: 'Feedback',
+  intro: `Words for waiting. People tolerate a wait much better when they know what's happening and roughly how long it will take.`,
+  terms: [
+    { id: 'loadingtext', name: `Loading message`, aka: `spinner text, progress label`,
+      desc: `Say what's happening in a present-tense verb phrase ("Uploading 3 photos"), and add the time if it's more than a few seconds. Rotating jokes wear thin by the third visit; honest progress never does.`,
+      how: `"-ing" verb + object; time estimate past ~5 seconds`,
+      not: `"Loading…" forever; "Reticulating splines" in a banking app`,
+      ref: `NN/g "Response time limits" (0.1s, 1s, 10s)`,
+      prompt: `write loading text as a present-tense verb phrase saying what's happening, plus a time estimate when it takes more than a few seconds`,
+      ex: X(card(`<div class="m-row"><span class="m-spin"></span><b>Building your meal plan</b></div><div class="m-b">Matching 214 recipes to your pantry. Usually under a minute.</div>`), 'plan.loading', `Loading…`) },
+    { id: 'progressbar', name: `Progress with steps`, aka: `determinate progress, step status`,
+      desc: `For long, multi-part work, name the current step and show how far along it is. Steps in plain words ("Checking files", "Copying 1,204 of 3,500") help people decide whether to wait or come back.`,
+      how: `the current step, a count, and what's next`,
+      not: `a bar stuck at 99% with no words`,
+      prompt: `for long tasks, show the current step in plain words with a count ("Copying 1,204 of 3,500 files") alongside the progress bar`,
+      ex: X(prog(`Moving files to Shared Drive`, 34, `Copying 1,204 of 3,500 files. You can close this window.`), 'migrate.progress', `Processing… 34%`) },
+    { id: 'longwait', name: `Long wait, we'll tell you`, aka: `background job, notify when done`,
+      desc: `If it takes minutes or more, release the person: say it'll keep going without them and how they'll find out it's done. Then actually send that email or notification.`,
+      how: `"You can leave this page. We'll email you when…"`,
+      not: `"Do not close this window" for a 20-minute export`,
+      prompt: `for waits longer than a minute, tell the person they can leave and exactly how they'll be told when it's done`,
+      ex: X(card(`<div class="m-row"><span class="m-spin"></span><b>Preparing your export</b></div><div class="m-b">This takes about 10 minutes. You can leave this page; we'll email the download link to sam@trailhead.app.</div>`), 'export.pending', `Please do not close this window or navigate away`) },
+    { id: 'savestatus', name: `Save status`, aka: `autosave indicator, sync status`,
+      desc: `A quiet line near the title that tells people their work is safe: "Saving…", then "Saved", then "Saved 2 minutes ago". When it can't save, this is the one place it must get loud, and say what's at risk.`,
+      how: `Saving… / Saved / Offline, changes saved on this device`,
+      not: `no indicator at all; a toast every 30 seconds`,
+      prompt: `write a quiet save-status line ("Saving…", "Saved", "Saved 2 minutes ago") that turns into a clear warning only when work is at risk`,
+      ex: X(card(`<div class="m-row" style="justify-content:space-between"><b>Q3 roadmap</b><span class="m-hint">✓ Saved 2 minutes ago</span></div>${ban('w', `You're offline. Changes are saved on this device and will sync when you reconnect.`)}`), 'doc.status.*', `Sync status: pending (code 3)`) },
+    { id: 'skeletons', name: `Skeleton screens`, aka: `placeholder loading, shimmer`,
+      desc: `When content loads in under a few seconds, show its shape instead of words. The copy decision here is to write nothing, and to keep any static labels (titles, tab names) real so the page orients people while the data arrives.`,
+      how: `real headings, gray shapes for data`,
+      not: `"Loading content…" over every card`,
+      prompt: `for short loads, show skeleton placeholders with real headings and no loading text`,
+      ex: X(card(`<div class="m-h">Recent files</div><div class="m-skel" style="width:80%"></div><div class="m-skel" style="width:60%"></div><div class="m-skel" style="width:70%"></div>`), 'files.recent.loading', `Loading recent files, please wait…`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'success', title: 'Success & confirmation', slot: 'Feedback',
+  intro: `Telling people it worked. Most success messages should be quiet and fast; a few moments earn more.`,
+  terms: [
+    { id: 'successtoast', name: `Success toast`, aka: `snackbar, confirmation message`,
+      desc: `Past tense, the object, and nothing else: "Invoice sent", "3 files moved to Archive". It mirrors the button that triggered it, so "Send invoice" becomes "Invoice sent". No exclamation mark for routine actions.`,
+      how: `object + past participle; matches the button`,
+      not: `"Success!", "Your action was completed successfully"`,
+      ref: `Material Design "Snackbars"`,
+      prompt: `write success toasts in the past tense, naming the object, mirroring the button that triggered them ("Invoice sent"), with no exclamation marks`,
+      ex: X(toast(`Invoice sent to Mara Chen`), 'invoice.toast.sent', `Success! Your action was completed successfully!`) },
+    { id: 'undo', name: `Undo instead of confirm`, aka: `forgiving action, optimistic delete`,
+      desc: `For actions that are reversible, do the thing and offer Undo, rather than asking "Are you sure?" first. It's faster for the 99 percent who meant it and safer for the 1 percent who didn't, because people read toasts more than they read dialogs.`,
+      how: `do it, then "Archived · Undo" for a few seconds`,
+      not: `a confirmation dialog for archiving an email`,
+      ref: `Aza Raskin "Never use a warning when you mean undo" (A List Apart, 2007)`,
+      prompt: `for reversible actions, skip the confirmation dialog: perform the action and show a toast with Undo`,
+      ex: X(toast(`Conversation archived`, 'Undo'), 'inbox.toast.archived', `Are you sure you want to archive this conversation? OK / Cancel`) },
+    { id: 'donepage', name: `Done page`, aka: `confirmation page, thank-you page`,
+      desc: `After a bigger task (an order, an application, a booking) confirm it happened, give the reference number, say what happens next and when, and offer the one next thing they're most likely to want.`,
+      how: `it worked + reference + what happens next + one next action`,
+      not: `"Thank you for your submission." and nothing else`,
+      ref: `GOV.UK "Confirmation page" pattern`,
+      prompt: `write a confirmation page: say it worked, give the reference number, say what happens next and when, and offer one likely next action`,
+      ex: X(card(`<span class="m-tag" style="justify-self:start;background:var(--ok-soft);color:var(--ok)">Order placed</span><div class="m-h" style="font-size:17px">Your first box arrives Thursday</div><div class="m-b">Order #MK-20931. We'll text you the delivery window on Wednesday evening.</div>${row([['Choose next week\'s meals', 'p']], 'flex-start')}`), 'order.confirm', `Thank you for your submission.`) },
+    { id: 'celebrate', name: `Milestone moment`, aka: `celebration, achievement, delight`,
+      desc: `For the rare real achievement: a first publish, a 30-day streak, a finished course. Name the specific thing they did, keep it short, and give the moment a next step that builds on it. If everything celebrates, nothing does.`,
+      how: `the specific achievement in the person's terms + what it unlocks`,
+      not: `confetti for saving a draft; "Awesome job!!"`,
+      ref: `Duolingo streak copy, Dan Saffer "Microinteractions"`,
+      prompt: `for a real milestone, write a short celebration that names the specific achievement and suggests a next step; use it rarely`,
+      ex: X(card(`<div class="m-ctr"><div class="m-big">30</div><div class="m-h">Thirty days of hikes logged</div><div class="m-b">That's 82 miles and 11,400 feet of climbing since March 1.</div>${row([['Share your month']], 'center')}</div>`), 'streak.30.celebrate', `Awesome job!!! 🎉🎉🎉`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'errors', title: 'Errors', slot: 'Error',
+  intro: `The messages people read most carefully, usually while annoyed. A good error says what happened, why if it helps, and what to do now, in that order, without blame, jokes or stack traces.`,
+  terms: [
+    { id: 'errorformula', name: `What, why, what now`, aka: `error message formula`,
+      desc: `The shape under every good error. What happened, in the person's terms. Why, if knowing it changes what they do. What they can do now, as a button where possible. Apologize only when it's really your fault, and then once.`,
+      how: `"We couldn't send your invoice. Mara's email bounced. Check the address and try again."`,
+      not: `"Error 500", "Oops! Something went wrong"`,
+      ref: `NN/g "Error-message guidelines", Microsoft "Error messages"`,
+      prompt: `write every error as what happened, why (if it helps), and what to do now, in plain words, with an action button where possible`,
+      ex: X(dlg(`We couldn't send invoice #1042`, `The email to mara@chen.studio bounced. Check the address and send it again.`, [['Edit address'], ['Send again', 'p']]), 'invoice.error.bounced', `Error: SMTP 550 mailbox unavailable`) },
+    { id: 'systemerr', name: `Our fault`, aka: `server error, 500`,
+      desc: `When it's on your side, say so plainly, reassure about what's safe, and say what you're doing or when to try again. "We" owns it. A short apology fits here. No error codes in the headline; put a reference number at the bottom for support.`,
+      how: `"Something on our end failed" + what's safe + try again + ref code small`,
+      not: `"An unexpected error occurred"; blaming the network when it's the server`,
+      prompt: `for server-side errors, say it's on our end, reassure what's safe, say when to retry, and put any error code small at the end for support`,
+      ex: X(card(`<div class="m-h">We couldn't save your changes</div><div class="m-b">That's on our end, and your draft is safe on this device. Try again in a minute.</div>${row([['Try again', 'p']])}<div class="m-hint" style="font:11px var(--mono)">Ref: 7F2A-0931</div>`), 'doc.error.save_failed', `An unexpected error has occurred (500)`) },
+    { id: 'offline', name: `Offline`, aka: `no connection, network error`,
+      desc: `Say what still works and what doesn't, rather than just "No internet". Tell people whether their actions will queue and sync later. And tell them when they're back, briefly.`,
+      how: `"You're offline. You can still… We'll sync when you're back."`,
+      not: `a dinosaur and no information; blocking everything`,
+      prompt: `write offline messages that say what still works, whether changes will sync later, and briefly confirm when the connection is back`,
+      ex: X(ban('w', `<b>You're offline.</b> Downloaded maps and your GPS track still work. We'll upload today's hike when you're back in signal.`), 'app.banner.offline', `No internet connection`) },
+    { id: 'notfound', name: `404 page`, aka: `not found, broken link`,
+      desc: `Says the page isn't here and the likely reason (moved, deleted, or a typo in the link), then gives two useful ways forward: search, and the most likely destination. A light touch of personality is fine here, since nothing important was lost.`,
+      how: `"This page doesn't exist" + likely reason + search + home`,
+      not: `"404 Not Found" alone; a long joke with no links`,
+      prompt: `write a 404 page: say the page isn't here and why that might be, a light touch of personality, and two useful ways forward`,
+      ex: X(empty('404', `This trail doesn't go anywhere`, `The page may have moved, or the link has a typo.`, [['Search trails'], ['Go to the map', 'p']]), 'web.404', `404 Not Found`) },
+    { id: 'declined', name: `Payment declined`, aka: `card error, billing failure`,
+      desc: `Stressful and sometimes embarrassing, so be calm and private. Say the payment didn't go through, give the reason the bank gave if it's useful, say what's not affected yet, and make updating the card one step. Never imply the person did something wrong.`,
+      how: `didn't go through + bank's reason + deadline + one action`,
+      not: `"Your card was rejected", "Transaction failed: insufficient funds" in a shared view`,
+      prompt: `write payment-failure copy that's calm and private: what didn't go through, what's not affected yet, the deadline, and a one-step way to update the card`,
+      ex: X(ban('e', `Your March payment didn't go through. Your plan stays active until Mar 21.`, 'Update card'), 'billing.banner.declined', `Your card was REJECTED. Service will be terminated.`) },
+    { id: 'ratelimit', name: `Limits and too many tries`, aka: `rate limit, lockout, 429`,
+      desc: `Say what the limit protects, when they can try again (a time, not "later"), and a way around it if there is one. Lockouts on sign-in especially need a way out today ("Reset your password").`,
+      how: `"Try again in 15 minutes, or reset your password"`,
+      not: `"Too many requests", "Try again later"`,
+      prompt: `for limits and lockouts, say why the limit exists, exactly when they can try again, and any way around it now`,
+      ex: X(card(`<div class="m-h">Too many sign-in attempts</div><div class="m-b">To protect your account, try again at 3:45 PM, or reset your password now.</div>${row([['Reset password', 'p']])}`), 'auth.error.locked', `429 Too Many Requests. Try again later.`) },
+    { id: 'conflict', name: `Edit conflict`, aka: `version conflict, someone else changed this`,
+      desc: `Two people changed the same thing. Name who and when, say what's preserved, and give clear choices about whose version wins. Never silently discard either version.`,
+      how: `who changed it, when, and both versions kept until they choose`,
+      not: `"Conflict detected", silently overwriting`,
+      prompt: `write edit-conflict copy that names who changed it and when, reassures that both versions are kept, and offers clear choices`,
+      ex: X(dlg(`Theo edited this section 2 minutes ago`, `Your version and Theo's are both saved. Pick one to keep, or compare them first.`, [['Compare'], ['Keep mine'], ['Keep Theo\'s', 'p']]), 'doc.conflict', `Conflict detected. Reload?`) },
+    { id: 'partial', name: `Partial failure`, aka: `some items failed, batch errors`,
+      desc: `When some things worked and some didn't, lead with the count of each, list the ones that failed and why, and offer to retry only those. "Upload failed" when 47 of 50 succeeded is both wrong and alarming.`,
+      how: `"47 of 50 uploaded. 3 files are too large:" + list + retry`,
+      not: `"Upload failed" for a mostly successful batch`,
+      prompt: `for partial failures, lead with how many succeeded and failed, name the failed items and the reason, and offer to retry only those`,
+      ex: X(card(`<div class="m-h">47 of 50 photos uploaded</div><div class="m-b">3 are over the 25 MB limit: summit.raw, ridge.raw, lake.raw</div>${row([['Skip them'], ['Compress and retry', 'p']])}`), 'upload.partial', `Upload failed`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'notices', title: 'Warnings & notices', slot: 'Feedback',
+  intro: `Messages that interrupt before anything goes wrong. They spend attention, so each one should earn its place by changing what someone does.`,
+  terms: [
+    { id: 'sysbanner', name: `System banner`, aka: `announcement bar, service notice`,
+      desc: `Site-wide news: planned maintenance, an ongoing incident, a policy change. State what's affected and when in the first few words, link to details, and make it dismissible unless it's an active outage.`,
+      how: `what + when, link to details, dismissible`,
+      not: `vague "Some users may experience issues"; permanent banners nobody reads`,
+      prompt: `write a system banner that says what's affected and when in the first few words, with a link to details`,
+      ex: X(ban('', `<b>Scheduled maintenance Sun, Mar 16, 2–3 AM ET.</b> File uploads will pause; everything else works.`, 'Details'), 'app.banner.maintenance', `Some users may experience degraded service during upcoming maintenance windows`) },
+    { id: 'quota', name: `Approaching a limit`, aka: `usage warning, quota`,
+      desc: `Warn early enough to act, with the actual numbers and what happens at the limit. Then offer both paths: free up space, or get more. A warning that only offers an upgrade reads as a sales pitch.`,
+      how: `the real numbers + what happens at 100% + two ways out`,
+      not: `"You're running out of space!" with only an Upgrade button`,
+      prompt: `write a usage warning with the actual numbers, what happens at the limit, and two ways out (free up space, or upgrade)`,
+      ex: X(card(`<div class="m-h">13.8 GB of 15 GB used</div><div class="m-bar"><i style="width:92%;background:var(--caution)"></i></div><div class="m-b">At 15 GB, new uploads will pause. Old files stay safe.</div>${row([['Review large files'], ['Get more storage', 'p']])}`), 'storage.warning', `You're almost out of space! Upgrade now!`) },
+    { id: 'unsaved', name: `Unsaved changes`, aka: `leave page warning`,
+      desc: `When someone is about to lose work, say exactly what will be lost and give a way to keep it in the same dialog. "Save and leave" removes the need for two steps.`,
+      how: `what will be lost + "Save and leave" / "Leave without saving"`,
+      not: `the browser's generic "Changes you made may not be saved"`,
+      prompt: `write an unsaved-changes warning that names what will be lost and offers "Save and leave", "Leave without saving" and staying`,
+      ex: X(dlg(`Save changes to "Packing list"?`, `You've added 4 items since your last save.`, [['Leave without saving'], ['Save and leave', 'p']]), 'list.leave.unsaved', `Changes you made may not be saved.`) },
+    { id: 'deprecation', name: `Change is coming`, aka: `deprecation notice, sunset, migration`,
+      desc: `Announce removals and big changes early: what's changing, the date, what people need to do (if anything), and what happens if they don't. Repeat it as the date gets close.`,
+      how: `what + date + action needed + what happens if not`,
+      not: `"We're making some changes to improve your experience"`,
+      prompt: `write a change notice that says exactly what's changing, the date, what the person needs to do, and what happens if they do nothing`,
+      ex: X(ban('w', `<b>Classic boards turn off on June 1.</b> Your 6 boards will move to Projects automatically, or you can move them now.`, 'Move now'), 'boards.banner.sunset', `We're making some exciting changes to improve your experience!`) }
+  ]
+});
+
+/* ===== Onboarding & education ===== */
+pool.groups.push({
+  id: 'firstrun', title: 'First run', slot: 'Onboarding',
+  intro: `The first few minutes, when people decide whether this is for them. The goal of the copy is to get someone to their first real result as fast as possible, not to tell them about every feature.`,
+  terms: [
+    { id: 'welcome', name: `Welcome screen`, aka: `splash, intro screen`,
+      desc: `One sentence on what the product does for this person, then the first step. If you know why they signed up (an invite, a template, an ad), say it back to them. Skip the feature tour; the first result teaches more than any slide.`,
+      how: `what it does for them + the first step, in one screen`,
+      not: `"Welcome to Trailhead! We're so excited to have you on board!"`,
+      ref: `Samuel Hulick "The Elements of User Onboarding" (useronboard.com)`,
+      prompt: `write a welcome screen with one sentence on what the product does for this person and a single first step; skip excitement and feature lists`,
+      ex: X(card(`<div class="m-h" style="font-size:18px">Mara invited you to Spring Catalog</div><div class="m-b">It's a shared space for the catalog's 48 files and their comments. Start with the file she sent.</div>${row([['Open "Cover draft v3"', 'p']], 'flex-start')}`), 'onboard.welcome.invited', `Welcome to Trailhead! We're so excited to have you on board!`) },
+    { id: 'signup', name: `Sign-up form`, aka: `registration, create account`,
+      desc: `Ask for as little as possible, say why you need anything unusual, and put the value and the cost (free? card needed?) next to the button. The button names the outcome: "Create account", or better, "Start planning".`,
+      how: `fewest fields, reassurance by the button, outcome on the button`,
+      not: `12 fields; a surprise credit card step; "Register"`,
+      ref: `Luke Wroblewski "Web Form Design", Baymard sign-up research`,
+      prompt: `write a sign-up form with the fewest possible fields, a short reason for anything unusual, the cost stated by the button, and an outcome-named button`,
+      ex: X(card(`<div class="m-h">Plan meals for your household</div><div class="m-in ph">Email</div>${row([['Start planning', 'p']], 'stretch')}<div class="m-hint" style="text-align:center">Free for 14 days. No card needed.</div>`), 'signup.form', `Register · All fields required`) },
+    { id: 'setupq', name: `Setup questions`, aka: `personalization, onboarding survey`,
+      desc: `Only ask what you'll use right away, and say how you'll use it ("We'll suggest recipes that fit"). Make every question skippable and every answer changeable later, and tell people so.`,
+      how: `the question + why it helps them + "You can change this later"`,
+      not: `"Tell us about yourself" with 8 questions you never use`,
+      prompt: `write setup questions that each say how the answer helps the person, are skippable, and note they can be changed later`,
+      ex: X(card(`<div class="m-step">Step 2 of 3</div><div class="m-h">How many people are you cooking for?</div><div class="m-row">${['1', '2', '3–4', '5+'].map((t, i) => `<span class="m-pill" style="${i === 1 ? 'border-color:var(--accent);color:var(--ink)' : ''}">${t}</span>`).join('')}</div><div class="m-hint">We'll size every recipe to fit. You can change this anytime.</div>${row([['Skip', 'l'], ['Next', 'p']])}`), 'onboard.household', `Please tell us about your household composition`) },
+    { id: 'gettingstarted', name: `Getting-started checklist`, aka: `setup checklist, onboarding tasks`,
+      desc: `Three to five tasks, each a verb phrase that leads straight to the action, ordered by value. Show progress and let people dismiss it. The first item should already be done ("Create your account") to give a small head start.`,
+      how: `3–5 verb tasks, one pre-checked, progress shown, dismissible`,
+      not: `12 items; vague tasks like "Explore features"`,
+      ref: `the "endowed progress effect" (Nunes & Drèze, 2006)`,
+      prompt: `write a getting-started checklist of 3 to 5 verb-led tasks ordered by value, with the first already done and a way to dismiss it`,
+      ex: X(card(`<div class="m-row" style="justify-content:space-between"><b>Get set up</b><span class="m-hint">2 of 4</span></div>${chk([[`Create your workspace`, true], [`Upload your first file`, true], [`Invite a teammate`, false], [`Connect Google Drive`, false]])}`, 'gap:6px'), 'onboard.checklist', `Explore features · Learn more · Get started`) },
+    { id: 'sampledata', name: `Sample content`, aka: `demo data, example project`,
+      desc: `Pre-fill an empty product with an example so people can see it working before they put in effort. Label it clearly as an example and make it one click to remove, so nobody mistakes it for real data.`,
+      how: `a clearly labeled example + "Delete example"`,
+      not: `unlabeled demo data mixed with the person's own`,
+      prompt: `write labels for sample content that make it unmistakably an example and offer a one-click way to remove it`,
+      ex: X(card(`<div class="m-row" style="justify-content:space-between"><span><span class="m-tag">Example</span><b>Weekend in Yosemite</b></span><span class="m-btn l">Delete example</span></div><div class="m-hint">A sample trip to show how plans work. Yours will show up here.</div>`), 'trips.sample', `Weekend in Yosemite`) },
+    { id: 'permprime', name: `Permission priming`, aka: `pre-permission screen, soft ask`,
+      desc: `Before the system's own permission prompt, explain in your words what you'll do with access and what they get, at the moment they need it. Offer "Not now" so a refusal doesn't burn the one-time system prompt.`,
+      how: `asked in context + the benefit + "Not now"`,
+      not: `asking for camera, location and contacts on launch`,
+      ref: `Apple HIG "Requesting permission"`,
+      prompt: `write a pre-permission screen shown in context that explains what access is used for and what the person gets, with a "Not now" option`,
+      ex: X(card(`<div class="m-h">Track your hike on the map?</div><div class="m-b">We use your location only while you're recording, to draw your route and warn you if you leave the trail.</div>${row([['Not now'], ['Allow location', 'p']])}`), 'record.location.prime', `Trailhead needs access to your location.`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'teach', title: 'In-context education', slot: 'Onboarding',
+  intro: `Teaching people the product while they use it. The rule of thumb: explain a feature at the moment it becomes useful, in one idea, and let people move on.`,
+  terms: [
+    { id: 'coachmark', name: `Coach mark`, aka: `onboarding tip, hotspot, tooltip tour step`,
+      desc: `Points at one control and says what it does and why you'd want it, in under 20 words. A title is optional; a "Got it" is not. Show it when the control is relevant, not on the first screen load.`,
+      how: `one control, one benefit, under 20 words, dismissible`,
+      not: `"This is the share button. Use it to share."`,
+      prompt: `write a coach mark that points at one control and says what it does and why it helps in under 20 words, with "Got it"`,
+      ex: X(`<div class="m" style="display:grid;gap:8px;justify-items:center">${tip('Save trails for later', 'Saved trails download automatically, so they work without signal.', '<span>1 of 3</span><span>Got it</span>')}<span class="m-ib">♡</span></div>`, 'tour.save.tip', `This is the heart button. Click it to heart things.`) },
+    { id: 'tour', name: `Product tour`, aka: `walkthrough, guided tour`,
+      desc: `If you must have one, keep it to three steps that each teach something people can't easily discover, with a step count and a visible way to skip. Better: replace it with contextual tips that appear when each feature is relevant.`,
+      how: `3 steps max, "1 of 3", "Skip tour" always visible`,
+      not: `9-step carousels on launch with no skip`,
+      ref: `NN/g "Mobile-app onboarding: an analysis of components and techniques"`,
+      prompt: `write a product tour of at most three steps, each teaching one non-obvious thing, with a step counter and a visible "Skip tour"`,
+      ex: X(card(`<div class="m-step">Tip 2 of 3</div><div class="m-h">Drag files between projects</div><div class="m-b">Moving a file keeps its comments and version history.</div>${row([['Skip tour', 'l'], ['Next tip', 'p']])}`), 'tour.step2', `Step 2 of 9: The Toolbar`) },
+    { id: 'disclosure', name: `Progressive disclosure`, aka: `learn more, show advanced`,
+      desc: `Show the essentials, and tuck the rest behind a link or expander whose label says exactly what's inside ("Advanced sharing settings", "How we calculate this"). People who need it find it; everyone else isn't slowed down.`,
+      how: `the main thing visible; a precise label on what's hidden`,
+      not: `"More", "Details", "Advanced" with no object`,
+      prompt: `put secondary information behind expanders whose labels say exactly what's inside ("How we calculate your pace")`,
+      ex: X(card(`<div class="m-row" style="justify-content:space-between"><b>Average pace</b><span>24 min/mi</span></div><span class="m-link">How we calculate your pace ▾</span>`), 'stats.pace.more', `More ▾`) },
+    { id: 'whatsnew', name: `What's new`, aka: `feature announcement, release highlight`,
+      desc: `Lead with what the person can now do, in their words, then show where to find it. One feature per announcement. Show it to the people it's relevant to, at a moment they're not mid-task.`,
+      how: `"You can now…" + where + one action to try it`,
+      not: `"We're thrilled to announce our new AI-powered sync engine"`,
+      prompt: `write a feature announcement that leads with what the person can now do, where to find it, and one action to try it`,
+      ex: X(card(`<span class="m-tag" style="justify-self:start">New</span><div class="m-h">Download a whole park for offline use</div><div class="m-b">Open any park and press Download. Maps, trails and photos all work without signal.</div>${row([['Not now', 'l'], ['Try it on Yosemite', 'p']])}`), 'whatsnew.offline_parks', `We're thrilled to announce our new offline sync engine!`) },
+    { id: 'nudge', name: `Contextual nudge`, aka: `inline tip, just-in-time hint`,
+      desc: `A quiet hint that shows up because of what the person just did: they've moved the same file three times, so suggest a rule. Explain the shortcut and make it easy to ignore forever.`,
+      how: `triggered by behavior + the shortcut + "Don't show again"`,
+      not: `random tips on a timer; nudges that can't be turned off`,
+      prompt: `write a contextual nudge triggered by what the person just did, suggesting a shortcut, with a way to dismiss it for good`,
+      ex: X(ban('', `You've moved 3 receipts to Expenses this week. Want new receipts to go there automatically?`, 'Create rule'), 'inbox.nudge.rule', `Did you know? You can create rules!`) },
+    { id: 'helplink', name: `Help links`, aka: `docs link, inline help`,
+      desc: `Link to help with the question it answers ("How do refunds work?"), not "Help" or "Learn more". It tells people whether the article is worth opening, and makes the link useful to screen-reader users.`,
+      how: `the question the article answers, as the link`,
+      not: `"Learn more", "Click here for help", a "?" with no label`,
+      prompt: `write help links as the question the article answers ("How do shared links expire?")`,
+      ex: X(card(`<div class="m-b">Anyone with the link can view this file until Apr 30.</div><span class="m-link">How do shared links expire?</span>`), 'share.help', `Learn more`) }
+  ]
+});
+
+/* ===== Decisions & money ===== */
+pool.groups.push({
+  id: 'confirms', title: 'Confirmations & consent', slot: 'Decision',
+  intro: `Moments where people agree to something that matters. The copy has to make the consequence impossible to miss without making the decision feel scary.`,
+  terms: [
+    { id: 'confirmdlg', name: `Confirmation dialog`, aka: `"are you sure" dialog, destructive confirm`,
+      desc: `Use only for actions that are hard to undo. The title names the action and object as a question, the body says the consequence (who's affected, what's lost), and the button repeats the verb. If you can offer Undo instead, do that.`,
+      how: `"Delete Spring Catalog?" + consequence + "Delete project"`,
+      not: `"Are you sure?" with OK / Cancel`,
+      ref: `Apple HIG "Alerts", NN/g "Confirmation dialogs can prevent user errors (if not overused)"`,
+      prompt: `write a confirmation dialog only for hard-to-undo actions: the title names the action and object, the body states the consequence, the button repeats the verb`,
+      ex: X(dlg(`Remove Theo from Spring Catalog?`, `They'll lose access to 48 files right away. Their comments will stay.`, [['Cancel'], ['Remove Theo', 'd']]), 'project.member.remove', `Are you sure? · OK · Cancel`) },
+    { id: 'typeconfirm', name: `Type to confirm`, aka: `high-friction confirm, type the name`,
+      desc: `For the most destructive actions (deleting a workspace, a repository, all data), ask people to type the name. Spell out exactly what will be destroyed, with numbers, and keep the button disabled until the name matches.`,
+      how: `the full scope in numbers + "Type the workspace name to confirm"`,
+      not: `using this for everyday deletes`,
+      ref: `GitHub repository deletion, AWS "delete" confirmations`,
+      prompt: `for irreversible, high-impact deletes, spell out exactly what will be destroyed with numbers and ask the person to type the name to confirm`,
+      ex: X(card(`<div class="m-h">Delete Trailhead Design workspace</div><div class="m-b">This permanently deletes 14 projects, 1,206 files and all comments for 9 members.</div><div class="m-lbl">Type <b>Trailhead Design</b> to confirm</div><div class="m-in">Trailhead Des</div>${row([['Delete workspace', 'd']])}`), 'workspace.delete.typed', `Please confirm deletion`) },
+    { id: 'osperm', name: `Permission purpose string`, aka: `iOS usage description, Info.plist purpose string`,
+      desc: `The line you supply that appears inside the system's own permission prompt. It must say what you use access for, specifically, in a full sentence. Platforms reject vague ones, and people refuse them.`,
+      how: `"Trailhead uses your location to draw your route while you record a hike."`,
+      not: `"We need your location", "For a better experience"`,
+      ref: `Apple "Requesting access to protected resources" (NSLocationWhenInUseUsageDescription etc.)`,
+      prompt: `write the system permission purpose string as one full sentence saying specifically what the access is used for`,
+      ex: X(card(`<div class="m-h" style="text-align:center">Allow "Trailhead" to use your location?</div><div class="m-b" style="text-align:center">Trailhead uses your location to draw your route and warn you if you leave the trail while recording.</div>${row([['Don\'t Allow'], ['Allow While Using App']], 'center')}`), 'NSLocationWhenInUseUsageDescription', `We need your location for a better experience.`) },
+    { id: 'consent', name: `Consent and cookies`, aka: `privacy choice, opt-in`,
+      desc: `Make accepting and declining equally easy and equally visible, describe each choice by what it does, and never pre-tick boxes. "Reject all" next to "Accept all", in the same style.`,
+      how: `equal buttons, plain purposes, nothing pre-checked`,
+      not: `"Accept all" in a big button and "Manage preferences" in gray text`,
+      ref: `GDPR Art. 7, ePrivacy Directive, UK ICO cookie guidance, deceptive.design`,
+      prompt: `write consent copy where accept and decline are equally easy and visible, each purpose is described plainly, and nothing is pre-checked`,
+      ex: X(card(`<div class="m-h">Cookies on Trailhead</div><div class="m-b">We use essential cookies to keep you signed in. With your OK we'd also measure which pages people use, to improve them.</div>${row([['Reject optional'], ['Accept all']])}`), 'consent.cookies', `We value your privacy! [ACCEPT] manage settings`) },
+    { id: 'privacynote', name: `Privacy note at collection`, aka: `just-in-time notice, data use note`,
+      desc: `A one-line explanation right where you collect something sensitive: what it's for, who sees it, how long you keep it. It earns more trust than any privacy policy, because people actually read it.`,
+      how: `what for + who sees it, next to the field`,
+      not: `"By continuing you agree to our Privacy Policy" as the only explanation`,
+      prompt: `next to any sensitive field, write a one-line privacy note saying what it's used for and who sees it`,
+      ex: X(field('Date of birth', '14 March 1990', { hint: `🔒 Only used to check you're over 18. Not shown on your profile.` }), 'signup.dob.privacy', `By continuing you agree to our Privacy Policy.`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'money', title: 'Pricing, plans & billing', slot: 'Decision',
+  intro: `Copy around money gets read by people deciding whether to trust you. Clarity about cost is a feature; anything that looks like a trick costs more than it earns.`,
+  terms: [
+    { id: 'plans', name: `Plan comparison`, aka: `pricing cards, tier names`,
+      desc: `Name plans by who they're for, put the full price and billing period together, and list differences, not everything. The button says what happens ("Start 14-day trial", "Switch to Team"), and the one recommended plan is marked with a reason.`,
+      how: `who it's for + full price with period + the differences`,
+      not: `"$9*" with the asterisk in the footer; 30 checkmarks per plan`,
+      prompt: `write plan cards named by who they're for, with full price and billing period together, only the differences listed, and an action-named button`,
+      ex: X(`<div class="m m-plans"><div class="m-plan"><span class="n">Solo</span><span class="p">$0 <small>forever</small></span><span class="f">1 person · 5 GB</span></div><div class="m-plan on"><span class="n">Team</span><span class="p">$8 <small>per person / month</small></span><span class="f">Shared projects · 1 TB</span></div></div>`, 'pricing.plans', `Basic · Pro · Pro+ · $8*`) },
+    { id: 'paywall', name: `Upgrade at the limit`, aka: `paywall, upsell, feature gate`,
+      desc: `When someone hits a paid feature, say what they tried to do, what the plan that includes it costs, and let them finish what they were doing if at all possible. Lead with their task, not the plan name.`,
+      how: `their task + the plan and price + a way to continue now`,
+      not: `"Upgrade to Pro to unlock premium features!"`,
+      prompt: `write an upgrade prompt that names what the person tried to do, the plan and price that includes it, and how they can continue without upgrading`,
+      ex: X(dlg(`Version history goes back 30 days on Team`, `Your plan keeps 7 days. To restore the Feb 20 version, switch to Team for $8 per person a month.`, [['Not now'], ['Switch to Team', 'p']]), 'paywall.history', `Upgrade to PRO to unlock premium features!`) },
+    { id: 'trialend', name: `Trial ending`, aka: `trial reminder, conversion email`,
+      desc: `Warn a few days before the charge, with the date, the amount and how to cancel, in plain view. People who feel tricked by a trial don't come back; people reminded honestly often stay.`,
+      how: `date + exact amount + how to cancel, in the first lines`,
+      not: `silent auto-charge; "Your trial is ending soon!" with no date or price`,
+      ref: `US FTC "Click to Cancel" rule, California automatic renewal law`,
+      prompt: `write a trial-ending reminder that states the charge date, exact amount and how to cancel in its first lines`,
+      ex: X(mail('Trailhead Billing', 'Your free trial ends Friday', `Your trial ends Fri, Mar 14. We'll charge $9.00 to the Visa ending 4242 then, and monthly after. To cancel, go to Settings › Plan before Friday.`), 'email.trial.ending', `Your trial is ending soon! Don't miss out!`) },
+    { id: 'receipt', name: `Receipt`, aka: `payment confirmation, invoice email`,
+      desc: `What was paid, for what, when, with which card, and how to get a PDF or a refund. Put the amount in the subject line. This is a document people forward to accountants, so it's all facts.`,
+      how: `amount in the subject; item, date, card, PDF link`,
+      not: `marketing in the receipt; amount only in an attachment`,
+      prompt: `write a receipt with the amount in the subject line and the item, date, payment method, PDF link and refund route in the body`,
+      ex: X(mail('Trailhead Billing', 'Receipt: $72.00 for Team plan, March', `Paid Mar 1 with Visa ending 4242.<br>Team plan, 9 people × $8.00<br><span class="m-link">Download PDF invoice</span>`), 'email.receipt', `Thank you for your purchase!`) },
+    { id: 'cancelflow', name: `Cancellation flow`, aka: `cancel subscription, offboarding`,
+      desc: `Let people cancel in as few steps as they took to sign up. Say what happens to their data and when access ends, offer one alternative (pause, downgrade) once, and confirm in plain words. No guilt.`,
+      how: `when access ends + what happens to data + one alternative + clear confirm`,
+      not: `five screens of offers; "Are you sure you want to lose everything?"`,
+      ref: `deceptive.design "Hard to cancel", FTC "Click to Cancel"`,
+      prompt: `write a cancellation flow that says when access ends and what happens to the person's data, offers one alternative once, and confirms without guilt`,
+      ex: X(dlg(`Cancel your Team plan?`, `You'll keep Team features until Mar 31. After that, files over 5 GB become read-only; nothing is deleted. You could pause for up to 3 months instead.`, [['Pause instead'], ['Cancel plan', 'd']]), 'billing.cancel.confirm', `Are you sure you want to lose all your amazing benefits?`) },
+    { id: 'pricechange', name: `Price change notice`, aka: `price increase email`,
+      desc: `Say the old price, the new price, the date, and the reason in one honest sentence. Tell people what they can do (switch plans, cancel) and give them time to do it. Don't bury the number.`,
+      how: `old → new, date, one-line reason, options`,
+      not: `"We're investing in your experience" with the number in paragraph four`,
+      prompt: `write a price-change notice with the old and new price, effective date, a one-line honest reason, and the options the person has`,
+      ex: X(mail('Trailhead', 'Team plan goes from $8 to $10 on May 1', `Starting May 1, Team costs $10 per person a month (now $8). Storage and support costs have risen. You can switch to annual billing to stay at $8, or change plans anytime.`), 'email.price_change', `Exciting updates to your plan!`) }
+  ]
+});
+
+/* ===== Messages & AI ===== */
+pool.groups.push({
+  id: 'notify', title: 'Notifications & email', slot: 'Message',
+  intro: `Words that reach people when they're not looking at your product. They compete with everything else on the phone, so each one has to be worth the interruption and make sense with no context.`,
+  terms: [
+    { id: 'pushnote', name: `Push notification`, aka: `mobile notification`,
+      desc: `A title that makes sense on a lock screen with no context, and a body that adds the one detail that matters. Personal, timely, specific. If it isn't something the person would want to be interrupted for, it shouldn't be a push.`,
+      how: `who or what + the change; under about 100 characters total`,
+      not: `"You have a new notification", "We miss you!"`,
+      ref: `Apple HIG "Notifications", Android "Notifications" content guidance`,
+      prompt: `write a push notification whose title makes sense alone on a lock screen and whose body adds the one detail that matters, under 100 characters`,
+      ex: X(push('Trailhead', `Mara commented on Cover draft v3`, `"Can we try the darker green for the title?"`, '2m ago'), 'push.comment', `You have a new notification`) },
+    { id: 'transactional', name: `Transactional email`, aka: `system email, notification email`,
+      desc: `The subject line carries the news ("Your order ships tomorrow"), the first line repeats it with the key detail, and there's one main button. Write it to be skimmed on a phone in a crowded inbox.`,
+      how: `news in the subject, detail in line one, one button`,
+      not: `"Update from Trailhead", "Important information about your account"`,
+      ref: `Postmark "Transactional email best practices"`,
+      prompt: `write a transactional email with the news in the subject line, the key detail in the first sentence, and one main button`,
+      ex: X(mail('Trailhead Meals', 'Your box ships tomorrow', `4 meals for 2, arriving Thursday between 2 and 6 PM. Change your delivery window until midnight tonight.`), 'email.order.shipping', `Subject: Order update from Trailhead Meals`) },
+    { id: 'verify', name: `Verification and magic links`, aka: `sign-in code, confirm email`,
+      desc: `Put the code in the subject or first line, say how long it lasts, and say what to do if they didn't ask for it. People are juggling tabs; make it findable and safe.`,
+      how: `code up front + expiry + "Didn't ask? Ignore this"`,
+      not: `the code buried below a logo and a paragraph`,
+      prompt: `write a verification message with the code in the first line, how long it's valid, and what to do if the person didn't request it`,
+      ex: X(`<div class="m m-chat"><div class="m-sms">482 913 is your Trailhead code. It expires in 10 minutes. Didn't ask for it? Ignore this text.</div></div>`, 'sms.verify', `Hello! Thank you for choosing Trailhead. Your one-time passcode is below…`) },
+    { id: 'reset', name: `Password reset`, aka: `forgot password`,
+      desc: `On the form, say the email is on its way without confirming whether an account exists (that would leak who's signed up). In the email, one button, an expiry, and a line for people who didn't ask.`,
+      how: `"If there's an account for sam@…, we sent a link"`,
+      not: `"No account found with that email" on a public form`,
+      ref: `OWASP "Forgot password cheat sheet"`,
+      prompt: `write password-reset copy that doesn't reveal whether an account exists, gives the link's expiry, and reassures people who didn't request it`,
+      ex: X(card(`<div class="m-h">Check your email</div><div class="m-b">If there's an account for sam@trailhead.app, we've sent a link to reset the password. It works for 1 hour.</div><span class="m-link">Didn't get it? Send again</span>`), 'auth.reset.sent', `No account exists with that email address.`) },
+    { id: 'digest', name: `Digest`, aka: `summary email, weekly roundup`,
+      desc: `Leads with the number and the most important item, groups the rest, and links each line to the thing itself. Lets people change the frequency from the email. Skips sending when there's nothing to say.`,
+      how: `"3 things need you" + top item first + frequency control`,
+      not: `a digest sent when nothing happened`,
+      prompt: `write a digest email that leads with what needs the person, groups the rest, links each item, and includes a frequency setting`,
+      ex: X(mail('Trailhead', '3 files need your review', `<b>Cover draft v3</b> is waiting on you since Tuesday.<br>2 more in Spring Catalog.<br><span class="m-hint">Get this weekly instead</span>`), 'email.digest.daily', `Your Daily Trailhead Digest is here!`) },
+    { id: 'sms', name: `Text message`, aka: `SMS notification`,
+      desc: `Name the sender first (texts arrive from numbers people don't recognize), then the one fact, then any action, in 160 characters or fewer. Include how to stop them where the law requires it.`,
+      how: `"Trailhead: [fact]. [action]. Reply STOP to opt out."`,
+      not: `no sender name; links without context; marketing from a "service" number`,
+      ref: `CTIA messaging principles, TCPA`,
+      prompt: `write an SMS that names the sender first, gives one fact and one action, fits in 160 characters, and includes opt-out where required`,
+      ex: X(`<div class="m m-chat"><div class="m-sms">Trailhead Meals: your box is at the door. It's cold for 4 more hours. Reply STOP to stop delivery texts.</div></div>`, 'sms.delivered', `Your package has been delivered. trl.hd/x7Kq`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'aicopy', title: 'AI & assistant copy', slot: 'AI',
+  intro: `The newer conventions for features built on language models. The copy has to set honest expectations about what the feature can do, show its work, and keep people in charge of anything it does on their behalf.`,
+  terms: [
+    { id: 'starters', name: `Prompt starters`, aka: `suggested prompts, example asks`,
+      desc: `Three or four examples of real things this assistant does well in this product, written as the person would type them. They teach scope better than any description and remove the blank-page problem.`,
+      how: `3–4 specific, product-grounded asks in the user's voice`,
+      not: `"Ask me anything!"; generic examples unrelated to the product`,
+      prompt: `write 3 or 4 prompt starters that show specific things the assistant does well in this product, phrased the way a person would type them`,
+      ex: X(card(`<div class="m-h">What should we plan?</div><div class="m-row">${['Vegetarian dinners for 4 this week', 'Use up the spinach and feta', 'Lunches under 15 minutes'].map(t => `<span class="m-pill">${t}</span>`).join('')}</div>`), 'assistant.starters', `Ask me anything! I'm your AI assistant.`) },
+    { id: 'aiworking', name: `Working state`, aka: `thinking indicator, agent progress`,
+      desc: `Say what the assistant is doing in concrete steps ("Reading 12 files", "Checking your calendar"), not that it's "thinking". For long tasks, let people stop it and say what will be kept if they do.`,
+      how: `the current step in plain words + Stop`,
+      not: `"Thinking…" for 40 seconds; anthropomorphic filler`,
+      prompt: `write an assistant working state that names the concrete step in progress and offers a Stop control`,
+      ex: X(card(`<div class="m-row"><span class="m-spin"></span><b>Reading 12 files in Spring Catalog</b></div><div class="m-hint">Then drafting the summary.</div>${row([['Stop']])}`), 'assistant.working', `Thinking… 🤔`) },
+    { id: 'aidisclose', name: `AI disclosure`, aka: `AI label, generated content notice`,
+      desc: `Label what the AI wrote or changed, close to the content, in neutral words ("Drafted with AI. Check before sending."). Say what to check, if something specific is likely to be wrong. Avoid both hype and blanket disclaimers.`,
+      how: `a small label + what to check`,
+      not: `"✨ Magic!", or a legal paragraph on every reply`,
+      ref: `EU AI Act Art. 50 transparency obligations, Google PAIR "People + AI Guidebook"`,
+      prompt: `label AI-generated content close to it in neutral words and say what the person should check before using it`,
+      ex: X(card(`<span class="m-tag" style="justify-self:start">Drafted with AI</span><div class="m-b">Hi Mara, here's the revised cover with the darker green title…</div><div class="m-hint">Check names and dates before sending.</div>`), 'compose.ai.label', `✨ Magically written by AI! ✨`) },
+    { id: 'aisources', name: `Sources and citations`, aka: `grounding, references`,
+      desc: `When an answer comes from the person's own data or the web, mark the claims and link each to its source. Name the sources in their words (file names, page titles). Say plainly when there was no source.`,
+      how: `inline markers + source names people recognize`,
+      not: `"Based on various sources"; citing internal IDs`,
+      prompt: `when answering from documents, mark each claim with a numbered citation that links to the source by its recognizable name, and say when no source was found`,
+      ex: X(chat([['u', 'When is the catalog due to print?'], ['a', `The print deadline is April 4 <span class="m-src">1</span>, and the printer needs final files 3 days earlier <span class="m-src">2</span>.<small>1 Spring schedule.xlsx · 2 Printer email, Mar 2</small>`]]), 'assistant.answer.cited', `According to my sources, the deadline is April 4.`) },
+    { id: 'aidecline', name: `Can't do that`, aka: `capability limit, refusal, out of scope`,
+      desc: `Say plainly what the assistant can't do here, in one line, then what it can do that's closest. No apology spiral, no pretending to try. If a human or another tool can help, point there.`,
+      how: `"I can't X here. I can Y." + a handoff if one exists`,
+      not: `"As an AI language model…"; three paragraphs of apology`,
+      prompt: `when the assistant can't do something, say so in one line and offer the closest thing it can do, without apologizing at length`,
+      ex: X(chat([['u', 'Can you book the campsite for us?'], ['a', `I can't make bookings. I can find open sites at Upper Pines for Mar 21–23 and give you the booking link.`]]), 'assistant.limit.booking', `As an AI language model, I'm unable to…`) },
+    { id: 'aiconfirm', name: `Agent action confirmation`, aka: `human in the loop, approve action`,
+      desc: `Before an assistant does something with consequences (sends, deletes, pays, posts), show exactly what it will do, to whom, with what content, and ask for approval with a verb button. Afterwards, say what it did and offer undo.`,
+      how: `the exact action, recipients and content + "Send email"`,
+      not: `"Proceed with the action?" without the details`,
+      ref: `Microsoft "Guidelines for Human-AI Interaction" (G9, G10)`,
+      prompt: `before an AI agent takes a consequential action, show exactly what it will do, to whom and with what content, and ask for approval with a specific verb button`,
+      ex: X(dlg(`Send this email to 9 people?`, `To: everyone in Spring Catalog<br>Subject: Cover v3 is ready for review`, [['Edit first'], ['Send email', 'p']]), 'agent.confirm.send', `Proceed with action? Yes / No`) },
+    { id: 'aifeedback', name: `Feedback ask`, aka: `thumbs up/down, rate this answer`,
+      desc: `Quiet and optional: two icons with clear accessible names, and after a thumbs-down, a few specific reasons to pick from plus a free-text box. Say what the feedback is used for.`,
+      how: `"Was this helpful?" + specific reasons after a no`,
+      not: `a modal survey after every answer`,
+      prompt: `write an optional feedback ask with clear labels and, after negative feedback, a few specific reasons to choose from and a note on how feedback is used`,
+      ex: X(card(`<div class="m-row" style="justify-content:space-between"><span class="m-hint">Was this summary useful?</span><span class="m-row"><span class="m-ib" style="width:26px;height:26px">↑</span><span class="m-ib" style="width:26px;height:26px">↓</span></span></div><div class="m-row">${['Missed something', 'Wrong facts', 'Too long'].map(t => `<span class="m-pill">${t}</span>`).join('')}</div>`), 'assistant.feedback', `Please rate your experience with our AI on a scale of 1–10`) }
+  ]
+});
+
+/* ===== Practice ===== */
+pool.groups.push({
+  id: 'avoid', title: 'Patterns to cut', slot: 'Avoid',
+  intro: `The habits that show up in nearly every first draft. Each card shows the usual offender struck through, and what to write instead. Add these to a prompt to tell a model what not to do.`,
+  terms: [
+    { id: 'oops', name: `Oops and whoops`, aka: `cutesy errors`,
+      desc: `"Oops!" makes a failure sound trivial, which is fine for a missing emoji and grating for a lost order. Most errors are serious to someone. Say what happened instead.`,
+      not: `Oops! Uh-oh! Whoops! Yikes!`,
+      prompt: `avoid "Oops", "Uh-oh" and other cutesy openers in errors; say what happened instead`,
+      ex: X(card(`<div class="m-h">We couldn't place your order</div><div class="m-b">Your card wasn't charged. Try again, or use a different card.</div>`), 'checkout.error', `Oops! Something went wrong 🙈`) },
+    { id: 'vague', name: `Something went wrong`, aka: `generic error, catch-all`,
+      desc: `The catch-all tells people nothing they didn't know. Even when you can't say why, say what failed and what's safe. Engineers can usually supply more detail than the default string; ask them.`,
+      not: `"Something went wrong", "An error occurred", "Unknown error"`,
+      prompt: `avoid generic errors like "Something went wrong"; always say what failed, what's safe and what to try`,
+      ex: X(card(`<div class="m-h">Your photo didn't upload</div><div class="m-b">The rest of the post is saved. Try the photo again.</div>`), 'post.upload.error', `Something went wrong. Please try again later.`) },
+    { id: 'confirmshame', name: `Confirmshaming`, aka: `guilt-trip opt-out, manipulative decline`,
+      desc: `Wording the "no" option to make people feel bad ("No thanks, I don't like saving money"). It works once and costs trust forever, and regulators now name it as a dark pattern. Write the decline as neutral as the accept.`,
+      not: `"No thanks, I prefer paying full price"`,
+      ref: `deceptive.design "Confirmshaming", FTC "Bringing Dark Patterns to Light" (2022)`,
+      prompt: `never use confirmshaming; write the decline option as neutrally as the accept ("No thanks")`,
+      ex: X(dlg(`Get 10% off your next box?`, `We'll email you weekly recipes and offers.`, [['No thanks'], ['Sign me up', 'p']]), 'promo.signup', `No thanks, I don't like saving money`) },
+    { id: 'clickhere', name: `Click here`, aka: `vague links`,
+      desc: `"Click here" assumes a mouse, says nothing about the destination, and is useless in a screen reader's list of links. Put the link on the words that say where it goes.`,
+      not: `"click here", "here", "this link", "read more" ×10`,
+      prompt: `never write "click here" or "here" as link text; link the words that describe the destination`,
+      ex: X(card(`<div class="m-b">You can <span class="m-link">download last year's tax summary</span> from Billing.</div>`), 'billing.tax.link', `To download your tax summary, click here.`) },
+    { id: 'areyousure', name: `Are you sure?`, aka: `vague confirmation`,
+      desc: `"Are you sure?" questions the person's competence and doesn't say what's at stake. Name the action and the consequence instead, or skip the dialog and offer Undo.`,
+      not: `"Are you sure?", "Do you really want to do this?"`,
+      prompt: `never write "Are you sure?"; name the action and its consequence, or offer Undo instead of asking`,
+      ex: X(dlg(`Delete 3 drafts?`, `They'll be gone for good.`, [['Cancel'], ['Delete drafts', 'd']]), 'drafts.delete', `Are you sure? OK / Cancel`) },
+    { id: 'blame', name: `Blaming words`, aka: `invalid, illegal, failed, wrong`,
+      desc: `"Invalid", "illegal", "you failed to" and "wrong" put the fault on the person. Describe the fix instead. The facts are the same; the feeling is very different.`,
+      not: `"Invalid email", "Illegal character", "You failed to enter"`,
+      prompt: `avoid blaming words like "invalid", "illegal", "failed to" and "wrong"; describe what to do instead`,
+      ex: X(field('Email', 'sam@trailhead', { err: `Add the end of the address, like sam@trailhead.app` }), 'signup.email.incomplete', `Invalid email. You entered an illegal value.`) },
+    { id: 'jargon', name: `System words`, aka: `jargon, developer speak, error codes`,
+      desc: `Words from the codebase leak into interfaces: "null", "sync token", "entity", "request failed with status 403". Translate each one to what the person sees and can do. Keep codes, but small and at the end, for support.`,
+      not: `null, undefined, NaN, 403, timeout exceeded, payload`,
+      prompt: `never show internal or technical terms (null, 403, sync token, payload); translate them into what the person sees and can do`,
+      ex: X(card(`<div class="m-h">We couldn't find that file</div><div class="m-b">It may have been deleted or moved to a project you can't see.</div><div class="m-hint" style="font:11px var(--mono)">Error 404 · file_7f2a</div>`), 'files.error.not_found', `Error: Entity null (ObjectNotFoundException)`) },
+    { id: 'fakeurgency', name: `False urgency`, aka: `countdown pressure, scarcity tricks`,
+      desc: `Countdown timers that reset, "Only 2 left!" that's always 2, "Offer ends tonight" every night. People notice, and some regulators now treat it as deception. Use real deadlines, stated plainly.`,
+      not: `fake timers, perpetual "last chance", invented stock counts`,
+      ref: `deceptive.design "Fake urgency", "Fake scarcity"; EU Unfair Commercial Practices Directive`,
+      prompt: `never use false urgency or scarcity; state real deadlines plainly`,
+      ex: X(ban('', `The spring menu runs until Apr 30.`), 'promo.spring.deadline', `⏰ HURRY! Only 2 hours left! 03:59:59`) },
+    { id: 'pleasethanks', name: `Please and thank-you overload`, aka: `over-politeness, apology theater`,
+      desc: `"Please" on every instruction and "Sorry" on every error turn into noise, and they make instructions longer. Save "please" for when you're asking a real favor, and "sorry" for real failures you caused.`,
+      not: `"Please enter your name, please", "Sorry! Sorry!"`,
+      prompt: `don't overuse "please" or "sorry"; keep them for real favors and real failures`,
+      ex: X(field('Full name', '', { hint: `As it appears on your ID.` }).replace('<div class="m-in">', '<div class="m-in ph">'), 'booking.name.hint', `Please kindly enter your full name, please. Thank you!`) },
+    { id: 'jokebadtime', name: `Jokes at bad moments`, aka: `tone-deaf humor`,
+      desc: `Humor is a tool for low-stakes moments: a 404, an empty search, a loading screen on day one. In payment failures, data loss, security warnings or anything health-related, it reads as not caring. When unsure, be plain.`,
+      not: `puns in a breach notice; "Uh-oh, your money went poof!"`,
+      prompt: `use humor only in low-stakes moments; keep errors involving money, data, security or health plain and calm`,
+      ex: X(card(`<div class="m-h">We reset your password as a precaution</div><div class="m-b">We saw a sign-in from a new device in Lisbon. If that wasn't you, your account is safe; set a new password to get back in.</div>`), 'security.reset.notice', `Whoa there, cowboy! 🤠 Someone tried to sneak in!`) }
+  ]
+});
+
+pool.groups.push({
+  id: 'methods', title: 'Methods & tools', slot: 'Method',
+  intro: `How content designers actually work: the artifacts they keep and the tests they run. Add one of these to a prompt when you want the model to produce working material, not just a draft.`,
+  terms: [
+    { id: 'contentfirst', name: `Content-first design`, aka: `words before pixels`,
+      desc: `Write the real copy before (or while) designing the screen, so the layout fits the words rather than the other way round. Lorem ipsum hides the hard questions: what's this called, what if it fails, what if the name is 40 characters long.`,
+      how: `a list of what the screen has to say, before any boxes`,
+      ref: `Content strategy practice (Kristina Halvorson, Sarah Richards "Content Design")`,
+      prompt: `start from the content: list what this screen has to say and in what order before suggesting any layout`,
+      ex: X(mono(`<span class="k">Invite screen must say:</span>
+1. Who you're inviting to what
+2. What they'll be able to do
+3. That they'll get an email
+4. What it costs (if anything)`), 'invite.outline') },
+    { id: 'copydeck', name: `String table`, aka: `copy deck, strings file, content spreadsheet`,
+      desc: `Every string in a feature in one table: key, text, where it appears, character limit, and notes for translators. It's how copy travels from design to code without getting retyped wrong, and it shows gaps at a glance.`,
+      how: `columns: key, string, location, max length, note`,
+      prompt: `return the copy as a string table with columns for key, string, where it appears, character count and notes for translators`,
+      ex: X(mono(`<span class="k">key</span>                 <span class="k">string</span>             <span class="k">len</span>
+invite.title        Invite people       14
+invite.cta          Send invites        12
+invite.toast.sent   3 invites sent      14
+invite.err.domain   Use a work email…   41`), 'strings/en-US.csv') },
+    { id: 'wordlist', name: `Word list`, aka: `terminology list, glossary, style sheet`,
+      desc: `The decided terms for your product: which word for each concept, the words you don't use, capitalization and spelling. Short and kept up to date, it does more for consistency than any long style guide.`,
+      how: `use / don't use / note, one row per concept`,
+      ref: `Mailchimp "Word list", Microsoft "A–Z word list"`,
+      prompt: `use this word list exactly; never substitute the "don't use" terms (paste your list here)`,
+      ex: X(mono(`<span class="k">Use</span>          <span class="k">Don't use</span>
+workspace    team, org, account
+sign in      log in, login (verb)
+delete       remove, erase (files)
+email        e-mail, mail`), 'content/word-list.md') },
+    { id: 'voicechart', name: `Voice chart`, aka: `voice and tone matrix, this-not-that`,
+      desc: `A small grid that defines the product's voice with three or four traits, each with "this, not that" and an example. It turns "friendly but professional" into something a writer, or a model, can actually follow.`,
+      how: `trait / we are / we're not / example`,
+      ref: `Kinneret Yifrah "Microcopy", see also the Voice & Tone workbook`,
+      prompt: `follow this voice chart: for each trait, write like the "we are" column and never like the "we're not" column (paste your chart)`,
+      ex: X(mono(`<span class="k">Trait</span>     <span class="k">We are</span>       <span class="k">We're not</span>
+Clear     direct       curt
+Warm      kind         gushing
+Expert    confident    smug`), 'content/voice-chart.md') },
+    { id: 'highlighter', name: `Highlighter test`, aka: `the useful-words test`,
+      desc: `Highlight the words in a draft that the person needs to act. Anything not highlighted is a candidate to cut. A quick way to see how much of a message is throat-clearing.`,
+      how: `mark the words that change what someone does; question the rest`,
+      ref: `GOV.UK content design training, Sarah Richards "Content Design"`,
+      prompt: `apply a highlighter test: keep only the words the reader needs to act, and explain what you cut`,
+      ex: X(card(`<div class="m-b">We wanted to let you know that ${hl('your trial ends Friday')}. If you'd like to continue enjoying all the benefits, ${hl('add a card in Settings')}.</div>`), 'test.highlighter') },
+    { id: 'expansion', name: `Text expansion check`, aka: `pseudo-localization, length testing`,
+      desc: `Test every string at 130 to 140 percent of its English length, and with the longest real values (a 40-character name, a 7-digit number). Pseudo-localized text like "[Ŝéñð îñṽîţéš ~~~]" shows truncation and hard-coded strings before translators do.`,
+      how: `long values, pseudo-locale, +40% length`,
+      ref: `Microsoft "Pseudo-localization", W3C "Text size in translation"`,
+      prompt: `check each string at 140% length and with the longest realistic values, and flag any that would truncate`,
+      ex: X(`<div class="m m-row" style="justify-content:center"><span class="m-btn p">Send invites</span><span class="m-btn p">Einladungen senden</span><span class="m-btn p">[Ŝéñð îñṽîţéš ~~~]</span></div>`, 'invite.cta · en / de / pseudo') },
+    { id: 'copytest', name: `Comprehension test`, aka: `copy testing, five-second test, cloze test`,
+      desc: `Show the screen to someone who hasn't seen it and ask what it means and what they'd do next. If they can't say, the copy isn't done. For a quick check, ask a model to play a first-time user and paraphrase the screen.`,
+      how: `"What does this screen tell you? What would you do next?"`,
+      ref: `UserTesting / Lyssna five-second tests, cloze test (Taylor, 1953)`,
+      prompt: `review this copy as a first-time user would: paraphrase what each message means and what you'd do next, and flag anything ambiguous`,
+      ex: X(card(`<div class="m-hint">Tester read: "Delete 12 photos?"</div><div class="m-b">"It'll delete the 12 I picked, and I think they go to a trash for a while?"</div><span class="m-tag" style="justify-self:start;background:var(--caution-soft);color:var(--caution)">Unclear: recovery</span>`), 'research.copytest') },
+    { id: 'audit', name: `Content audit`, aka: `string inventory, copy review`,
+      desc: `Pull every string in a flow into one list and review it against the word list, voice chart and patterns here: duplicates, inconsistent terms, missing states. Useful before a redesign and an easy job to hand to a model.`,
+      how: `inventory, then check terms, voice, states, length`,
+      prompt: `audit these strings: flag inconsistent terms, off-voice lines, missing empty/error/loading states and anything over length, then suggest fixes in a table`,
+      ex: X(mono(`<span class="k">Audit: checkout (38 strings)</span>
+⚠ 3 terms for one thing: cart / bag / basket
+⚠ No empty state for saved cards
+⚠ 5 errors start with "Invalid"
+✓ All buttons are verbs`), 'audit/checkout.md') }
+  ]
+});
+
+const G = Object.fromEntries(pool.groups.map(g => [g.id, g]));
+const WORKBOOK = {};
+WORKBOOK.areas = [
+  { id: 'principles', title: 'Principles', preview: 'frontload', blurb: 'The habits behind every good string: clarity first, then the house rules for case, numbers, pronouns, links and words that translate.', groups: ['clarity', 'mechanics'] },
+  { id: 'controls', title: 'Controls & labels', preview: 'inlinevalid', blurb: 'Buttons and menus, form labels and validation, page titles, navigation, settings and tooltips.', groups: ['actions', 'forms', 'navigation'] },
+  { id: 'states', title: 'States & feedback', preview: 'firstuse', blurb: 'Seven kinds of empty, loading and progress, success, errors from validation to partial failure, and warnings.', groups: ['emptystates', 'progress', 'success', 'errors', 'notices'] },
+  { id: 'onboarding', title: 'Onboarding & education', preview: 'coachmark', blurb: 'The first-run screens that get someone to a first result, and the tips, tours and announcements that teach in context.', groups: ['firstrun', 'teach'] },
+  { id: 'decisions', title: 'Decisions & money', preview: 'cancelflow', blurb: 'Confirmations, permission and consent, and the copy around plans, upgrades, trials, receipts and cancelling.', groups: ['confirms', 'money'] },
+  { id: 'messages', title: 'Messages & AI', preview: 'aisources', blurb: 'Push, email and text, plus the newer conventions for AI features: starters, working states, sources, limits and approvals.', groups: ['notify', 'aicopy'] },
+  { id: 'practice', title: 'Practice', preview: 'confirmshame', blurb: 'The patterns to cut from every first draft, and the working tools: string tables, word lists, voice charts and copy tests.', groups: ['avoid', 'methods'] }
+].map(a => ({ ...a, groups: a.groups.map(id => G[id]).filter(Boolean) })).filter(a => a.groups.length);
+
+WORKBOOK.recipes = [
+  { label: 'Checkout errors', parts: [['Error messages for a meal-kit checkout. Write each as '], ['what, why, what now', 'errorformula'], [', use '], ['inline validation', 'inlinevalid'], [' on the address and card fields, keep a '], ['declined payment', 'declined'], [' calm and private, and cut '], ['blaming words', 'blame'], [' and '], ['"Oops"', 'oops'], ['. Return a '], ['string table', 'copydeck'], ['.']] },
+  { label: 'First-run onboarding', parts: [['Onboarding for a shared-files app: a '], ['welcome screen', 'welcome'], [' that names who invited them, a '], ['getting-started checklist', 'gettingstarted'], [' of four tasks, '], ['first-use empty states', 'firstuse'], [' for Projects and Files, and one '], ['coach mark', 'coachmark'], [' for sharing. '], ['Sentence case', 'sentencecase'], [' and '], ['one name per thing', 'oneterm'], [' throughout.']] },
+  { label: 'An AI summary feature', parts: [['Copy for an AI meeting-summary feature: '], ['prompt starters', 'starters'], [', a '], ['working state', 'aiworking'], [' that names each step, '], ['citations', 'aisources'], [' for every claim, an '], ['AI label', 'aidisclose'], [', and a '], ["can't-do-that", 'aidecline'], [' message for unsupported files. '], ['Front-load', 'frontload'], [' every string and run a '], ['comprehension test', 'copytest'], [' on the result.']] }
+];
+
+/* One screen, every state */
+WORKBOOK.screens = [
+  { id: 'files', label: 'Shared files', brief: 'A file-sharing tool. The Files view inside a project called Spring Catalog.', cells: [
+    ['firstuse', empty('▢', `Add the first file to Spring Catalog`, `Everyone in the project can view, comment on and download it.`, [['Upload files', 'p']])],
+    ['skeletons', card(`<div class="m-h">Files</div><div class="m-skel" style="width:80%"></div><div class="m-skel" style="width:55%"></div><div class="m-skel" style="width:70%"></div>`)],
+    ['noresults', empty('?', `No files match "invioce"`, `Did you mean <span class="m-link">invoice</span>? Or search all projects.`)],
+    ['filtered', empty('⌀', `No PDFs shared this week`, `1 filter is on: Type is PDF.`, [['Clear filter']])],
+    ['offline', ban('w', `<b>You're offline.</b> Files you opened recently still work. Uploads will start when you reconnect.`)],
+    ['loadfail', empty('!', `We couldn't load your files`, `They're safe. Check your connection and try again.`, [['Try again']])],
+    ['noaccess', empty('⚿', `You need access to Spring Catalog`, `Mara Chen owns this project.`, [['Request access', 'p']])],
+    ['successtoast', toast(`3 files uploaded`, 'View')]
+  ] },
+  { id: 'inbox', label: 'Team inbox', brief: 'A shared support inbox. The Open conversations view for a small team.', cells: [
+    ['firstuse', empty('✉', `Connect your support email`, `Messages sent to help@ will land here, shared with your team.`, [['Connect email', 'p']])],
+    ['loadingtext', card(`<div class="m-row"><span class="m-spin"></span><b>Checking for new messages</b></div>`)],
+    ['noresults', empty('?', `No conversations mention "refund march"`, `Try fewer words, or include closed conversations.`, [['Include closed']])],
+    ['caughtup', empty('✓', `You're all caught up`, `New messages will show up here.`)],
+    ['errorformula', card(`<div class="m-h">We couldn't send your reply</div><div class="m-b">The customer's address bounced. Check it and send again.</div>${row([['Send again', 'p']])}`)],
+    ['undo', toast(`Conversation closed`, 'Undo')],
+    ['conflict', ban('w', `<b>Priya is replying to this conversation.</b> You can still write a draft.`)],
+    ['nudge', ban('', `You've tagged 5 conversations "Billing" today. Tag them automatically?`, 'Create rule')]
+  ] },
+  { id: 'meals', label: 'Meal plan', brief: 'A meal-kit app. This week\'s plan, where people pick dinners and pay for the box.', cells: [
+    ['firstuse', empty('▢', `Pick your first week of dinners`, `Choose 3 to 5 and we'll build the shopping list.`, [["Browse this week's menu", 'p']])],
+    ['loadingtext', card(`<div class="m-row"><span class="m-spin"></span><b>Building your shopping list</b></div><div class="m-hint">Combining 4 recipes.</div>`)],
+    ['noresults', empty('?', `No recipes with quinoa this week`, `Try "grains", or see next week's menu.`, [["See next week"]])],
+    ['declined', ban('e', `This week's payment didn't go through. Update your card by Wed to get your box Thursday.`, 'Update card')],
+    ['donepage', card(`<div class="m-h">Your box arrives Thursday</div><div class="m-b">4 dinners for 2. We'll text the delivery window Wednesday.</div>`)],
+    ['caughtup', empty('✓', `All 4 dinners cooked`, `Nice week. Next week's menu opens Friday.`)],
+    ['paywall', card(`<div class="m-h">Plans for 6 need the Family box</div><div class="m-b">It's $89 a week. You can still cook for 4 on your plan.</div>${row([['Keep my plan'], ['See Family box', 'p']])}`)],
+    ['partial', card(`<div class="m-h">3 of 4 meals added</div><div class="m-b">Salmon tacos sold out for Thursday. Pick a swap?</div>${row([['Pick a swap', 'p']])}`)]
+  ] }
+];
+
+/* Swap list: [was, write instead, why, card] */
+WORKBOOK.swaps = [
+  ['Submit', 'Send request', 'Buttons say what happens.', 'buttonverb'],
+  ['Are you sure?', 'Delete 3 drafts?', 'Name the action and what it costs.', 'areyousure'],
+  ['Oops! Something went wrong', "We couldn't save your changes", 'Say what failed.', 'vague'],
+  ['Invalid email', 'Add the end of the address, like sam@trailhead.app', 'Describe the fix, not the fault.', 'blame'],
+  ['Click here', 'Download the tax summary', 'Links name their destination.', 'clickhere'],
+  ['No data', 'Plan your first trip', 'An empty screen is a place to start.', 'firstuse'],
+  ['Your search returned 0 results', 'No files match "roadmpa"', 'Echo the query so typos show.', 'noresults'],
+  ['Success!', 'Invoice sent', 'Past tense, the object, no fanfare.', 'successtoast'],
+  ['Loading…', 'Building your meal plan', 'Say what is happening.', 'loadingtext'],
+  ['Enable comment webhooks', 'Email me when someone comments', 'Name the effect, not the system.', 'userside'],
+  ['Utilize', 'Use', 'Everyday words.', 'plainwords'],
+  ['In order to', 'To', 'Cut words that do nothing.', 'concise'],
+  ["No thanks, I don't like saving money", 'No thanks', 'Decline as neutrally as accept.', 'confirmshame'],
+  ['Learn more', 'How do shared links expire?', 'Link the question it answers.', 'helplink'],
+  ['3 file(s)', '3 files', 'Use real plural forms.', 'l10n'],
+  ['We need your location', 'Trailhead uses your location to draw your route', 'Say what access is for.', 'osperm'],
+  ["Welcome! We're so excited to have you!", 'Mara invited you to Spring Catalog', 'Start from why they came.', 'welcome']
+];
+
+WORKBOOK.xcols = ['Components', 'Patterns', 'Principles', 'Cut'];
+WORKBOOK.xlate = [
+  { job: 'Signing up', note: 'first visit', cells: [['signup', 'labels', 'helper'], ['welcome', 'setupq', 'permprime'], ['concise', 'frontload'], ['confirmshame', 'fakeurgency']] },
+  { job: 'First day', note: 'nothing made yet', cells: [['firstuse', 'gettingstarted', 'sampledata'], ['coachmark', 'nudge'], ['verbs', 'userside'], ['jargon', 'pleasethanks']] },
+  { job: 'Filling in a form', note: 'checkout, settings, profiles', cells: [['labels', 'placeholder', 'helper', 'optional'], ['inlinevalid', 'passwordrules', 'charlimit'], ['positive', 'l10n'], ['blame', 'pleasethanks']] },
+  { job: 'Searching', note: 'finding things', cells: [['searchbox', 'tablabels'], ['noresults', 'filtered'], ['frontload', 'numerals'], ['vague']] },
+  { job: 'Waiting', note: 'uploads, exports, AI', cells: [['loadingtext', 'progressbar', 'skeletons'], ['longwait', 'savestatus'], ['numerals', 'dates'], ['jargon']] },
+  { job: 'Something failed', note: 'errors of every size', cells: [['errorformula', 'systemerr', 'offline'], ['partial', 'conflict', 'loadfail'], ['active', 'plainwords'], ['oops', 'vague', 'blame']] },
+  { job: 'Deleting or leaving', note: 'hard-to-undo actions', cells: [['destructivebtn', 'confirmdlg', 'typeconfirm'], ['undo', 'unsaved'], ['numerals', 'verbs'], ['areyousure']] },
+  { job: 'Paying', note: 'plans, trials, billing', cells: [['plans', 'paywall', 'declined'], ['trialend', 'receipt', 'cancelflow'], ['frontload', 'dates'], ['fakeurgency', 'confirmshame']] },
+  { job: 'Away from the app', note: 'push, email, text', cells: [['pushnote', 'transactional', 'sms'], ['digest', 'verify', 'reset'], ['frontload', 'oneidea'], ['jokebadtime']] },
+  { job: 'Using an AI feature', note: 'assistants and agents', cells: [['starters', 'aiworking', 'aisources'], ['aidisclose', 'aiconfirm', 'aidecline'], ['userside', 'active'], ['jargon']] },
+  { job: 'Shipping a change', note: 'launches and removals', cells: [['whatsnew', 'deprecation'], ['disclosure', 'helplink'], ['oneterm', 'sentencecase'], ['clickhere']] }
+];
+WORKBOOK.lens = ['Mobile, tight space', 'Buttons under 20 characters', 'Return a string table', 'Cover every state', '3 options per string', 'Ready to translate'];
+
+
+/* ---------- rendering ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+};
+const picks = new Set(store.get('uxw-picks', []));
+let fmt = store.get('uxw-fmt', 'request');
+let screenId = store.get('uxw-screen', 'files');
+const TERMS = {};
+WORKBOOK.areas.forEach(a => a.groups.forEach(g => g.terms.forEach(t => TERMS[t.id] = { t, g, a })));
+const totalTerms = Object.keys(TERMS).length;
+let pendingJump = null;
+
+const cardHTML = (t, g) => `
+  <article class="card${picks.has(t.id) ? ' picked' : ''}" id="t-${t.id}" data-search="${esc((t.name + ' ' + (t.aka || '') + ' ' + t.desc + ' ' + (t.ref || '') + ' ' + (t.how || '') + ' ' + (t.not || '') + ' ' + g.title).toLowerCase())}">
+    <div class="ex">${t.ex}</div>
+    <div class="cbody">
+      <h3>${esc(t.name)}</h3>
+      ${t.aka ? `<div class="aka">Also called ${esc(t.aka)}</div>` : ''}
+      <p class="desc">${esc(t.desc)}</p>
+      ${t.how ? `<p class="ref do"><b>Write</b>${esc(t.how)}</p>` : ''}
+      ${t.not ? `<p class="ref not"><b>Avoid</b>${esc(t.not)}</p>` : ''}
+      ${t.ref ? `<p class="ref"><b>Look up</b>${esc(t.ref)}</p>` : ''}
+      <div class="phrase">
+        <code id="p-${t.id}">${esc(t.prompt)}</code>
+        <div class="btns">
+          <button type="button" class="btn add" data-add="${t.id}" aria-pressed="${picks.has(t.id)}">${picks.has(t.id) ? 'Added' : 'Add to prompt'}</button>
+          <button type="button" class="btn" data-copy="${t.id}">Copy phrase</button>
+        </div>
+      </div>
+    </div>
+  </article>`;
+const groupHTML = (g, sub) => `
+  <section class="group" id="g-${g.id}" aria-labelledby="h-${g.id}">
+    <div class="ghead">${sub ? `<div class="eyebrow">${esc(sub)}</div>` : ''}<h2 id="h-${g.id}">${esc(g.title)}</h2><p>${esc(g.intro)}</p></div>
+    <div class="cards">${g.terms.map(t => cardHTML(t, g)).join('')}</div>
+  </section>`;
+const emptyMsg = `<p class="empty" id="empty" hidden>Nothing matches that search. Try a plainer word like "error", "button", "empty" or "email".</p>`;
+const chip = (id, txt) => TERMS[id] ? `<a class="chip" href="#${TERMS[id].a.id}" data-jump="${id}"><span>${esc(txt || TERMS[id].t.name)}</span><small>${esc(TERMS[id].g.slot)}</small></a>` : esc(txt || '');
+const link = id => TERMS[id] ? `<a href="#${TERMS[id].a.id}" data-jump="${id}">${esc(TERMS[id].t.name)}</a>` : '';
+
+function renderScreens() {
+  const s = WORKBOOK.screens.find(x => x.id === screenId) || WORKBOOK.screens[0];
+  $('#screens').innerHTML = WORKBOOK.screens.map(x => `<button type="button" data-screen="${x.id}" aria-pressed="${x.id === s.id}">${esc(x.label)}</button>`).join('');
+  $('#sbrief').innerHTML = `<b>The screen:</b> ${esc(s.brief)}`;
+  $('#sgrid').innerHTML = s.cells.map(([id, html]) => `<div class="scell">${link(id)}${html}</div>`).join('');
+}
+
+function renderHome() {
+  $('#home').hidden = false; $('#subject').hidden = true; $('#main').innerHTML = '';
+  $('#homeCount').textContent = `${totalTerms} cards on ${WORKBOOK.areas.length} pages`;
+  renderScreens();
+  $('#swaplist').innerHTML = `<div class="sw h"><span>Instead of</span><span>Write</span><span>Why</span></div>` +
+    WORKBOOK.swaps.map(([a, b, why, id]) => `<div class="sw"><s>${esc(a)}</s><span class="to">${esc(b)}</span><span class="why">${esc(why)}${TERMS[id] ? `<a href="#${TERMS[id].a.id}" data-jump="${id}">Card</a>` : ''}</span></div>`).join('');
+  $('#recipes').innerHTML = WORKBOOK.recipes.map(r => `<div class="rcp"><div class="eyebrow">${esc(r.label)}</div><p class="sentence">${r.parts.map(([txt, id]) => id ? chip(id, txt) : esc(txt)).join('')}</p></div>`).join('');
+  $('#xtable').innerHTML = `<thead><tr><th>The moment</th>${WORKBOOK.xcols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
+    WORKBOOK.xlate.map(r => `<tr><th>${esc(r.job)}<small>${esc(r.note)}</small></th>${r.cells.map((c, i) => `<td${i === 3 ? ' class="cut"' : ''}>${c.map(x => link(x)).join(' ')}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  $('#tiles').innerHTML = WORKBOOK.areas.map(a => `
+    <a class="tile" href="#${a.id}">
+      <div class="ex" aria-hidden="true">${TERMS[a.preview] ? TERMS[a.preview].t.ex : ''}</div>
+      <div class="tbody"><h3>${esc(a.title)}</h3><p>${esc(a.blurb)}</p>
+      <div class="tmeta">${a.groups.reduce((n, g) => n + g.terms.length, 0)} cards · ${a.groups.map(g => esc(g.title)).join(' · ')}</div></div>
+    </a>`).join('');
+  $('#results').innerHTML = WORKBOOK.areas.map(a => a.groups.map(g => groupHTML(g, a.title)).join('')).join('') + emptyMsg;
+  filter($('#qh'), $('#results'), true);
+}
+
+function renderSubject(a) {
+  $('#home').hidden = true; $('#subject').hidden = false; $('#results').innerHTML = '';
+  $('#subTitle').textContent = a.title;
+  $('#subBlurb').textContent = a.blurb;
+  const i = WORKBOOK.areas.indexOf(a), next = WORKBOOK.areas[(i + 1) % WORKBOOK.areas.length];
+  $('#nav').innerHTML = a.groups.map(g => `<a href="#g-${g.id}" data-g="${g.id}">${esc(g.title)}<span>${g.terms.length}</span></a>`).join('');
+  $('#main').innerHTML = a.groups.map(g => groupHTML(g)).join('') + emptyMsg + `<a class="next" href="#${next.id}">Next: ${esc(next.title)} →</a>`;
+  $('#q').value = '';
+  document.title = `${a.title} · Product & UX Writing Workbook`;
+}
+
+function route() {
+  const id = location.hash.slice(1);
+  const a = WORKBOOK.areas.find(x => x.id === id);
+  if (a) renderSubject(a);
+  else if (!id || !document.getElementById(id)) { renderHome(); document.title = 'Product & UX Writing Workbook'; }
+  else return; // in-page anchor such as #g-clarity
+  if (pendingJump) { const j = pendingJump; pendingJump = null; setTimeout(() => jumpTo(j), 60); }
+  else if (a || !id) window.scrollTo(0, 0);
+}
+
+function pickedBySlot() {
+  const out = [];
+  WORKBOOK.areas.forEach(a => a.groups.forEach(g => {
+    const ps = g.terms.filter(t => picks.has(t.id));
+    if (!ps.length) return;
+    const r = out.find(x => x.slot === g.slot);
+    if (r) r.terms.push(...ps); else out.push({ slot: g.slot, terms: [...ps] });
+  }));
+  return out;
+}
+
+const PATTERN_SLOTS = ['Component', 'Empty state', 'Feedback', 'Error', 'Onboarding', 'Decision', 'Message', 'AI'];
+function compose() {
+  const subj = $('#subject-in').value.trim();
+  const aud = $('#aud-in').value.trim();
+  const len = $('#len-in').value.trim();
+  const rows = pickedBySlot();
+  const n = rows.reduce((k, r) => k + r.terms.length, 0);
+  const bySlot = s => rows.filter(r => s.includes(r.slot)).flatMap(r => r.terms);
+  const lines = [];
+  if (fmt === 'guide') {
+    lines.push(`# Content guide${subj ? ` for ${subj}` : ''}`, '', 'Follow this guide for every string in the product: labels, buttons, messages, emails and help.');
+    if (aud) lines.push(`The people using it: ${aud}.`);
+    const pr = bySlot(['Principle']);
+    lines.push('', '## Principles');
+    if (pr.length) pr.forEach(t => lines.push(`- ${t.prompt}`)); else lines.push('- (add principles from the workbook)');
+    const me = bySlot(['Mechanics']);
+    if (me.length) { lines.push('', '## House rules'); me.forEach(t => lines.push(`- ${t.prompt}`)); }
+    const pats = rows.filter(r => PATTERN_SLOTS.includes(r.slot));
+    if (pats.length) { lines.push('', '## Patterns'); pats.forEach(r => { lines.push(`### ${r.slot}`); r.terms.forEach(t => lines.push(`- ${t.name}: ${t.prompt}`)); }); }
+    const av = bySlot(['Avoid']);
+    if (av.length) { lines.push('', '## Never'); av.forEach(t => lines.push(`- ${t.prompt}`)); }
+    const mt = bySlot(['Method']);
+    if (mt.length) { lines.push('', '## How we work'); mt.forEach(t => lines.push(`- ${t.prompt}`)); }
+    lines.push('', '## Always', '- Write from the user\'s side of the screen, in the words they use.', '- Every screen has more than one state: write the empty, loading, error and success states too.', '- Plain words, specific verbs, sentence case, the useful words first.');
+    if (len) lines.push(`- ${len}.`);
+  } else {
+    lines.push(`Write the interface copy for ${subj || '[the screen or flow]'}.`);
+    if (aud) lines.push(`Who's using it: ${aud}.`);
+    if (len) lines.push(`Constraints: ${len}.`);
+    lines.push('', 'Follow these:');
+    if (n) rows.forEach(r => lines.push(`- ${r.slot}: ${r.terms.map(t => t.prompt).join('; ')}`));
+    else lines.push('- (add patterns and principles from the workbook)');
+    lines.push('', 'Write from the user\'s side of the screen: plain words, specific verbs, sentence case, and the most useful words first. Cover every state this screen can be in (first use, loading, empty, error, success), not only the happy path. Give each string a key and its character count.');
+  }
+  return { text: lines.join('\n'), n };
+}
+
+function renderTray() {
+  const { text, n } = compose();
+  $('#out').textContent = text;
+  document.querySelectorAll('[data-fmt]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fmt === fmt));
+  $('#fmtNote').textContent = fmt === 'guide' ? 'A reusable guide to paste into a project or system prompt.' : 'A one-off ask for the copy on one screen or flow.';
+  const names = [...picks].filter(id => TERMS[id]).map(id => TERMS[id].t.name);
+  $('#count').innerHTML = n
+    ? `${n} pick${n > 1 ? 's' : ''}<small>${esc(names.join(' · '))}</small>`
+    : `Nothing picked yet<small>Press "Add to prompt" on any card to start</small>`;
+}
+
+function copyText(text, btn, fallbackEl) {
+  const done = ok => { const o = btn.textContent; btn.textContent = ok ? 'Copied' : 'Selected, press Ctrl+C'; setTimeout(() => btn.textContent = o, 1400); };
+  const select = () => { if (!fallbackEl) return; const r = document.createRange(); r.selectNodeContents(fallbackEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+  try {
+    navigator.clipboard.writeText(text).then(() => done(true), () => { select(); done(false); });
+  } catch (e) { select(); done(false); }
+}
+
+function jumpTo(id) {
+  const el = document.getElementById('t-' + id);
+  if (!el || el.hidden) return;
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+
+function filter(input, scope, homeMode) {
+  const q = input.value.trim().toLowerCase();
+  let any = false;
+  scope.querySelectorAll('.group').forEach(g => {
+    let vis = 0;
+    g.querySelectorAll('.card').forEach(c => { const ok = !q || c.dataset.search.includes(q); c.hidden = !ok; if (ok) vis++; });
+    g.hidden = !vis; if (vis) any = true;
+    const nav = document.querySelector(`#nav [data-g="${g.id.slice(2)}"]`); if (nav) nav.hidden = !vis;
+  });
+  const empty = scope.querySelector('#empty'); if (empty) empty.hidden = any;
+  if (homeMode) { $('#results').hidden = !q; ['#tiles', '#states', '#swaps', '#recipe', '#xlate'].forEach(s => $(s).hidden = !!q); }
+}
+
+document.addEventListener('click', e => {
+  const add = e.target.closest('[data-add]');
+  if (add) {
+    const id = add.dataset.add;
+    picks.has(id) ? picks.delete(id) : picks.add(id);
+    store.set('uxw-picks', [...picks]);
+    const on = picks.has(id);
+    add.setAttribute('aria-pressed', on); add.textContent = on ? 'Added' : 'Add to prompt';
+    document.getElementById('t-' + id).classList.toggle('picked', on);
+    renderTray(); return;
+  }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { const el = document.getElementById('p-' + cp.dataset.copy); copyText(el.textContent, cp, el); return; }
+  const ln = e.target.closest('[data-len]');
+  if (ln) { const cur = $('#len-in').value.trim(); const v = cur && !cur.includes(ln.dataset.len) ? `${cur}; ${ln.dataset.len}` : ln.dataset.len; $('#len-in').value = v; store.set('uxw-len', v); renderTray(); return; }
+  const fm = e.target.closest('[data-fmt]');
+  if (fm) { fmt = fm.dataset.fmt; store.set('uxw-fmt', fmt); renderTray(); return; }
+  const sc = e.target.closest('[data-screen]');
+  if (sc) { screenId = sc.dataset.screen; store.set('uxw-screen', screenId); renderScreens(); return; }
+  const j = e.target.closest('[data-jump]');
+  if (j) {
+    e.preventDefault();
+    const target = TERMS[j.dataset.jump].a.id;
+    pendingJump = j.dataset.jump;
+    if (location.hash.slice(1) === target) route(); else location.hash = target;
+  }
+});
+
+window.addEventListener('hashchange', route);
+$('#q').addEventListener('input', () => filter($('#q'), $('#main')));
+$('#qh').addEventListener('input', () => filter($('#qh'), $('#results'), true));
+$('#toggle').addEventListener('click', () => {
+  const body = $('#trayBody'), open = body.hidden;
+  body.hidden = !open; $('#toggle').setAttribute('aria-expanded', open); $('#toggle').textContent = open ? 'Hide prompt' : 'Show prompt';
+});
+$('#copyAll').addEventListener('click', e => copyText(compose().text, e.currentTarget, $('#out')));
+$('#clear').addEventListener('click', () => {
+  picks.clear(); store.set('uxw-picks', []);
+  document.querySelectorAll('.card.picked').forEach(c => c.classList.remove('picked'));
+  document.querySelectorAll('[data-add]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.textContent = 'Add to prompt'; });
+  renderTray();
+});
+$('#lens').innerHTML = WORKBOOK.lens.map(s => `<button type="button" data-len="${esc(s)}">${esc(s)}</button>`).join('');
+[['#subject-in', 'uxw-subject'], ['#aud-in', 'uxw-aud'], ['#len-in', 'uxw-len']].forEach(([sel, k]) => {
+  $(sel).value = store.get(k, '');
+  $(sel).addEventListener('input', () => { store.set(k, $(sel).value); renderTray(); });
+});
+
+route();
+renderTray();
+</script>
+
+</body></html>
