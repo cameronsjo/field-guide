@@ -20,7 +20,13 @@ let wb = -1, limit = 48;
 $("#subject").value = load("recipe.subject", "");
 
 const KEY = {};
-CARDS.forEach((c, i) => { KEY[WB[c[0]].slug + "|" + c[2]] = i; });
+// Cards are found by workbook + subject + name; a few names repeat across subjects in one workbook.
+// Styles saved before subjects were stored fall back to workbook + name (first match).
+CARDS.forEach((c, i) => {
+  const slug = WB[c[0]].slug;
+  KEY[slug + "|" + c[1] + "|" + c[2]] = i;
+  if (!(slug + "|" + c[2] in KEY)) KEY[slug + "|" + c[2]] = i;
+});
 let styles = [], activeStyle = null;
 CARDS.forEach(c => { c.hay = (c[2] + " " + c[3] + " " + c[4] + " " + c[5] + " " + c[1]).toLowerCase(); });
 const color = i => GC[WB[CARDS[i][0]].group];
@@ -102,7 +108,7 @@ function renderActive(){
 }
 
 function loadStyle(st){
-  picks = (st.picks || []).map(([sl, n]) => KEY[sl + "|" + n]).filter(i => i !== undefined);
+  picks = (st.picks || []).map(p => KEY[p.join("|")]).filter(i => i !== undefined);
   target = TARGETS[st.target] ? st.target : "general";
   $("#subject").value = st.subject || ""; save("recipe.subject", $("#subject").value);
   activeStyle = st.id;
@@ -111,7 +117,7 @@ function loadStyle(st){
 
 function styleBody(name){
   return {kind:"style", name, subject:$("#subject").value.trim(), target,
-    picks:picks.map(i => [WB[CARDS[i][0]].slug, CARDS[i][2]]), updated:Date.now()};
+    picks:picks.map(i => [WB[CARDS[i][0]].slug, CARDS[i][1], CARDS[i][2]]), updated:Date.now()};
 }
 
 function writeStyle(id, body){

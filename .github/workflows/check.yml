@@ -16,6 +16,23 @@ jobs:
       - name: Generated data is up to date
         run: |
           python3 scripts/build.py
-          git diff --exit-code -- docs/assets/catalog.js docs/recipe/data.js
+          git diff --exit-code
       - name: Local links resolve
         run: python3 scripts/check_links.py
+
+  vocabulary:
+    # Cards in data/vocabulary.json must match what the workbook pages show,
+    # or the recipe builder and cheat sheets drift from the workbooks.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Vocabulary matches the workbooks
+        run: |
+          npm run vocab
+          git diff --exit-code -- data/vocabulary.json || (echo "Run 'npm run vocab' and commit data/vocabulary.json" && exit 1)

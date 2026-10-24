@@ -74,7 +74,7 @@ npm run all          # re-extract cards, rebuild data, render PDFs, check links
 
 1. Copy any folder in `docs/workbooks/` to a new slug and replace its cards in `workbook.js`.
 2. Add an entry to `data/workbooks.json`. The `glyph` key picks an icon from `docs/assets/library.js`.
-3. Run `npm run all` and commit the result.
+3. Run `npm run all` and commit the result. CI fails if `data/vocabulary.json` or the generated files are out of date.
 
 Picks and saved styles live in each visitor's own browser. Nothing is sent anywhere.
 
