@@ -1,0 +1,190 @@
+[
+  {
+    "name": "Gig poster",
+    "blurb": "Screen print, WPA, risograph",
+    "target": "image",
+    "subject": "a screen-printed gig poster for a Friday night folk show",
+    "cards": [
+      [
+        "visual-vocabulary",
+        "Screen print"
+      ],
+      [
+        "art-movements",
+        "WPA poster"
+      ],
+      [
+        "color-palettes",
+        "Accented analogous"
+      ],
+      [
+        "color-palettes",
+        "Risograph"
+      ],
+      [
+        "typography",
+        "Condensed sans"
+      ],
+      [
+        "photography-lighting",
+        "Golden hour"
+      ],
+      [
+        "visual-vocabulary",
+        "Paper grain"
+      ]
+    ]
+  },
+  {
+    "name": "Metrics dashboard",
+    "blurb": "KPI tiles, sparklines, small multiples",
+    "target": "ui",
+    "subject": "a weekly metrics dashboard for a product team",
+    "cards": [
+      [
+        "ui-patterns",
+        "Dashboard"
+      ],
+      [
+        "data-visualization",
+        "KPI tiles"
+      ],
+      [
+        "data-visualization",
+        "Sparklines"
+      ],
+      [
+        "data-visualization",
+        "Small multiples"
+      ],
+      [
+        "data-visualization",
+        "Sequential palette"
+      ],
+      [
+        "ui-patterns",
+        "Skeleton loading"
+      ]
+    ]
+  },
+  {
+    "name": "Product landing page",
+    "blurb": "Hero, bento grid, scroll reveal",
+    "target": "ui",
+    "subject": "a landing page for a new developer tool",
+    "cards": [
+      [
+        "ui-patterns",
+        "Hero section"
+      ],
+      [
+        "ui-patterns",
+        "Bento grid"
+      ],
+      [
+        "typography",
+        "Quirky grotesk"
+      ],
+      [
+        "typography",
+        "Oversized hero type"
+      ],
+      [
+        "motion",
+        "Scroll reveal"
+      ],
+      [
+        "motion",
+        "Gentle spring"
+      ]
+    ]
+  },
+  {
+    "name": "Event-driven service",
+    "blurb": "Event sourcing, outbox, idempotency",
+    "target": "code",
+    "subject": "an order service that publishes events to other teams",
+    "cards": [
+      [
+        "software-architecture",
+        "Event sourcing"
+      ],
+      [
+        "software-architecture",
+        "CQRS"
+      ],
+      [
+        "software-architecture",
+        "Transactional outbox"
+      ],
+      [
+        "software-architecture",
+        "Idempotent consumer"
+      ],
+      [
+        "software-architecture",
+        "Circuit breaker"
+      ],
+      [
+        "software-architecture",
+        "Hexagonal architecture"
+      ]
+    ]
+  },
+  {
+    "name": "Folk song",
+    "blurb": "Indie folk, fingerpicking, harmonies",
+    "target": "music",
+    "subject": "a slow indie folk song about driving west at sunset",
+    "cards": [
+      [
+        "music-sound",
+        "Indie folk"
+      ],
+      [
+        "music-sound",
+        "Fingerpicked guitar"
+      ],
+      [
+        "music-sound",
+        "Harmonica"
+      ],
+      [
+        "music-sound",
+        "Harmony in thirds"
+      ],
+      [
+        "music-sound",
+        "Verse–chorus"
+      ],
+      [
+        "music-sound",
+        "Tape saturation"
+      ]
+    ]
+  },
+  {
+    "name": "Release notes",
+    "blurb": "Plain, warm, second person",
+    "target": "writing",
+    "subject": "release notes for this month's product update",
+    "cards": [
+      [
+        "voice-tone",
+        "Release notes"
+      ],
+      [
+        "voice-tone",
+        "Plainspoken"
+      ],
+      [
+        "voice-tone",
+        "Warm & friendly"
+      ],
+      [
+        "voice-tone",
+        "Second person"
+      ]
+    ]
+  }
+]

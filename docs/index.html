@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Field Guide</title>
+<meta name="description" content="Visual workbooks that name the looks, sounds, layouts and voices you can picture but can't describe, each with a phrase to paste into a prompt.">
+<meta property="og:title" content="Field Guide">
+<meta property="og:description" content="Words for the things you can picture or hear but can't describe, with a phrase to paste into a prompt.">
+<meta property="og:image" content="https://cameronsjo.github.io/field-guide/assets/preview.png">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/library.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow" id="count">Workbooks</div>
+    <h1>Field Guide</h1>
+    <p>Spot it, name it, ask for it. Each workbook gives you the names for something you can picture or hear but can't quite describe, with a picture, a plain explanation and a phrase to paste into a prompt.</p>
+    <div class="bar">
+      <input class="search" id="q" type="search" placeholder="Find a workbook, e.g. lighting, charts, tone…" aria-label="Find a workbook">
+      <div class="filters" id="filters" role="group" aria-label="Filter by what you're making"></div>
+    </div>
+  </header>
+
+  <section class="tools" aria-label="Tools"><div class="trow" id="tools"></div></section>
+
+  <main id="shelves"></main>
+
+  <section class="how" aria-labelledby="howH">
+    <h2 id="howH">Using these at work</h2>
+    <ul class="ways" id="ways"></ul>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+<script src="assets/catalog.js"></script>
+<script src="assets/library.js"></script>
+</body>
+</html>

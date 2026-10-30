@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Film &amp; Cinematography Workbook</title>
+<meta name="description" content="The words filmmakers use for how a movie is shot, staged and cut: coverage and the 180-degree rule, blocking, signature shots, edits and montage, film lighting and grades, aspect ratios and formats, genres, movements, and the directors and cinematographers people point at. Each card has a drawn frame, storyboard or floor plan, how to recognize it, and a phrase you can paste into a prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Courier+Prime:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="perfs" aria-hidden="true"></div>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Film &amp; <em>Cinematography</em></h1>
+      <p>The words filmmakers use for how a movie is shot, staged and cut: coverage and the 180-degree rule, blocking, signature shots, edits and montage, film lighting and grades, aspect ratios and formats, genres, movements, and the directors and cinematographers people point at. Each card has a drawn frame, storyboard or floor plan, how to recognize it, and a phrase you can paste into a prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Browse a subject until a frame matches the scene in your head</li>
+        <li><b>2</b>Press Add on the shot, staging, light, format and name that fit</li>
+        <li><b>3</b>Say what happens in the scene, then copy the assembled prompt</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every subject…" aria-label="Search every subject">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a film prompt</h2>
+      <p class="lead">A shot list or a call sheet describes each shot in roughly this order. A still needs the first half; a video clip or a whole scene needs the rest. Tap any word to jump to its card.</p>
+      <div class="formula" aria-label="Prompt order"><span>Format &amp; aspect</span><i>+</i><span>Shot</span><i>+</i><span>Staging</span><i>+</i><span>Who does what</span><i>+</i><span>Light</span><i>+</i><span>Color</span><i>+</i><span>Edit</span><i>+</i><span>Genre or name</span></div>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>Say "film still", then prove it</strong>"Cinematic" alone means very little. A ratio, a format and a light source ("2.39:1, 35mm, lit by one practical lamp") make a frame look like it came out of a movie.</li>
+        <li><strong>One shot per prompt</strong>Image and video models make one continuous shot. Edits and montage belong in a shot list: ask Claude to break the scene into numbered shots, then render each one.</li>
+        <li><strong>Motivate the light</strong>Name where the light comes from inside the scene (a window, a fridge, a passing car). It reads as real, and it keeps the image from looking evenly lit by nothing.</li>
+        <li><strong>Pair a name with what it means</strong>Some tools ignore or refuse directors' names. Write "in the spirit of Wong Kar-wai: step-printed smear, green fluorescent light, a narrow corridor" so the look survives either way.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Same scene, every department</h2>
+      <p class="lead">On a film set a mood is built by every department at once. Find the feeling on the left and read across for the shot, the cut, the light, the format and a reference that all push the same way. For camera moves, see the Motion workbook.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All subjects</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · Builds on the Photography &amp; Lighting workbook (shot sizes, lenses, light, film stocks) and the Motion workbook (camera moves and transitions). The frames are simplified drawings, not stills from the films named, so read them for where the camera, the people and the light are. Storyboard strips read left to right; floor plans are seen from above with the camera marked in red.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What happens in the scene?</label>
+          <input id="subject-in" type="text" placeholder="e.g. two strangers share a booth in an empty diner at 3 a.m.">
+        </div>
+        <div>
+          <label for="aspect-in">Aspect ratio (optional)</label>
+          <input id="aspect-in" type="text" placeholder="e.g. 2.39:1">
+          <div class="stacks" id="aspects"></div>
+        </div>
+      </div>
+      <div class="btns" style="align-items:center">
+        <div class="seg" role="group" aria-label="Prompt format">
+          <button type="button" id="fmt-list" aria-pressed="true">Shot brief, for Claude</button>
+          <button type="button" id="fmt-line" aria-pressed="false">One line, for image and video models</button>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

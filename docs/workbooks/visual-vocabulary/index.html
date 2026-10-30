@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Visual Vocabulary Workbook</title>
+<meta name="description" content="Words for the look in your head. Every term has a small picture, a plain explanation, and a phrase you can paste into a prompt, so you can say &quot;3D isometric exploded view&quot; in the first minute instead of the thirtieth.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif&family=Caveat:wght@600&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ik"/></marker>
+</defs></svg>
+
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Visual Vocabulary</h1>
+      <p>Words for the look in your head. Every term has a small picture, a plain explanation, and a phrase you can paste into a prompt, so you can say "3D isometric exploded view" in the first minute instead of the thirtieth.</p>
+      <ol class="steps">
+        <li><b>1</b>Open a subject and browse until a picture matches what you imagine</li>
+        <li><b>2</b>Press Add on the terms that fit, from any subject</li>
+        <li><b>3</b>Copy the assembled prompt from the tray</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every subject…" aria-label="Search every subject">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="recipe" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of a visual prompt</h2>
+      <p class="lead">A good description names one or two words from several groups. Here is the kind of sentence that would have landed the Agentic 101 look straight away. Tap any word to jump to its card.</p>
+      <p class="sentence" id="sentence"></p>
+      <ul class="tips">
+        <li><strong>Pick one word per slot</strong>Rendering, color, layout and mood each get one choice. Stacking five rendering styles gives Claude nothing to commit to.</li>
+        <li><strong>Name a reference</strong>"Like an IKEA manual" or "like Stripe's docs" carries dozens of decisions. Each card lists a few to borrow.</li>
+        <li><strong>Say what to avoid</strong>"No gradients", "no stock-photo people", "no drop shadows". Exclusions narrow things fast.</li>
+        <li><strong>Ask for options</strong>"Show me the same diagram in flat, isometric and line art" is a quick way to find the word when you're unsure.</li>
+      </ul>
+    </section>
+
+    <section class="reading" id="reading" aria-labelledby="readingH"></section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All subjects</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this subject…" aria-label="Search this subject">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A growing workbook. Each subject is its own page with the same card format, and the prompt tray collects terms from all of them.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">No terms picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div>
+        <label for="subject-in">What are you visualizing?</label>
+        <input id="subject-in" type="text" placeholder="e.g. how an LLM turns a question into an answer">
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+/* Layout: a type specimen book. Home page of topic tiles, one page per topic with a sticky section index, cards whose example is set in real fonts, and a prompt tray docked at the bottom. */
+:root{
+  --bg:#F4F1EA; --panel:#FFFDF8; --ink:#1B1A17; --ink2:#55524A; --ink3:#8E897C; --line:#E2DCCD;
+  --accent:#C2410C; --accent-soft:#FBE6D6; --ok:#2F7D4F;
+  --tile:#EBE6DA; --scr:#FFFDF8; --scr2:#F3EFE5; --paper:#F7F1E1; --g2:#D3CCBB; --g3:#ADA592;
+  --x1:#2B50D8; --x1l:#A8BDFA; --x2:#E09A1F; --x2l:#F6D59A; --x3:#1A8E86; --x3l:#9ADBD3; --x4:#D9466F; --x4l:#F4B3C5; --red:#D23B2F; --gold:#B8862B;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14130F; --panel:#1D1C18; --ink:#EDE9DF; --ink2:#B3AD9F; --ink3:#7C776B; --line:#302E27;
+  --accent:#FB8A4C; --accent-soft:#3A2416; --ok:#5BC489;
+  --tile:#23221D; --scr:#1F1E1A; --scr2:#16150F; --paper:#2A2721; --g2:#3D3A32; --g3:#5A564B;
+  --x1:#6E8FFA; --x1l:#9DB4FB; --x2:#F2B04A; --x2l:#F7D597; --x3:#2DB8AC; --x3l:#8FD8CF; --x4:#EE6A90; --x4l:#F5B0C3; --red:#FF6B5E; --gold:#E0B25A;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#14130F; --panel:#1D1C18; --ink:#EDE9DF; --ink2:#B3AD9F; --ink3:#7C776B; --line:#302E27;
+  --accent:#FB8A4C; --accent-soft:#3A2416; --ok:#5BC489;
+  --tile:#23221D; --scr:#1F1E1A; --scr2:#16150F; --paper:#2A2721; --g2:#3D3A32; --g3:#5A564B;
+  --x1:#6E8FFA; --x1l:#9DB4FB; --x2:#F2B04A; --x2l:#F7D597; --x3:#2DB8AC; --x3l:#8FD8CF; --x4:#EE6A90; --x4l:#F5B0C3; --red:#FF6B5E; --gold:#E0B25A;
+  color-scheme:dark;
+}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-inline:16px;padding-block:0 120px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+
+header.top{padding-block:40px 24px;display:grid;gap:14px;max-width:780px}
+header.top h1{font-size:clamp(36px,6vw,60px);font-weight:750;line-height:1;font-variation-settings:"opsz" 96}
+header.top h1 em{font-family:"Instrument Serif",serif;font-weight:400;font-style:italic;letter-spacing:0}
+header.top p{margin:0;color:var(--ink2);font-size:17px;max-width:64ch}
+.steps b{font:500 12px var(--mono);color:var(--accent)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px clamp(16px,3vw,28px);display:grid;gap:14px;margin-bottom:28px}
+.panel h2{font-size:22px}
+.panel .lead{margin:0;color:var(--ink2);max-width:72ch}
+.sentence{font-size:clamp(16px,2vw,20px);line-height:2.3;margin:0}
+.chip small{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+
+.xt{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+.xt th,.xt td{text-align:left;vertical-align:top;padding:10px 10px;border-top:1px solid var(--line)}
+.xt tbody th{font-weight:600;width:16%}
+.xt td a{display:inline-block;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:6px;padding:2px 7px;margin:0 2px 4px 0;font-weight:500;font-size:13.5px}
+
+.layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:12px}
+.index nav{display:grid;gap:2px}
+.index nav a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink2);padding:6px 10px;border-radius:7px;font-size:14px}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  .index{top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:10px;z-index:5;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+  .index nav{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .index nav a{white-space:nowrap;background:var(--panel);border:1px solid var(--line);padding:5px 10px}
+}
+
+.ghead{display:grid;gap:4px;margin-bottom:16px;max-width:72ch}
+.ghead h2{font-size:28px;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:100px;transition:box-shadow .3s}
+.ex{aspect-ratio:16/10;max-width:100%;background:var(--tile);position:relative;overflow:hidden;container-type:inline-size}
+.cbody h3{font-size:19px;font-weight:700;line-height:1.2}
+.ref b{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-right:4px}
+.phrase code{display:block;font:13px/1.45 var(--mono);background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.foot{border-top:1px solid var(--line);margin-top:12px;padding-block:20px;color:var(--ink3);font-size:13px;max-width:72ch}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;margin-bottom:32px}
+.tile .ex *{animation:none!important}
+.tbody h3{font-size:22px;font-weight:700}
+.subhead{padding-block:28px 20px;display:grid;gap:8px;max-width:780px}
+.subhead h1{font-size:clamp(32px,5vw,48px);font-weight:750;line-height:1.05}
+@media (max-width:900px){.subhead{padding-block:20px 8px}}
+
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(30,20,10,.08);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));z-index:10}
+.tray-bar .count small{display:block;font-weight:400;color:var(--ink2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tray-body{display:grid;gap:10px;max-height:62vh;overflow:auto}
+.tray-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.tray-body label{font-size:13px;color:var(--ink2);display:block;margin-bottom:3px}
+.stacks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.stacks button{font:12.5px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:3px 9px;cursor:pointer}
+.stacks button:hover{border-color:var(--accent);color:var(--ink)}
+.tray-body pre{margin:0;max-height:34vh;overflow:auto;background:var(--bg);border-radius:9px;padding:12px;font:13px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* ======================================================
+   SPECIMEN KIT. Every example is a .stg: a 32em x 20em stage
+   that scales with the card (1em = 1/32 of the card width).
+   Examples are set in real fonts loaded from Google Fonts.
+   ====================================================== */
+.stg{position:absolute;inset:0;font-size:calc(100cqw / 32);font-family:var(--body);color:var(--ink);line-height:1.2;overflow:hidden}
+.stg *{box-sizing:border-box}
+.stg.c{display:flex;align-items:center;justify-content:center;gap:1.2em;padding:1em;text-align:center}
+.stg.col{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6em;padding:1em;text-align:center}
+.stg.dk{background:#121110;color:#F3EEE3}
+.stg .abs{position:absolute}
+.stg .row{display:flex;align-items:center;gap:.6em}
+.stg .colm{display:flex;flex-direction:column;gap:.4em}
+.stg .f1{flex:1;min-width:0}
+.stg .mu{color:var(--ink3)}
+.stg .ac{color:var(--accent)}
+.stg .ln{display:block;height:.42em;border-radius:.2em;background:var(--g2);margin-top:.42em}
+/* classification specimen */
+.stg .fc{position:absolute;inset:1em 1.5em;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:1.3em;align-items:center}
+.stg .fc-g{font-size:8.4em;line-height:1;white-space:nowrap}
+.stg .fc-r{display:flex;flex-direction:column;gap:.55em;min-width:0}
+.stg .fc-w{font-size:2.2em;line-height:1.05;white-space:nowrap;overflow:hidden}
+.stg .fc-p{font-size:.98em;line-height:1.35;color:var(--ink2)}
+.stg .fc-s{font:500 .52em/1.3 var(--mono);color:var(--ink3);text-transform:uppercase;letter-spacing:.1em}
+/* pairing specimen */
+.stg .pr{position:absolute;inset:1.1em 1.7em;display:flex;flex-direction:column;justify-content:center;gap:.55em;text-align:left}
+.stg .pr-k{font-size:.68em;text-transform:uppercase;letter-spacing:.16em;color:var(--accent);font-weight:600}
+.stg .pr-h{font-size:2.5em;line-height:1.02;letter-spacing:-.01em}
+.stg .pr-b{font-size:.92em;line-height:1.45;color:var(--ink2);max-width:29em}
+.stg .pr-l{font:500 .48em var(--mono);color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;margin-top:.4em}
+/* paper page */
+.stg .ppr{position:absolute;inset:.85em 1.3em;font-size:1.15em;background:var(--scr);border-radius:.4em;box-shadow:0 .2em .9em rgba(40,30,10,.13);padding:1.1em 1.5em;overflow:hidden;text-align:left}
+.stg .lab{position:absolute;right:1em;bottom:.7em;font:500 .46em var(--mono);color:var(--ink3);letter-spacing:.08em;text-transform:uppercase;z-index:3}
+.stg .lab.l{right:auto;left:1em}
+.stg .lab.t{bottom:auto;top:.7em}
+.stg .cap{font:500 .46em/1.3 var(--mono);color:var(--ink3);letter-spacing:.08em;text-transform:uppercase}
+.stg .bad{color:var(--red)} .stg .good{color:var(--ok)}
+.stg .gl{position:absolute;left:0;right:0;border-top:1px dashed var(--x4)}
+.stg .an{position:absolute;font:500 .44em var(--mono);color:var(--x4);letter-spacing:.04em;white-space:nowrap}
+.stg .hl{background:linear-gradient(transparent 55%,var(--x2l) 55% 90%,transparent 90%)}
+/* motion */
+@keyframes blink{50%{opacity:0}}
+@keyframes wght{0%,100%{font-variation-settings:"wght" 100,"wdth" 62}50%{font-variation-settings:"wght" 900,"wdth" 125}}
+@keyframes wonly{0%,100%{font-weight:200}50%{font-weight:900}}
+@keyframes marq{to{transform:translateX(-50%)}}
+@keyframes type{from{width:0}to{width:var(--w,14ch)}}
+@keyframes rise{0%,8%{transform:translateY(110%);opacity:0}22%,80%{transform:translateY(0);opacity:1}95%,100%{transform:translateY(-40%);opacity:0}}
+@keyframes rot{0%,28%{transform:translateY(0)}33%,61%{transform:translateY(-1.15em)}66%,95%{transform:translateY(-2.3em)}100%{transform:translateY(-3.45em)}}
+@keyframes flick{0%,18%,22%,25%,53%,57%,100%{opacity:1}20%,24%,55%{opacity:.35}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glitch{0%,86%,100%{transform:none}88%{transform:translate(-.06em,.03em)}92%{transform:translate(.08em,-.02em)}96%{transform:translate(-.03em,0)}}
+.stg .cur{animation:blink 1s steps(1) infinite}
+@media (prefers-reduced-motion: reduce){.ex *{animation:none!important}}

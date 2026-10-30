@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Software Architecture Workbook</title>
+<meta name="description" content="The names for how software is shaped, from the whole system down to a single function: architectural styles, messaging and data patterns, APIs, reliability, classic design patterns and the principles behind them. Each card has a small diagram, what the pattern costs you, and a phrase you can paste into a coding prompt.">
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500;600&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<link rel="stylesheet" href="../../assets/base.css">
+<link rel="stylesheet" href="../../assets/workbook.css">
+<link rel="stylesheet" href="workbook.css">
+</head>
+<body>
+<div class="wrap">
+  <div id="home">
+    <header class="top">
+      <div class="eyebrow" id="homeCount">Workbook</div>
+      <h1>Software <span>Architecture</span></h1>
+      <p>The names for how software is shaped, from the whole system down to a single function: architectural styles, messaging and data patterns, APIs, reliability, classic design patterns and the principles behind them. Each card has a small diagram, what the pattern costs you, and a phrase you can paste into a coding prompt.</p>
+      <ol class="steps">
+        <li><b>1</b>Pick a subject and browse until a diagram matches the shape you have in mind</li>
+        <li><b>2</b>Press Add on the patterns that fit, and on the mistakes to avoid</li>
+        <li><b>3</b>Say what you're building and its limits, then copy the prompt</li>
+      </ol>
+      <input class="search" id="qh" type="search" placeholder="Search every page…" aria-label="Search every page">
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+    <div id="results" hidden></div>
+
+    <section class="panel" id="recipe" aria-labelledby="recipeH">
+      <h2 id="recipeH">Anatomy of an architecture prompt</h2>
+      <p class="lead">An architecture prompt that lands names the overall shape, how the parts talk, where the data lives, how it fails, and the one or two mistakes to steer clear of. Here is what that sounds like for five kinds of system. Tap any term to jump to its card.</p>
+      <div class="recipes" id="recipes"></div>
+      <ul class="tips">
+        <li><strong>State the limits first</strong>Team size, expected load, budget and how long it must live. "Three developers, 10k users, one Postgres" rules out half the patterns before you start.</li>
+        <li><strong>Ask for the tradeoff</strong>Every pattern here costs something. Asking Claude to name the cost of each choice, and what would make it change its mind, catches over-engineering early.</li>
+        <li><strong>Name what to avoid</strong>"No distributed monolith, no shared database between services." Saying the failure out loud is often clearer than describing the success.</li>
+        <li><strong>Point at the code shape too</strong>"Hexagonal, with ports in the domain package" or "vertical slices per feature" decides where every new file goes.</li>
+      </ul>
+    </section>
+
+    <section class="panel" id="xlate" aria-labelledby="xlateH">
+      <h2 id="xlateH">Problem to pattern</h2>
+      <p class="lead">Start from the problem you actually have. Read across from the simplest thing that works, to what you reach for when it grows, to the mistake people usually make.</p>
+      <div class="xwrap"><table class="xt" id="xtable"></table></div>
+    </section>
+  </div>
+
+  <div id="subject" hidden>
+    <header class="subhead">
+      <a class="back" href="#">← All subjects</a>
+      <h1 id="subTitle"></h1>
+      <p id="subBlurb"></p>
+    </header>
+    <div class="layout">
+      <aside class="index">
+        <input class="search" id="q" type="search" placeholder="Search this page…" aria-label="Search this page">
+        <nav id="nav" aria-label="Sections"></nav>
+      </aside>
+      <main id="main"></main>
+    </div>
+  </div>
+
+  <p class="foot"><a href="../../">← All workbooks</a> · A companion to the UI Patterns and Voice &amp; Tone workbooks. Each subject is its own page with the same card format, and the prompt tray collects picks from all of them. Picks are saved in this browser only.</p>
+</div>
+
+<div class="tray" id="tray">
+  <div class="tray-in">
+    <div class="tray-bar">
+      <div class="count" id="count">Nothing picked yet<small>Press Add on any card to start a prompt</small></div>
+      <button class="btn" id="toggle" aria-expanded="false">Show prompt</button>
+      <button class="btn primary" id="copyAll">Copy prompt</button>
+    </div>
+    <div class="tray-body" id="trayBody" hidden>
+      <div class="fmt"><span>Format</span>
+        <div class="seg" role="group" aria-label="Prompt format">
+          <button type="button" id="fmt-design" data-fmt="design" aria-pressed="true">Design request</button>
+          <button type="button" id="fmt-guide" data-fmt="guide" aria-pressed="false">Project rules</button>
+        </div>
+        <span id="fmtHint">A one-off ask: design or build this system.</span>
+      </div>
+      <div class="tray-fields">
+        <div>
+          <label for="subject-in">What are you building?</label>
+          <input id="subject-in" type="text" placeholder="e.g. an order service, a photo-sharing app, a CLI">
+        </div>
+        <div>
+          <label for="limits-in">Limits (optional)</label>
+          <input id="limits-in" type="text" placeholder="e.g. 3 devs, 10k users, one Postgres, ship in a month">
+        </div>
+        <div>
+          <label for="stack-in">Language and stack (optional)</label>
+          <input id="stack-in" type="text" placeholder="e.g. TypeScript on Node with Postgres">
+          <div class="stacks" id="stacks"></div>
+        </div>
+      </div>
+      <pre id="out"></pre>
+      <div class="btns"><button class="btn" id="clear">Clear picks</button></div>
+    </div>
+  </div>
+</div>
+<script src="workbook.js"></script>
+</body>
+</html>

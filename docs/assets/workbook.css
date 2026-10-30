@@ -1,0 +1,60 @@
+/* Rules every workbook shares (cards, index, tray, tiles) */
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.wrap{max-width:1240px;margin:0 auto}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.eyebrow{font:500 12px/1 var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--ink2)}
+.steps{display:flex;flex-wrap:wrap;gap:8px 20px;margin:4px 0 0;padding:0;list-style:none;color:var(--ink2);font-size:14px}
+.steps li{display:flex;gap:8px;align-items:baseline}
+.chip{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;vertical-align:middle;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:8px;padding:4px 9px 3px;margin:0 1px;font-weight:600}
+.chip:hover{outline:1.5px solid var(--accent)}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:4px 0 0;padding:0;list-style:none}
+.tips li{border-top:1px solid var(--line);padding-top:10px;font-size:14px;color:var(--ink2)}
+.tips li strong{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+.layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:12px}
+.search{width:100%;font:15px var(--body);padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.index nav{display:grid;gap:2px}
+.index nav a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink2);padding:6px 10px;border-radius:7px;font-size:14px}
+.index nav a span{font:12px var(--mono);color:var(--ink3);font-variant-numeric:tabular-nums}
+.index nav a:hover{background:var(--panel);color:var(--ink)}
+.group{padding-block:8px 36px;scroll-margin-top:90px}
+.ghead p{margin:0;color:var(--ink2)}
+.card.flash{box-shadow:0 0 0 3px var(--accent)}
+.card.picked{border-color:var(--accent)}
+.cbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
+.aka{font-size:12.5px;color:var(--ink3);margin-top:-4px}
+.desc{margin:0;font-size:14.5px;color:var(--ink2)}
+.ref{margin:0;font-size:13px;color:var(--ink2)}
+.phrase{margin-top:auto;display:grid;gap:8px;padding-top:6px}
+.btn{font:600 13px var(--body);border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btn:hover{border-color:var(--ink3)}
+.btn.add[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.empty{color:var(--ink2);padding:24px 0}
+.tray-in{max-width:1240px;margin:0 auto;display:grid;gap:12px}
+.tray-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tray-bar .count{font-weight:600;flex:1;min-width:0}
+.tray-body input{width:100%;font:15px var(--body);padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-decoration:none;color:var(--ink);transition:border-color .2s,transform .2s}
+.tile:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tbody{padding:14px 16px 16px;display:grid;gap:6px;min-width:0}
+.tbody p{margin:0;color:var(--ink2);font-size:14.5px}
+.tmeta{font:12px/1.5 var(--mono);color:var(--ink3)}
+#results{margin-bottom:28px}
+.subhead p{margin:0;color:var(--ink2);font-size:17px}
+.back{font:500 13px var(--mono);text-decoration:none;color:var(--accent)}
+.next{display:inline-block;margin-block:8px 24px;font-weight:600;text-decoration:none;color:var(--accent);font-size:16px}
+.ghead .eyebrow{margin-bottom:2px}
+.xwrap{overflow-x:auto;margin-inline:-4px;padding-inline:4px}
+.xt thead th{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);border-top:0;padding-top:0}
+.xt tbody th small{display:block;font-weight:400;color:var(--ink3);font-size:12.5px;margin-top:2px}
+.xt td a:hover{outline:1.5px solid var(--accent)}
+.recipes{display:grid;gap:18px}
+.rcp{display:grid;gap:4px;border-top:1px solid var(--line);padding-top:14px}
+.rcp:first-child{border-top:0;padding-top:0}
+.rcp .eyebrow{color:var(--ink3)}
+html{-webkit-text-size-adjust:100%}
+header.top .search{max-width:420px;margin-top:6px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}

@@ -1,0 +1,176 @@
+/* Layout: a graphics desk's plotting sheet. Home page of topic tiles, one page per topic with a sticky section index, cards whose example is a real chart drawn from data on a fine plotting grid, and a prompt tray docked at the bottom. Ink blue is the accent; the six series colors are the workbook's own validated categorical palette. */
+:root{
+  --bg:#ECEFF3; --panel:#FFFFFF; --sheet:#FBFCFD; --ink:#141C2B; --ink2:#465166; --ink3:#828CA0; --line:#D6DCE5; --grid:#E6EAF0;
+  --accent:#2440B8; --accent-soft:#E3E8FA; --warn:#C23A4E; --warn-soft:#FBE4E8;
+  --c1:#2F6BD8; --c2:#E5822F; --c3:#169A82; --c4:#9257D9; --c5:#D4415C; --c6:#8E9A23; --cg:#BFC6D2;
+  --display:"Libre Franklin", "Franklin Gothic Medium", "Helvetica Neue", Arial, sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E131B; --panel:#161D28; --sheet:#121924; --ink:#E5EAF2; --ink2:#A8B2C4; --ink3:#6D788C; --line:#273142; --grid:#1D2533;
+  --accent:#8EA6FF; --accent-soft:#1F2A4D; --warn:#FF7D92; --warn-soft:#3D1C24;
+  --c1:#6A9EF7; --c2:#F2A15E; --c3:#3FCCB0; --c4:#B88CF2; --c5:#F37A92; --c6:#C1CD52; --cg:#465065;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0E131B; --panel:#161D28; --sheet:#121924; --ink:#E5EAF2; --ink2:#A8B2C4; --ink3:#6D788C; --line:#273142; --grid:#1D2533;
+  --accent:#8EA6FF; --accent-soft:#1F2A4D; --warn:#FF7D92; --warn-soft:#3D1C24;
+  --c1:#6A9EF7; --c2:#F2A15E; --c3:#3FCCB0; --c4:#B88CF2; --c5:#F37A92; --c6:#C1CD52; --cg:#465065;
+  color-scheme:dark;
+}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.015em}
+
+header.top{padding-block:40px 24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:14px 40px;align-items:end}
+header.top .hl{display:grid;gap:14px;min-width:0}
+header.top h1{font-size:clamp(40px,6.4vw,70px);line-height:.95;font-weight:850;letter-spacing:-.03em}
+header.top h1 em{font-style:italic;font-weight:300;color:var(--accent)}
+header.top p{margin:0;color:var(--ink2);font-size:17.5px;max-width:64ch}
+.steps{display:flex;flex-wrap:wrap;gap:8px 20px;margin:4px 0 0;padding:0;list-style:none;color:var(--ink2);font-size:15px}
+.steps b{font:600 12px var(--mono);color:var(--accent)}
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px 8px;min-width:0}
+.hero .slab{margin-top:4px}
+@media (max-width:860px){header.top{grid-template-columns:minmax(0,1fr)}.hero{max-width:420px}}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px clamp(16px,3vw,28px);display:grid;gap:14px;margin-bottom:28px;min-width:0}
+.panel h2{font-size:25px;font-weight:800}
+.panel .lead{margin:0;color:var(--ink2);max-width:74ch}
+.sentence{font-size:clamp(16px,2vw,19px);line-height:2.3;margin:0}
+.chip{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;vertical-align:middle;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:6px;padding:4px 9px 3px;margin:0 1px;font-weight:600}
+.chip small{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+.chip.avoid{background:var(--warn-soft)}
+.chip.avoid small{color:var(--warn)}
+.tips li{border-top:1px solid var(--line);padding-top:10px;font-size:15px;color:var(--ink2)}
+.tips li strong{display:block;color:var(--ink);font-weight:700;margin-bottom:2px}
+
+/* one dataset, every chart */
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:500 14px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:5px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.same{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+.same .stage{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.same .read{display:grid;gap:10px;min-width:0}
+.same .read h3{font-size:22px;font-weight:800}
+.same .read p{margin:0;color:var(--ink2)}
+.same .read .ans{border-left:3px solid var(--accent);padding-left:12px;color:var(--ink)}
+.same .read .ans b{display:block;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:2px}
+.same table{border-collapse:collapse;font:13px/1.3 var(--mono);font-variant-numeric:tabular-nums;width:100%}
+.same td,.same th{padding:3px 4px;text-align:right;border-top:1px solid var(--line)}
+.same th{color:var(--ink3);font-weight:500}
+.same td:first-child,.same th:first-child{text-align:left}
+@media (max-width:860px){.same{grid-template-columns:minmax(0,1fr)}}
+
+.xt{border-collapse:collapse;width:100%;min-width:900px;font-size:15px}
+.xt th,.xt td{text-align:left;vertical-align:top;padding:10px;border-top:1px solid var(--line)}
+.xt thead th.av{color:var(--warn)}
+.xt tbody th{font-weight:700;width:17%}
+.xt tbody th small{display:block;font-weight:400;color:var(--ink3);font-size:13px;margin-top:2px}
+.xt td a{display:inline-block;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:5px;padding:2px 7px;margin:0 2px 4px 0;font-weight:500;font-size:14px}
+.xt td.av a{background:var(--warn-soft)}
+
+.layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:32px;align-items:start}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:12px}
+.search{width:100%;font:16px var(--body);padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.index nav{display:grid;gap:2px}
+.index nav a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink2);padding:6px 10px;border-radius:6px;font-size:15px}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  .index{top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:10px;z-index:5;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+  .index nav{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .index nav a{white-space:nowrap;background:var(--panel);border:1px solid var(--line);padding:5px 10px}
+}
+
+.ghead{display:grid;gap:4px;margin-bottom:16px;max-width:74ch}
+.ghead h2{font-size:30px;font-weight:800}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:100px;transition:box-shadow .3s;min-width:0}
+.card.picked{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.card.avoid.picked{border-color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn)}
+.ex{position:relative;background-color:var(--sheet);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:12px 12px;background-position:-1px -1px;border-bottom:1px solid var(--line);padding:10px 10px 6px;min-width:0}
+.badge{position:absolute;top:8px;left:8px;font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn);background:var(--panel);border:1px solid var(--warn);border-radius:4px;padding:4px 6px;z-index:2}
+.cbody h3{font-size:20px;font-weight:750;line-height:1.15}
+.aka{font-size:13px;color:var(--ink3);margin-top:-4px}
+.desc{margin:0;font-size:15px;color:var(--ink2)}
+.ref{margin:0;font-size:14px;color:var(--ink2)}
+.ref b{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-right:5px}
+.ref.cost b{color:var(--warn)}
+.phrase code{display:block;font:12.5px/1.5 var(--mono);background:var(--bg);border:1px dashed var(--line);border-radius:6px;padding:8px 10px;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.btn{font:600 14px var(--body);border-radius:7px;padding:6px 12px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.avoid .btn.add[aria-pressed="true"]{background:var(--warn);border-color:var(--warn)}
+.foot{border-top:1px solid var(--line);margin-top:12px;padding-block:20px;color:var(--ink3);font-size:14px;max-width:74ch}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:16px;margin-bottom:32px}
+.tile{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;text-decoration:none;color:var(--ink);transition:border-color .2s,transform .2s}
+.tbody h3{font-size:24px;font-weight:800}
+.tbody p{margin:0;color:var(--ink2);font-size:15px}
+.subhead{padding-block:28px 20px;display:grid;gap:8px;max-width:800px}
+.subhead h1{font-size:clamp(34px,5vw,52px);line-height:1;font-weight:850;letter-spacing:-.03em}
+.subhead p{margin:0;color:var(--ink2);font-size:17.5px}
+.next{display:inline-block;margin-block:8px 24px;font-weight:700;text-decoration:none;color:var(--accent);font-size:17px}
+@media (max-width:900px){.subhead{padding-block:20px 8px}}
+
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(10,20,40,.08);padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:10}
+.tray-bar .count{font-weight:700;flex:1;min-width:0}
+.tray-bar .count small{display:block;font-weight:400;color:var(--ink2);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tray-body{display:grid;gap:10px;max-height:64vh;overflow:auto}
+.tray-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.tray-body label{font-size:14px;color:var(--ink2);display:block;margin-bottom:3px}
+.tray-body input{width:100%;font:16px var(--body);padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.stacks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.stacks button{font:13px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:3px 9px;cursor:pointer}
+.stacks button:hover{border-color:var(--accent);color:var(--ink)}
+.fmt{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fmt button{font:600 14px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:7px;padding:5px 11px;cursor:pointer}
+.fmt button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.fmt small{color:var(--ink3);font-size:13px}
+.tray-body pre{margin:0;max-height:34vh;overflow:auto;background:var(--bg);border-radius:8px;padding:12px;font:13px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* ======================================================
+   CHART KIT. Every example is an SVG on a 320 x 190 sheet,
+   drawn from data with one scale per axis.
+   ====================================================== */
+.vz{display:block;width:100%;height:auto;max-width:100%;overflow:visible}
+.vzn{overflow:visible}
+.vz.clip{overflow:hidden}
+.vz .halo{paint-order:stroke;stroke:var(--sheet);stroke-width:3px;stroke-linejoin:round}
+.card.avoid .ex{padding-top:30px}
+.same .stage .vz{max-width:600px;margin:0 auto}
+@media (min-width:1000px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.tile:nth-child(1),.tile:nth-child(4){grid-column:span 2}.tile:nth-child(1) .ex .vz,.tile:nth-child(4) .ex .vz{max-height:236px}}
+.vz text{font:500 8.5px var(--mono);fill:var(--ink3)}
+.vz .lb{font:600 9.5px var(--body);fill:var(--ink2)}
+.vz .lbk{font:700 9.5px var(--body);fill:var(--ink)}
+.vz .ti{font:800 12px var(--display);fill:var(--ink);letter-spacing:-.01em}
+.vz .st{font:400 9.5px var(--body);fill:var(--ink2)}
+.vz .an{font:600 9px var(--body);fill:var(--ink)}
+.vz .big{font:800 34px var(--display);fill:var(--ink);letter-spacing:-.03em}
+.vz .gr{stroke:var(--grid);stroke-width:1;fill:none}
+.vz .ax{stroke:var(--ink3);stroke-width:1;fill:none}
+.vz .ink{stroke:var(--ink);stroke-width:1;fill:none}
+.vz .inkf{fill:var(--ink)}
+.vz .wht{fill:var(--sheet)}
+.vz .pnl{fill:var(--panel);stroke:var(--line)}
+.vz .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.vz .thin{stroke-width:1.2}
+.vz .fat{stroke-width:3}
+.vz .dash{stroke-dasharray:4 3}
+.vz .dot{stroke-dasharray:1 3}
+.vz .k1{fill:var(--c1)} .vz .k2{fill:var(--c2)} .vz .k3{fill:var(--c3)} .vz .k4{fill:var(--c4)} .vz .k5{fill:var(--c5)} .vz .k6{fill:var(--c6)} .vz .kg{fill:var(--cg)} .vz .ka{fill:var(--accent)} .vz .kw{fill:var(--warn)}
+.vz .l1{stroke:var(--c1)} .vz .l2{stroke:var(--c2)} .vz .l3{stroke:var(--c3)} .vz .l4{stroke:var(--c4)} .vz .l5{stroke:var(--c5)} .vz .l6{stroke:var(--c6)} .vz .lg{stroke:var(--cg)} .vz .la{stroke:var(--accent)} .vz .lw{stroke:var(--warn)} .vz .li{stroke:var(--ink)} .vz .l3i{stroke:var(--ink3)}
+.vz .t1{fill:var(--c1)} .vz .t2{fill:var(--c2)} .vz .t3{fill:var(--c3)} .vz .t4{fill:var(--c4)} .vz .t5{fill:var(--c5)} .vz .tw{fill:var(--warn)} .vz .ta{fill:var(--accent)}
+.vz .q0{fill:color-mix(in srgb,var(--c1) 6%,var(--sheet))} .vz .q1{fill:color-mix(in srgb,var(--c1) 18%,var(--sheet))} .vz .q2{fill:color-mix(in srgb,var(--c1) 34%,var(--sheet))} .vz .q3{fill:color-mix(in srgb,var(--c1) 52%,var(--sheet))} .vz .q4{fill:color-mix(in srgb,var(--c1) 70%,var(--sheet))} .vz .q5{fill:color-mix(in srgb,var(--c1) 86%,var(--ink))} .vz .q6{fill:color-mix(in srgb,var(--c1) 62%,var(--ink))}
+.vz .m3{fill:var(--c5)} .vz .m2{fill:color-mix(in srgb,var(--c5) 62%,var(--sheet))} .vz .m1{fill:color-mix(in srgb,var(--c5) 28%,var(--sheet))} .vz .z0{fill:color-mix(in srgb,var(--ink) 7%,var(--sheet))} .vz .p1{fill:color-mix(in srgb,var(--c1) 28%,var(--sheet))} .vz .p2{fill:color-mix(in srgb,var(--c1) 62%,var(--sheet))} .vz .p3{fill:var(--c1)}
+.vz .o2{opacity:.22} .vz .o4{opacity:.4} .vz .o6{opacity:.6} .vz .o8{opacity:.8}
+.vz .sw{stroke:var(--sheet);stroke-width:1}
+.vz .sw2{stroke:var(--sheet);stroke-width:2}
+.vz .nf{fill:none}
+.slab{font:500 10px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--ink3)}
+.swatch{display:flex;height:14px;border-radius:3px;overflow:hidden;margin:2px 0 4px}
+.swatch i{flex:1}
+.ex .anim .grow{transform-box:fill-box;transform-origin:bottom;animation:grow 2.4s ease-in-out infinite alternate}
+@keyframes grow{0%,20%{transform:scaleY(.55)}80%,100%{transform:scaleY(1)}}
+.ex .anim .pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){.ex *{animation:none!important}}

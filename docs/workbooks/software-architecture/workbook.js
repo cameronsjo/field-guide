@@ -1,0 +1,4336 @@
+/* ---------- diagram kit: a builder that draws on a 320 x 200 grid ---------- */
+const xe = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const r1 = n => Math.round(n * 10) / 10;
+class Dg {
+  constructor() { this.out = []; }
+  _lines(label) { return String(label).split('\n'); }
+  _w(label, size = 11.5) { return Math.max(46, Math.max(...this._lines(label).map(l => l.length)) * size * 0.58 + 18); }
+  _label(x, y, label, o = {}) {
+    const ls = this._lines(label), lh = o.lh || 13.5, y0 = y - (ls.length - 1) * lh / 2;
+    return ls.map((l, i) => `<text x="${r1(x)}" y="${r1(y0 + i * lh)}" text-anchor="middle" class="${o.cls || ''}">${xe(l)}</text>`).join('');
+  }
+  // a rounded box centered on x,y. o: { w, h, sub, dash, r (corner radius), bold }
+  box(x, y, label, c = 'n', o = {}) {
+    const n = this._lines(label).length, sub = o.sub ? 1 : 0;
+    const w = o.w || Math.max(this._w(label), o.sub ? this._w(o.sub, 9.5) : 0), h = o.h || n * 13.5 + 14 + sub * 11;
+    const rx = o.r == null ? 5 : o.r;
+    this.out.push(`<g class="c-${c}"><rect class="nd${o.dash ? ' dash' : ''}" x="${r1(x - w / 2)}" y="${r1(y - h / 2)}" width="${r1(w)}" height="${r1(h)}" rx="${rx}"/>${this._label(x, y - sub * 5, label, { cls: o.bold === false ? '' : 'b' })}${o.sub ? `<text x="${r1(x)}" y="${r1(y + n * 6.75 + 1)}" text-anchor="middle" class="sm mono">${xe(o.sub)}</text>` : ''}</g>`);
+    return { x, y, w, h, s: 'r' };
+  }
+  // a database cylinder centered on x,y
+  db(x, y, label, c = 'n', o = {}) {
+    const w = o.w || Math.max(46, this._w(label) - 6), h = o.h || 42, e = 5, t = y - h / 2, b = y + h / 2, l = x - w / 2, r = x + w / 2;
+    this.out.push(`<g class="c-${c}"><path class="nd" d="M${r1(l)} ${r1(t + e)} A${r1(w / 2)} ${e} 0 0 1 ${r1(r)} ${r1(t + e)} V${r1(b - e)} A${r1(w / 2)} ${e} 0 0 1 ${r1(l)} ${r1(b - e)} Z"/><path class="nd" style="fill:none" d="M${r1(l)} ${r1(t + e)} A${r1(w / 2)} ${e} 0 0 0 ${r1(r)} ${r1(t + e)}"/>${this._label(x, y + 3, label, { cls: 'b' })}</g>`);
+    return { x, y, w, h, s: 'r' };
+  }
+  // a queue or log: a long box of slots, label underneath. o: { w, slots, filled, label above: top }
+  queue(x, y, label, c = 'n', o = {}) {
+    const w = o.w || 74, h = o.h || 22, n = o.slots || 6, f = o.filled == null ? 3 : o.filled, sw = w / n;
+    let s = `<g class="c-${c}"><rect class="nd" x="${r1(x - w / 2)}" y="${r1(y - h / 2)}" width="${w}" height="${h}" rx="3"/>`;
+    for (let i = 0; i < n; i++) {
+      if (i > 0) s += `<line x1="${r1(x - w / 2 + i * sw)}" y1="${r1(y - h / 2)}" x2="${r1(x - w / 2 + i * sw)}" y2="${r1(y + h / 2)}" class="ln k" style="stroke-width:1"/>`;
+      if (i >= n - f) s += `<rect class="solid" x="${r1(x - w / 2 + i * sw + 3)}" y="${r1(y - h / 2 + 4)}" width="${r1(sw - 6)}" height="${h - 8}" rx="1.5" opacity=".75"/>`;
+    }
+    if (label) s += `<text x="${x}" y="${r1(o.top ? y - h / 2 - 8 : y + h / 2 + 9)}" text-anchor="middle" class="sm b">${xe(label)}</text>`;
+    this.out.push(s + '</g>');
+    return { x, y, w, h, s: 'r' };
+  }
+  // a person or client
+  user(x, y, label = '', c = 'n') {
+    this.out.push(`<g class="c-${c}"><circle class="nd" cx="${x}" cy="${y - 8}" r="6"/><path class="nd" d="M${x - 11} ${y + 12} Q${x - 11} ${y} ${x} ${y} Q${x + 11} ${y} ${x + 11} ${y + 12} Z"/>${label ? `<text x="${x}" y="${y + 21}" text-anchor="middle" class="sm b">${xe(label)}</text>` : ''}</g>`);
+    return { x, y: y + 1, w: 24, h: 30, s: 'r' };
+  }
+  // a hexagon (flat sides left and right)
+  hex(x, y, r, label = '', c = 'n', o = {}) {
+    const p = [0, 60, 120, 180, 240, 300].map(a => { const t = (a + 30) * Math.PI / 180; return `${r1(x + r * Math.cos(t))},${r1(y + r * Math.sin(t))}`; }).join(' ');
+    this.out.push(`<g class="c-${c}"><polygon class="nd${o.dash ? ' dash' : ''}" points="${p}"/>${label ? this._label(x, o.ly == null ? y : o.ly, label, { cls: 'b' }) : ''}</g>`);
+    return { x, y, r: r * 0.92, s: 'c' };
+  }
+  // a circle; label inside, or at o.ly
+  circle(x, y, r, label = '', c = 'n', o = {}) {
+    this.out.push(`<g class="c-${c}"><circle class="nd${o.dash ? ' dash' : ''}" cx="${x}" cy="${y}" r="${r}"/>${label ? this._label(x, o.ly == null ? y : o.ly, label, { cls: o.small ? 'sm b' : 'b' }) : ''}</g>`);
+    return { x, y, r, s: 'c' };
+  }
+  // a dashed boundary; x,y is the TOP-LEFT corner. Draw zones first so they sit behind.
+  zone(x, y, w, h, label = '', c = 'n') {
+    this.out.push(`<g class="c-${c}"><rect class="zn k" x="${x}" y="${y}" width="${w}" height="${h}" rx="7"/>${label ? `<text x="${x + 7}" y="${y + 9}" class="zl k">${xe(label)}</text>` : ''}</g>`);
+    return { x: x + w / 2, y: y + h / 2, w, h, s: 'r' };
+  }
+  _edge(n, tx, ty, pad = 3) {
+    const dx = tx - n.x, dy = ty - n.y;
+    if (!dx && !dy) return [n.x, n.y];
+    if (n.s === 'c') { const d = Math.hypot(dx, dy); return [n.x + dx / d * (n.r + pad), n.y + dy / d * (n.r + pad)]; }
+    const hw = n.w / 2 + pad, hh = n.h / 2 + pad, k = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+    return [n.x + dx * k, n.y + dy * k];
+  }
+  _head(x, y, fx, fy, c) {
+    const a = Math.atan2(y - fy, x - fx), L = 7, W = 3.6;
+    const p = [[x, y], [x - L * Math.cos(a) + W * Math.sin(a), y - L * Math.sin(a) - W * Math.cos(a)], [x - L * Math.cos(a) - W * Math.sin(a), y - L * Math.sin(a) + W * Math.cos(a)]];
+    return `<polygon class="hd${c ? ' k' : ''}" points="${p.map(q => q.map(r1).join(',')).join(' ')}"/>`;
+  }
+  _tag(x, y, label) {
+    const w = String(label).length * 5.5 + 8;
+    return `<rect class="lbg" x="${r1(x - w / 2)}" y="${r1(y - 6.5)}" width="${r1(w)}" height="13" rx="3"/><text x="${r1(x)}" y="${r1(y)}" text-anchor="middle" class="sm mono">${xe(label)}</text>`;
+  }
+  // an arrow between two nodes, clipped to their edges.
+  // o: { label, dash, c (color key), both, none (no head), flow (animated), bend (curve offset, + bends left of travel), lx/ly (label offset), w (stroke width) }
+  link(a, b, o = {}) {
+    const bend = o.bend || 0, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const cx = mx + (-(b.y - a.y) / len) * bend * 2, cy = my + ((b.x - a.x) / len) * bend * 2;
+    const [x1, y1] = this._edge(a, bend ? cx : b.x, bend ? cy : b.y), [x2, y2] = this._edge(b, bend ? cx : a.x, bend ? cy : a.y);
+    const d = bend ? `M${r1(x1)} ${r1(y1)} Q${r1(cx)} ${r1(cy)} ${r1(x2)} ${r1(y2)}` : `M${r1(x1)} ${r1(y1)} L${r1(x2)} ${r1(y2)}`;
+    return this._stroke(d, [x1, y1], [x2, y2], bend ? [cx, cy] : null, o, bend ? [(x1 + 2 * cx + x2) / 4, (y1 + 2 * cy + y2) / 4] : [(x1 + x2) / 2, (y1 + y2) / 2]);
+  }
+  // an arrow along raw points [[x,y],...]; the head is drawn at the last point.
+  line(pts, o = {}) {
+    const d = 'M' + pts.map(p => p.map(r1).join(' ')).join(' L');
+    const m = Math.floor((pts.length - 1) / 2), mid = pts.length % 2 ? pts[m] : [(pts[m][0] + pts[m + 1][0]) / 2, (pts[m][1] + pts[m + 1][1]) / 2];
+    return this._stroke(d, pts[0], pts[pts.length - 1], null, o, mid, pts[1], pts[pts.length - 2]);
+  }
+  _stroke(d, p1, p2, ctrl, o, mid, after1, before2) {
+    const k = o.c ? ` k` : '', cls = `ln${k}${o.dash ? ' dash' : ''}${o.flow ? ' flow' : ''}`;
+    let s = `<g class="c-${o.c || 'n'}"><path class="${cls}" d="${d}"${o.w ? ` style="stroke-width:${o.w}"` : ''}/>`;
+    const from2 = before2 || ctrl || p1, from1 = after1 || ctrl || p2;
+    if (!o.none) s += this._head(p2[0], p2[1], from2[0], from2[1], o.c);
+    if (o.both) s += this._head(p1[0], p1[1], from1[0], from1[1], o.c);
+    if (o.label) s += this._tag(mid[0] + (o.lx || 0), mid[1] + (o.ly || 0), o.label);
+    this.out.push(s + '</g>');
+    return this;
+  }
+  // free text. o: { c (color key, uses the color), sm, mono, b (bold), mut (muted), a ('start'|'middle'|'end'), size }
+  text(x, y, s, o = {}) {
+    const cls = [o.sm ? 'sm' : '', o.mono ? 'mono' : '', o.b ? 'b' : '', o.mut ? 'mut' : ''].join(' ');
+    this.out.push(`<g class="c-${o.c || 'n'}">${this._lines(s).map((l, i) => `<text x="${x}" y="${y + i * (o.size ? o.size * 1.2 : (o.sm ? 11 : 13.5))}" text-anchor="${o.a || 'middle'}" class="${cls}"${o.c ? ' style="fill:var(--c)"' : ''}${o.size ? ` font-size="${o.size}"` : ''}>${xe(l)}</text>`).join('')}</g>`);
+    return this;
+  }
+  // a small pill tag, e.g. an event name or a version
+  tag(x, y, label, c = 'n') {
+    const w = String(label).length * 5.5 + 10;
+    this.out.push(`<g class="c-${c}"><rect class="nd" x="${r1(x - w / 2)}" y="${y - 7}" width="${r1(w)}" height="14" rx="7"/><text x="${x}" y="${y}" text-anchor="middle" class="sm mono">${xe(label)}</text></g>`);
+    return { x, y, w, h: 14, s: 'r' };
+  }
+  // a filled dot (a message, an event); o.pulse animates it
+  dot(x, y, c = 'a', r = 4, o = {}) { this.out.push(`<g class="c-${c}"><circle class="solid${o.pulse ? ' pulse' : ''}" cx="${x}" cy="${y}" r="${r}"/></g>`); return { x, y, r, s: 'c' }; }
+  // a red X that marks a failure
+  x(x, y, s = 6) { this.out.push(`<g class="c-r"><path class="ln k" style="stroke-width:2.4" d="M${x - s} ${y - s} L${x + s} ${y + s} M${x + s} ${y - s} L${x - s} ${y + s}"/></g>`); return this; }
+  // a green check
+  ok(x, y, s = 6) { this.out.push(`<g class="c-g"><path class="ln k" style="stroke-width:2.4" d="M${x - s} ${y} L${x - s / 3} ${y + s * .7} L${x + s} ${y - s * .7}"/></g>`); return this; }
+  raw(svg) { this.out.push(svg); return this; }
+}
+const dg = fn => { const b = new Dg(); fn(b); return `<svg class="dg" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${b.out.join('')}</svg>`; };
+
+/* code panel: write text with {cls|text} for colored spans. k keyword, s string, c comment, f function,
+   t type, n number, d dim, h highlight, r red, g green. Spans may nest. Literal braces: &#123; &#125;.
+   Keep lines <= 40 columns and <= 11 lines. */
+const ccol = s => { let p; do { p = s; s = s.replace(/\{([a-z ]+)\|([^{}]*)\}/g, (_, c, t) => `<span class="${c}">${t}</span>`); } while (s !== p); return s; };
+const code = (text, file = '') => `<div class="cd" data-f="${xe(file)}"><pre>${ccol(text.replace(/^\n/, '').replace(/<(?!\/?span)/g, '&lt;'))}</pre></div>`;
+
+/* ---------- workbook content ----------
+   Each section is a group pushed into pool.groups:
+   { id, title, slot, intro, terms:[{ id, name, aka, desc, use, cost, ref, prompt, avoid?, ex }] }
+*/
+const pool = { groups: [] };
+/* Architectural styles: system shapes and code structure */
+
+pool.groups.push({
+  id: 'shapes', title: 'System shapes', slot: 'System shape',
+  intro: 'How the whole system is split into deployable pieces and where those pieces run. Pick one as the starting shape; most real systems mix two.',
+  terms: [
+    { id: 'monolith', name: 'Monolith', aka: 'single deployable, classic monolith',
+      desc: 'The whole application is one codebase, one build and one process: UI, business logic and data access ship together and share one database. You scale it by running more identical copies behind a load balancer.',
+      use: 'a new product, a small team, or a domain that is still moving fast',
+      cost: 'without internal boundaries it tangles over time; every change redeploys everything and the whole app scales as one unit',
+      ref: 'Stack Overflow, early Shopify and GitHub (Rails), Martin Fowler "MonolithFirst"',
+      prompt: 'a single deployable monolith with one database, run as several stateless copies behind a load balancer; keep sessions and files out of local memory and disk so any copy can serve any request',
+      ex: dg(b => {
+        const u = b.user(26, 96, 'users');
+        const lb = b.box(84, 100, 'LB');
+        const apps = [48, 100, 152].map(y => b.box(178, y, 'App', 'a', { sub: 'ui+logic+data' }));
+        const d = b.db(278, 100, 'DB', 'c');
+        b.link(u, lb, { flow: true });
+        apps.forEach(a => { b.link(lb, a); b.link(a, d); });
+        b.text(178, 192, 'same build, N copies', { sm: true, mut: true });
+      }) },
+
+    { id: 'modularmonolith', name: 'Modular monolith', aka: 'modulith, majestic monolith',
+      desc: 'One deployable split inside into modules along business lines. Each module owns its tables and exposes a small public interface; other modules may only call that interface. You keep one build, one deploy and real transactions, with boundaries you can later cut along.',
+      use: 'most new systems with one to a few teams, or as the step before (or instead of) microservices',
+      cost: 'the boundaries only hold if tooling enforces them; everything still deploys and scales together',
+      ref: 'Shopify (Packwerk), Spring Modulith, Kamil Grzybek modular-monolith-with-ddd',
+      prompt: 'a modular monolith: one deployable split into modules by business capability, each owning its own schema and exposing a small public interface; no cross-module table access or imports of internals, enforced by an architecture test in CI',
+      ex: dg(b => {
+        b.zone(12, 24, 296, 162, 'one process, one deploy', 'n');
+        const o = b.box(68, 72, 'Orders', 'a'), bi = b.box(160, 72, 'Billing', 'b'), c = b.box(252, 72, 'Catalog', 'c');
+        b.link(o, bi, { both: true }); b.link(bi, c, { both: true });
+        b.text(114, 60, 'API', { sm: true, mono: true }); b.text(206, 60, 'API', { sm: true, mono: true });
+        const od = b.db(68, 148, 'orders', 'a'), bd = b.db(160, 148, 'billing', 'b'), cd = b.db(252, 148, 'catalog', 'c');
+        b.link(o, od); b.link(bi, bd); b.link(c, cd);
+        b.line([[90, 88], [128, 132]], { dash: true, c: 'r' }); b.x(110, 110, 5);
+      }) },
+
+    { id: 'microservices', name: 'Microservices', aka: 'service-based architecture',
+      desc: 'The system is split into small services, each owned by one team, deployed on its own and owning its own data. Services talk over the network through APIs or events, and no service reads another\'s database.',
+      use: 'many teams that need to ship independently, or parts with very different scaling or reliability needs',
+      cost: 'you trade in-process calls for network calls: partial failure, eventual consistency, distributed tracing, and a platform team to run it all',
+      ref: 'Netflix, Amazon, James Lewis & Martin Fowler "Microservices" (2014), Sam Newman "Building Microservices"',
+      prompt: 'microservices split by business capability, one team per service, each with its own datastore and CI/CD pipeline; synchronous calls only at the edge, events between services, and no shared database or shared domain library',
+      ex: dg(b => {
+        const u = b.user(40, 34, 'client');
+        const g = b.box(160, 32, 'API gateway');
+        const o = b.box(60, 100, 'Orders', 'a'), p = b.box(160, 100, 'Payments', 'b'), s = b.box(260, 100, 'Shipping', 'c');
+        b.link(u, g, { flow: true });
+        [o, p, s].forEach(n => b.link(g, n));
+        b.link(o, p, { dash: true, c: 'd' }); b.link(p, s, { dash: true, c: 'd' });
+        b.link(o, b.db(60, 160, 'db', 'a')); b.link(p, b.db(160, 160, 'db', 'b')); b.link(s, b.db(260, 160, 'db', 'c'));
+        b.text(210, 132, 'events', { sm: true, c: 'd' });
+      }) },
+
+    { id: 'soa', name: 'Service-oriented architecture', aka: 'SOA, ESB architecture, enterprise service bus',
+      desc: 'Large enterprise services (CRM, ERP, billing) plug into a central enterprise service bus. The bus routes messages, transforms formats and often runs orchestration logic, usually over SOAP/WSDL contracts.',
+      use: 'integrating many existing enterprise packages and legacy systems you cannot change',
+      cost: 'the bus becomes a central team and a single point of failure, and business logic leaks into its routing rules',
+      ref: 'MuleSoft, IBM App Connect (Integration Bus), Oracle Service Bus, Thomas Erl "SOA: Principles of Service Design"',
+      prompt: 'a service-oriented integration layer where systems talk through a central bus with canonical message formats; keep the bus to routing and format translation and keep business rules in the services',
+      ex: dg(b => {
+        const top = [['CRM', 'a', 60], ['ERP', 'b', 160], ['Billing', 'c', 260]].map(([l, c, x]) => b.box(x, 36, l, c));
+        const bot = [['Portal', 'n', 60], ['Legacy', 'n', 160], ['HR', 'd', 260]].map(([l, c, x]) => b.box(x, 164, l, c));
+        const bus = b.box(160, 100, 'Enterprise service bus', 'd', { w: 280, h: 38, sub: 'route · transform · orchestrate' });
+        top.forEach(n => b.link(n, bus, { both: true })); bot.forEach(n => b.link(n, bus, { both: true }));
+      }) },
+
+    { id: 'serverless', name: 'Serverless functions', aka: 'FaaS, functions as a service, Lambda architecture (informal)',
+      desc: 'Code runs as short-lived functions that the cloud starts in response to events: an HTTP request, a queue message, a file upload or a schedule. The platform scales each function from zero to many instances and you pay per invocation.',
+      use: 'spiky or low traffic, event glue between managed services, and small teams who want no servers to run',
+      cost: 'cold starts, execution time limits, hard local testing, and per-request pricing that gets expensive at steady high load',
+      ref: 'AWS Lambda, Azure Functions, Google Cloud Run functions, SST, Serverless Framework',
+      prompt: 'serverless functions triggered by HTTP, queue and schedule events, one function per use case, stateless with state in a managed database; set timeouts and concurrency limits per function and send failed events to a dead-letter queue',
+      ex: dg(b => {
+        const h = b.box(52, 44, 'HTTP', 'n'), q = b.queue(52, 100, 'queue', 'n', { w: 60, slots: 4, filled: 2 }), t = b.box(52, 156, 'cron', 'n');
+        [64, 100, 136].forEach((y, i) => { b.box(176, y + 6, '', 'a', { w: 70, h: 26, dash: true }); });
+        const f1 = b.box(170, 58, 'fn', 'a', { w: 70, h: 26 }), f2 = b.box(170, 94, 'fn', 'a', { w: 70, h: 26 }), f3 = b.box(170, 130, 'fn', 'a', { w: 70, h: 26 });
+        b.link(h, f1, { flow: true }); b.link(q, f2); b.link(t, f3);
+        const d = b.db(276, 94, 'DB', 'c');
+        [f1, f2, f3].forEach(f => b.link(f, d, { dash: true }));
+        b.text(173, 30, 'scales 0..N', { sm: true, b: true, c: 'a' });
+        b.text(173, 178, 'billed per call', { sm: true, mut: true });
+      }) },
+
+    { id: 'macroservices', name: 'Right-sized services', aka: 'macroservices, miniservices, a few services',
+      desc: 'A handful of larger services, each matching one team and one big business area, instead of dozens of tiny ones. Inside, each service is a modular monolith. You split again only where a part has a clear need of its own.',
+      use: 'a few teams that want independent deploys without the overhead of running fifty services',
+      cost: 'services are bigger and less fine-grained to scale; you still pay network and data consistency costs at each boundary',
+      ref: 'Segment "Goodbye Microservices" (2018), Prime Video monitoring rewrite (2023), Team Topologies (Skelton & Pais)',
+      prompt: 'a small number of right-sized services (3 to 6), one per team and business area, each a modular monolith inside with its own database; split further only for a measured scaling, security or release-cadence need',
+      ex: dg(b => {
+        const zs = [['Shop', 'a', 10], ['Fulfil', 'b', 116], ['Finance', 'c', 222]].map(([l, c, x]) => {
+          b.zone(x, 22, 88, 132, l, c);
+          b.box(x + 44, 56, 'mod', c, { w: 60, h: 24 }); b.box(x + 44, 88, 'mod', c, { w: 60, h: 24 });
+          b.db(x + 44, 126, 'db', c, { h: 32 });
+          return { x: x + 44, y: 88, w: 88, h: 132, s: 'r' };
+        });
+        b.link(zs[0], zs[1], { both: true }); b.link(zs[1], zs[2], { both: true });
+        b.text(54, 176, 'team A', { sm: true, b: true, c: 'a' }); b.text(160, 176, 'team B', { sm: true, b: true, c: 'b' }); b.text(266, 176, 'team C', { sm: true, b: true, c: 'c' });
+      }) },
+
+    { id: 'cellbased', name: 'Cell-based architecture', aka: 'cellular architecture, bulkheaded cells, shuffle sharding (related)',
+      desc: 'The whole stack is deployed many times as independent cells, each serving a slice of customers with its own app servers and database. A thin router sends each tenant to its cell, so a bad deploy or overload hurts one cell and not everyone.',
+      use: 'large multi-tenant systems where blast radius matters more than a little extra infrastructure',
+      cost: 'more copies to run and upgrade, cross-cell features get hard, and the router plus tenant placement become critical code',
+      ref: 'AWS "Reducing the Scope of Impact with Cell-Based Architecture", Slack cellular migration (2023), DoorDash',
+      prompt: 'a cell-based architecture: identical full-stack cells (app, cache, database) each serving a fixed set of tenants, a thin stateless router mapping tenant to cell, deploys rolled out cell by cell, and no calls between cells',
+      ex: dg(b => {
+        const r = b.box(160, 34, 'Cell router', 'n', { sub: 'tenant → cell' });
+        const cells = [['cell 1', 'a', 14], ['cell 2', 'r', 116], ['cell 3', 'a', 218]].map(([l, c, x]) => {
+          b.zone(x, 80, 88, 106, l, c);
+          const a = b.box(x + 44, 112, 'App', c, { w: 56, h: 26 });
+          b.link(a, b.db(x + 44, 160, 'db', c, { h: 32 }));
+          return a;
+        });
+        cells.forEach(a => b.link(r, a));
+        b.x(190, 92, 5);
+        b.ok(88, 92, 5); b.ok(292, 92, 5);
+      }) },
+
+    { id: 'spacebased', name: 'Space-based architecture', aka: 'tuple space, in-memory data grid architecture',
+      desc: 'Processing units each hold the hot data in a replicated in-memory grid, so requests never wait on the database. Changes replicate between units, and a data pump writes them to the database asynchronously in the background.',
+      use: 'very high, bursty load with mostly hot data, like ticketing, auctions or flash sales',
+      cost: 'complex to build and test, data in the grid can be lost or stale, and memory is the cost driver',
+      ref: 'Richards & Ford "Fundamentals of Software Architecture", Hazelcast, Apache Ignite, GigaSpaces',
+      prompt: 'space-based processing: stateless processing units that read and write a replicated in-memory data grid, with an asynchronous data pump persisting changes to the database and a reader that reloads the grid on cold start',
+      ex: dg(b => {
+        const u = b.user(24, 96, 'load');
+        const r = b.box(84, 100, 'Router');
+        const ps = [42, 100, 158].map(y => b.box(176, y, 'Unit', 'a', { sub: 'app + grid' }));
+        b.link(u, r, { flow: true });
+        ps.forEach(p => b.link(r, p));
+        b.link(ps[0], ps[1], { both: true, dash: true, c: 'a' }); b.link(ps[1], ps[2], { both: true, dash: true, c: 'a' });
+        const pump = b.queue(272, 62, 'data pump', 'c', { w: 60, slots: 4, filled: 3, top: true });
+        const d = b.db(272, 150, 'DB', 'c');
+        ps.forEach(p => b.link(p, pump, { dash: true, c: 'c' }));
+        b.link(pump, d, { c: 'c' });
+        b.text(140, 192, 'replicated in memory', { sm: true, c: 'a' });
+      }) },
+
+    { id: 'ntier', name: 'Client-server and n-tier', aka: '3-tier, three-tier architecture, client-server',
+      desc: 'The system is split into physical tiers: a presentation tier (browser or desktop client), an application tier holding the business logic, and a data tier. Each tier only talks to the one next to it, and each can be scaled and secured separately.',
+      use: 'classic business apps and web apps where a clear client, server and database split is all you need',
+      cost: 'logic tends to leak into the client or into stored procedures, and every request crosses at least two network hops',
+      ref: 'LAMP, Java EE, ASP.NET with SQL Server, Oracle Forms (2-tier)',
+      prompt: 'a 3-tier layout: a thin client, a stateless application tier that holds all business rules, and a database reachable only from the application tier, each tier in its own network zone',
+      ex: dg(b => {
+        b.zone(8, 22, 96, 164, 'presentation', 'b'); b.zone(112, 22, 96, 164, 'application', 'a'); b.zone(216, 22, 96, 164, 'data', 'c');
+        const u = b.user(56, 76, 'browser', 'b'), u2 = b.user(56, 136, 'mobile', 'b');
+        const a = b.box(160, 104, 'App server', 'a', { sub: 'rules' });
+        const d = b.db(264, 104, 'DB', 'c');
+        b.link(u, a, { flow: true }); b.link(u2, a); b.link(a, d, { both: true, label: 'SQL' });
+      }) },
+
+    { id: 'p2p', name: 'Peer-to-peer', aka: 'P2P, decentralized network',
+      desc: 'Every node is both client and server. Peers find each other through a distributed hash table or a tracker, then exchange data directly, so capacity grows as more peers join and there is no central server to fail.',
+      use: 'file distribution, collaboration without a server, or systems that must survive without a central operator',
+      cost: 'NAT traversal, trust and abuse, discovery and consistency are all yours to solve; peers come and go at random',
+      ref: 'BitTorrent, IPFS, libp2p, Kademlia DHT, Bitcoin',
+      prompt: 'a peer-to-peer design where each node runs the same code, discovers peers through a Kademlia-style DHT with bootstrap nodes, exchanges content-addressed chunks directly and verifies every chunk by hash',
+      ex: dg(b => {
+        const pts = [[160, 30], [252, 72], [252, 140], [160, 176], [68, 140], [68, 72]];
+        const ns = pts.map(([x, y], i) => b.circle(x, y, 18, 'peer', ['a', 'b', 'c', 'a', 'b', 'c'][i], { small: true }));
+        [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [0, 3], [1, 4], [2, 5]].forEach(([i, j]) => b.link(ns[i], ns[j], { both: true, w: 1 }));
+        const nw = b.circle(298, 30, 14, 'new', 'g', { small: true, dash: true });
+        b.link(nw, ns[1], { dash: true });
+        b.dot(206, 51, 'c', 3.5, { pulse: true });
+      }) },
+
+    { id: 'microfrontends', name: 'Micro-frontends', aka: 'micro frontends, frontend composition',
+      desc: 'The web UI is split into pieces that different teams build and deploy on their own, then composed in the browser or at the server by a thin shell. Each piece usually pairs with its own team\'s backend.',
+      use: 'a large web app with several teams who keep blocking each other in one frontend repo',
+      cost: 'bigger bundles, duplicated dependencies, inconsistent UX, and a shell and shared design system everyone depends on',
+      ref: 'single-spa, Module Federation (webpack, Rspack), Michael Geers "Micro Frontends in Action", Zalando, IKEA',
+      prompt: 'micro-frontends composed by a thin app shell that owns routing, auth and the design system; each team ships its fragment and its backend independently, fragments talk only through URL and custom DOM events, and shared libraries are pinned as singletons',
+      ex: dg(b => {
+        b.zone(10, 22, 170, 164, 'app shell (browser)', 'n');
+        const n = b.box(95, 52, 'nav', 'a', { w: 150, h: 26 });
+        const p = b.box(95, 106, 'product', 'b', { w: 150, h: 54 });
+        const c = b.box(95, 162, 'cart', 'c', { w: 150, h: 30 });
+        const na = b.box(260, 52, 'team A', 'a', { sub: 'deploy' }), pa = b.box(260, 106, 'team B', 'b', { sub: 'deploy' }), ca = b.box(260, 160, 'team C', 'c', { sub: 'deploy' });
+        b.link(na, n, { c: 'a' }); b.link(pa, p, { c: 'b' }); b.link(ca, c, { c: 'c' });
+      }) },
+
+    { id: 'scs', name: 'Self-contained systems', aka: 'SCS, verticals',
+      desc: 'Each system is a full vertical: its own web UI, logic and database, owned by one team. Systems integrate mainly through links and UI includes in the browser, and replicate data between them asynchronously, so one can be down while the others keep working.',
+      use: 'web-centric products where each business area can own its whole stack, UI included',
+      cost: 'UI consistency and cross-system navigation need discipline, and data is duplicated between systems',
+      ref: 'scs-architecture.org (INNOQ), Otto.de, Galeria',
+      prompt: 'self-contained systems: each business area is a separate web app with its own UI, logic and database, integrated through hyperlinks and server-side includes, sharing data only through async feeds, never by synchronous calls on the request path',
+      ex: dg(b => {
+        const cols = [['Search', 'a', 10], ['Checkout', 'b', 116], ['Account', 'c', 222]].map(([l, c, x]) => {
+          b.zone(x, 22, 88, 166, l, c);
+          const ui = b.box(x + 44, 56, 'UI', c, { w: 60, h: 24 }), lg = b.box(x + 44, 104, 'logic', c, { w: 60, h: 24 });
+          const d = b.db(x + 44, 154, 'db', c, { h: 34 });
+          b.link(ui, lg); b.link(lg, d);
+          return { ui, d };
+        });
+        b.link(cols[0].ui, cols[1].ui, { label: 'link' }); b.link(cols[1].ui, cols[2].ui, { label: 'link' });
+        b.link(cols[0].d, cols[1].d, { dash: true, c: 'd' }); b.link(cols[2].d, cols[1].d, { dash: true, c: 'd' });
+      }) },
+
+    { id: 'localfirst', name: 'Local-first', aka: 'offline-first, sync engine, CRDT sync',
+      desc: 'Each device keeps a full local copy of the user\'s data and the app reads and writes it directly, so it is instant and works offline. A sync layer exchanges changes in the background, and CRDTs or server reconciliation merge concurrent edits without conflicts.',
+      use: 'collaborative or productivity apps where speed, offline use and real-time multi-device editing matter',
+      cost: 'schema migrations, auth and partial sync get hard, and you must design for merges, deletes and data that lives on many devices',
+      ref: 'Ink & Switch "Local-first software" (2019), Automerge, Yjs, Linear sync engine, Replicache/Zero, ElectricSQL, PowerSync',
+      prompt: 'local-first: the UI reads and writes a local SQLite/IndexedDB store, mutations are queued and synced in the background through a sync server, and concurrent edits merge with CRDTs (Yjs or Automerge) so the app works fully offline',
+      ex: dg(b => {
+        const s = b.box(160, 36, 'Sync server', 'n', { sub: 'relay + backup' });
+        b.zone(14, 92, 120, 94, 'laptop', 'a'); b.zone(186, 92, 120, 94, 'phone', 'b');
+        const ua = b.box(74, 122, 'UI', 'a', { w: 56, h: 24 }), la = b.db(74, 164, 'local', 'a', { h: 30 });
+        const ub = b.box(246, 122, 'UI', 'b', { w: 56, h: 24 }), lb = b.db(246, 164, 'local', 'b', { h: 30 });
+        b.link(ua, la, { both: true }); b.link(ub, lb, { both: true });
+        b.line([[74, 92], [74, 36], [116, 36]], { both: true, dash: true, label: 'ops' });
+        b.line([[246, 92], [246, 36], [204, 36]], { both: true, dash: true, c: 'r' });
+        b.x(246, 68, 5); b.text(160, 120, 'offline:', { sm: true, c: 'r' }); b.text(160, 132, 'still works', { sm: true, c: 'r' });
+        b.tag(160, 164, 'CRDT merge', 'd');
+      }) },
+
+    { id: 'edgefirst', name: 'Edge-first', aka: 'edge computing, compute at the CDN edge',
+      desc: 'Request handling runs in many small points of presence close to users, on the CDN itself. Reads come from edge caches or replicated key-value stores, and only writes or misses travel back to a central origin database.',
+      use: 'global audiences where latency matters and most traffic is reads, personalization or auth checks',
+      cost: 'restricted runtimes, limited CPU time, and writes still pay the trip to one primary region; consistency across PoPs is eventual',
+      ref: 'Cloudflare Workers (KV, D1, Durable Objects), Vercel, Deno Deploy, Fastly Compute',
+      prompt: 'an edge-first setup: request handlers run on edge workers near users, serving reads from edge KV or cache with short TTLs, and forwarding writes to a single-region origin database with read-your-writes handled by a session token',
+      ex: dg(b => {
+        const ys = [44, 100, 156], cs = ['a', 'b', 'c'], ls = ['EU', 'US', 'APAC'];
+        const es = ys.map((y, i) => {
+          const u = b.user(28, y - 2, ls[i], cs[i]);
+          const e = b.box(122, y, 'Edge', cs[i], { sub: 'fn + KV' });
+          b.link(u, e, { flow: i === 1 });
+          return e;
+        });
+        const o = b.box(262, 100, 'Origin', 'n', { sub: 'primary DB' });
+        es.forEach(e => b.link(e, o, { dash: true }));
+        b.text(74, 192, '~10 ms', { sm: true, mono: true, c: 'g' }); b.text(200, 192, 'writes, misses', { sm: true, mut: true });
+      }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'codeshape', title: 'Inside the codebase', slot: 'Code structure',
+  intro: 'How code is organized inside one deployable: which parts may depend on which, and where the business rules live.',
+  terms: [
+    { id: 'layered', name: 'Layered architecture', aka: 'n-layer, controller-service-repository',
+      desc: 'Code is stacked in horizontal layers: presentation (controllers), business logic (services) and data access (repositories). Each layer calls only the layer directly below it.',
+      use: 'CRUD-heavy apps and teams who want a familiar, framework-default structure',
+      cost: 'features smear across every layer, services turn into thin pass-throughs, and the domain ends up depending on the database',
+      ref: 'Martin Fowler "Patterns of Enterprise Application Architecture", Spring @Controller/@Service/@Repository, ASP.NET MVC',
+      prompt: 'a strict layered structure (controller, service, repository): controllers only parse and validate input, services hold the business rules and transactions, repositories hold all queries, and no layer skips the one below it',
+      ex: dg(b => {
+        const c = b.box(140, 32, 'Controller', 'a', { w: 120 }), s = b.box(140, 80, 'Service', 'b', { w: 120 }), r = b.box(140, 128, 'Repository', 'c', { w: 120 });
+        const d = b.db(140, 174, 'DB', 'n', { h: 32 });
+        b.link(c, s, { flow: true }); b.link(s, r); b.link(r, d);
+        b.text(212, 36, 'HTTP in/out', { sm: true, a: 'start', mut: true }); b.text(212, 84, 'rules, tx', { sm: true, a: 'start', mut: true }); b.text(212, 132, 'queries', { sm: true, a: 'start', mut: true });
+        b.line([[78, 32], [44, 32], [44, 174], [112, 174]], { dash: true, c: 'r' }); b.x(44, 104, 5);
+      }) },
+
+    { id: 'hexagonal', name: 'Hexagonal architecture', aka: 'ports and adapters',
+      desc: 'The application core defines ports: interfaces for what it offers (driving side) and what it needs (driven side). Adapters on the outside plug into those ports: HTTP and CLI call in, while database and payment adapters implement the outgoing ports.',
+      use: 'when you want to test the core without infrastructure, or swap a database, queue or vendor without touching the rules',
+      cost: 'more interfaces and wiring, which feels heavy for simple CRUD',
+      ref: 'Alistair Cockburn (2005), "Hexagonal Architecture Explained" (Cockburn & Garrido de Paz)',
+      prompt: 'hexagonal (ports and adapters): the core defines inbound use-case ports and outbound ports such as OrderRepository and PaymentGateway; HTTP, CLI and tests are driving adapters, Postgres and Stripe are driven adapters, and the core imports no framework or SDK',
+      ex: dg(b => {
+        b.hex(160, 100, 66, '', 'n', { dash: true });
+        const core = b.hex(160, 100, 34, 'Core', 'a');
+        b.text(160, 44, 'app', { sm: true, mut: true });
+        const web = b.box(40, 56, 'HTTP', 'b'), tst = b.box(40, 144, 'Tests', 'b');
+        const pg = b.db(282, 52, 'PG', 'c'), st = b.box(280, 146, 'Stripe', 'c');
+        b.link(web, core, { flow: true }); b.link(tst, core);
+        b.link(pg, core, { dash: true }); b.link(st, core, { dash: true });
+        [[109, 72], [109, 128], [211, 72], [211, 128]].forEach(([x, y]) => b.dot(x, y, 'd', 4));
+        b.text(160, 186, 'ports on the edge', { sm: true, c: 'd' });
+      }) },
+
+    { id: 'cleanarch', name: 'Clean architecture', aka: 'Uncle Bob clean architecture, the dependency rule',
+      desc: 'Code sits in concentric rings: entities in the center, then use cases, then interface adapters (controllers, presenters, gateways), then frameworks and drivers on the outside. Source dependencies only point inward; outer rings implement interfaces that inner rings declare.',
+      use: 'long-lived apps with real business rules that must outlive frameworks, UIs and databases',
+      cost: 'many small types and mapping between rings for every request; overkill for thin CRUD',
+      ref: 'Robert C. Martin "Clean Architecture" (2017)',
+      prompt: 'clean architecture with four rings (entities, use cases, interface adapters, frameworks); dependencies point only inward, each use case is one class with an input and output DTO, and frameworks and the ORM live only in the outer ring',
+      ex: dg(b => {
+        b.circle(160, 100, 94, 'Frameworks', 'n', { ly: 18 });
+        b.circle(160, 100, 70, 'Adapters', 'c', { ly: 42 });
+        b.circle(160, 100, 47, 'Use cases', 'b', { ly: 66 });
+        b.circle(160, 100, 24, 'Entities', 'a', { small: true });
+        b.line([[72, 100], [133, 100]], { c: 'r', w: 2 }); b.line([[248, 100], [187, 100]], { c: 'r', w: 2 });
+        b.line([[160, 188], [160, 127]], { c: 'r', w: 2 });
+        b.text(8, 190, 'deps point in', { sm: true, a: 'start', c: 'r', b: true });
+      }) },
+
+    { id: 'onion', name: 'Onion architecture', aka: '',
+      desc: 'Layers wrap the domain model like an onion: domain model, then domain services, then application services, with UI, infrastructure and tests on the outside. Inner layers declare interfaces such as repositories, and the infrastructure layer implements them.',
+      use: 'domain-heavy .NET or Java apps that want hexagonal ideas with explicit inner layers',
+      cost: 'the same interface and mapping overhead as clean architecture, and teams argue over which ring a class belongs to',
+      ref: 'Jeffrey Palermo (2008), eShopOnContainers-style .NET solutions',
+      prompt: 'onion architecture: the domain model in the center with no dependencies, repository interfaces declared in the domain services layer, application services orchestrating use cases, and infrastructure implementing those interfaces from the outer ring via dependency injection',
+      ex: dg(b => {
+        const el = (rx, ry, c, dash) => b.raw(`<g class="c-${c}"><ellipse class="nd${dash ? ' dash' : ''}" cx="160" cy="100" rx="${rx}" ry="${ry}"/></g>`);
+        el(150, 92, 'n'); el(112, 70, 'c'); el(76, 48, 'b'); el(38, 24, 'a');
+        b.text(160, 22, 'UI · Infrastructure · Tests', { sm: true, b: true });
+        b.text(160, 44, 'Application services', { sm: true, b: true });
+        b.text(160, 66, 'Domain services', { sm: true, b: true });
+        b.text(160, 104, 'Model', { b: true });
+        b.tag(160, 136, 'IOrderRepo', 'b');
+        b.tag(160, 181, 'SqlOrderRepo', 'n');
+        b.line([[160, 173], [160, 145]], { c: 'r' });
+        b.text(170, 162, 'implements', { sm: true, a: 'start', c: 'r' });
+      }) },
+
+    { id: 'verticalslice', name: 'Vertical slice architecture', aka: 'feature slices, feature folders',
+      desc: 'Code is organized around requests or features instead of technical layers. Each slice holds everything one use case needs, from endpoint to query, and slices share as little as possible, so each one can choose the simplest approach that fits.',
+      use: 'apps with many independent use cases where most changes touch one feature end to end',
+      cost: 'some duplication across slices, and you need judgment (and refactoring) to pull out shared domain logic when it appears',
+      ref: 'Jimmy Bogard, MediatR, FastEndpoints, Wolverine',
+      prompt: 'vertical slices: one folder per use case (e.g. PlaceOrder/) holding its endpoint, request/response types, handler, validation and data access; slices never call each other, and shared code moves into the domain only after the second real use',
+      ex: dg(b => {
+        [['API', 52], ['Logic', 100], ['Data', 148]].forEach(([l, y]) => {
+          b.text(14, y + 4, l, { sm: true, b: true, a: 'start', mut: true });
+          b.line([[52, y + 24], [312, y + 24]], { none: true, dash: true });
+        });
+        b.line([[52, 28], [312, 28]], { none: true, dash: true });
+        [['Place\norder', 'a', 100], ['Cancel\norder', 'b', 182], ['Get\norder', 'c', 264]].forEach(([l, c, x]) => {
+          b.box(x, 106, '', c, { w: 64, h: 172 });
+          b.text(x, 40, l, { sm: true, b: true, c });
+          b.text(x, 82, 'endpoint', { sm: true, mono: true }); b.text(x, 126, 'handler', { sm: true, mono: true }); b.text(x, 174, c === 'c' ? 'raw SQL' : 'EF query', { sm: true, mono: true });
+        });
+      }) },
+
+    { id: 'packagebyfeature', name: 'Package by feature', aka: 'package by component, screaming architecture (vs package by layer)',
+      desc: 'Top-level folders are named after business features (orders, users, billing) and each holds its own controller, service and data code. In package by layer, the top folders are controllers/, services/ and repos/ and one feature is scattered across all of them.',
+      use: 'almost always as the top-level split; keep layers as files inside each feature folder',
+      cost: 'needs a convention for shared code, and layer-wide rules (all controllers do X) are less visible',
+      ref: 'Robert C. Martin "Screaming Architecture", Simon Brown "package by component", Angular style guide',
+      prompt: 'package by feature: top-level folders per business feature (orders/, billing/), each holding its own routes, service and data access, with one index file as the public API; other features import only from that index',
+      ex: code(`
+{c|// by layer: one change, 3 folders}
+controllers/{r|order}.ts  user.ts
+services/   {r|order}.ts  user.ts
+repos/      {r|order}.ts  user.ts
+
+{c|// by feature: one change, 1 folder}
+{g|orders/} routes.ts service.ts repo.ts
+{g|users/}  routes.ts service.ts repo.ts
+{h|orders/index.ts  {c|// the only public API}}`, 'src/') },
+
+    { id: 'strategicddd', name: 'Bounded contexts', aka: 'strategic DDD, context map',
+      desc: 'A large domain is split into bounded contexts, each with its own model and language, and owned by one team. The same word (Customer) means different things in Sales and Billing. A context map names how contexts relate: upstream/downstream, anti-corruption layer, open host service, shared kernel.',
+      use: 'deciding where to draw module or service boundaries in a domain with several teams or subdomains',
+      cost: 'needs real domain conversations and some data duplication; drawing contexts from the database schema gets it wrong',
+      ref: 'Eric Evans "Domain-Driven Design" (2003), Vaughn Vernon "Implementing DDD", DDD Crew context mapping, Context Mapper',
+      prompt: 'split the domain into bounded contexts, each with its own model and ubiquitous language and one owning team; draw a context map and put an anti-corruption layer wherever a context consumes another context\'s or a legacy system\'s model',
+      ex: dg(b => {
+        const sa = b.zone(10, 20, 132, 74, 'Sales', 'a'), bi = b.zone(178, 20, 132, 74, 'Billing', 'b'), sh = b.zone(94, 116, 132, 74, 'Shipping', 'c');
+        b.box(76, 60, 'Customer', 'a', { sub: 'lead, deals' }); b.box(244, 60, 'Customer', 'b', { sub: 'payer, VAT' }); b.box(160, 156, 'Customer', 'c', { sub: 'address' });
+        b.link(sa, bi); b.text(160, 46, 'OHS', { sm: true, mono: true });
+        b.line([[76, 94], [76, 153], [94, 153]], { label: 'ACL' });
+        b.text(149, 72, 'U', { sm: true, b: true }); b.text(171, 72, 'D', { sm: true, b: true });
+      }) },
+
+    { id: 'tacticalddd', name: 'Aggregates, entities and value objects', aka: 'tactical DDD, rich domain model',
+      desc: 'An aggregate is a cluster of objects changed together under one root that enforces the invariants. Entities have identity, value objects are immutable and compared by value (Money, Email). Outside code holds only the root, saves one aggregate per transaction, and refers to other aggregates by id.',
+      use: 'business rules that must always hold together, like order limits, balances or booking capacity',
+      cost: 'needs careful aggregate sizing, more mapping to and from the database, and eventual consistency between aggregates',
+      ref: 'Eric Evans "Domain-Driven Design", Vaughn Vernon "Effective Aggregate Design"',
+      prompt: 'rich aggregates: each aggregate root guards its invariants in methods (no public setters), uses immutable value objects for money, quantities and ids, references other aggregates by id only, is saved one per transaction and records domain events',
+      ex: code(`
+{k|class} {t|Order} &#123;  {c|// aggregate root}
+  {k|private} lines: {t|OrderLine}[] {c|// entities}
+  {f|add}(sku: {t|Sku}, qty: {t|Qty}, p: {t|Money}) &#123;
+    {k|if} ({k|this}.status !== {s|'draft'})
+      {k|throw} {k|new} {t|DomainError}({s|'locked'})
+    {k|if} ({k|this}.lines.length >= {n|50})
+      {k|throw} {k|new} {t|DomainError}({s|'too many'})
+    {k|this}.lines.{f|push}({k|new} {t|OrderLine}(sku, qty, p))
+{h|    this.record(new LineAdded(this.id))}
+  &#125; &#125;`, 'order.ts') },
+
+    { id: 'funcore', name: 'Functional core, imperative shell', aka: 'impureim sandwich, sans-I/O core',
+      desc: 'Decisions live in pure functions that take plain data and return plain data or a list of actions, with no I/O and no clock. A thin shell around them loads data, calls the core, then performs the resulting writes, emails and calls.',
+      use: 'logic-heavy code you want to unit test exhaustively without mocks',
+      cost: 'some logic needs I/O halfway through and has to be split into steps; the shell must stay thin by discipline',
+      ref: 'Gary Bernhardt "Boundaries" (2012), Mark Seemann "impureim sandwich", Elm',
+      prompt: 'functional core, imperative shell: business decisions as pure functions over plain data that return a list of effects; a thin shell loads inputs, calls the core and executes the effects, and only the shell touches the database, network or clock',
+      ex: code(`
+{c|// core: pure, no I/O, trivial to test}
+{k|function} {f|decide}(a: {t|Acct}, now: {t|Date})
+  : {t|Effect}[] &#123; {d|/* rules only */} &#125;
+
+{c|// shell: thin, does all the I/O}
+{k|async function} {f|run}(id: {t|Id}) &#123;
+  {k|const} acct = {k|await} db.{f|load}(id)
+{h|  const fx = decide(acct, new Date())}
+  {k|for} ({k|const} e {k|of} fx) {k|await} {f|apply}(e)
+&#125;`, 'billing.ts') },
+
+    { id: 'microkernel', name: 'Microkernel', aka: 'plugin architecture, plug-in architecture',
+      desc: 'A small host core provides the lifecycle, a registry and a stable extension API. Features ship as plugins that register against named extension points, and the core discovers and loads them at startup or at runtime.',
+      use: 'products that third parties extend, or a core with many optional, customer-specific features',
+      cost: 'the plugin API becomes a public contract you cannot break casually; isolation, versioning and plugin quality are ongoing work',
+      ref: 'VS Code extensions, Eclipse (OSGi), Jenkins plugins, webpack and Vite plugins',
+      prompt: 'a microkernel: a minimal core with a plugin registry and versioned extension points (typed hooks), plugins declared by manifest and loaded in isolation, so a failing plugin is disabled without taking down the host',
+      ex: dg(b => {
+        const core = b.box(160, 100, 'Core', 'a', { w: 112, h: 58, sub: 'registry + API' });
+        const ps = [[52, 40, 'Git', 'b'], [268, 40, 'Lint', 'c'], [52, 160, 'Theme', 'd']].map(([x, y, l, c]) => b.box(x, y, l, c));
+        ps.forEach(p => b.link(p, core));
+        const nw = b.box(268, 160, 'new plugin', 'g', { dash: true });
+        b.link(nw, core, { dash: true, c: 'g' });
+        [[104, 71], [216, 71], [104, 129], [216, 129]].forEach(([x, y]) => b.raw(`<g class="c-a"><rect class="solid" x="${x - 5}" y="${y - 5}" width="10" height="10" rx="2"/></g>`));
+        b.text(160, 50, 'extension points', { sm: true, c: 'a' });
+      }) },
+
+    { id: 'pipesfilters', name: 'Pipes and filters', aka: 'pipeline, stream processing chain',
+      desc: 'Processing is a chain of independent filters, each taking a stream of records in and putting a stream out, joined by pipes. Filters do one thing, know nothing about their neighbours, and can be reordered, reused or run in parallel.',
+      use: 'ETL, compilers, media processing, log and event pipelines',
+      cost: 'awkward for interactive or stateful flows, and errors and backpressure must be handled across the whole chain',
+      ref: 'Unix pipes, Enterprise Integration Patterns (Hohpe & Woolf), Apache Beam, Node.js streams',
+      prompt: 'a pipes-and-filters pipeline of small single-purpose stages with one shared record type, connected by bounded queues or streams with backpressure; each stage is pure where possible and testable on its own',
+      ex: dg(b => {
+        const r = b.box(46, 56, 'read', 'n'), p = b.box(160, 56, 'parse', 'a'), f = b.box(274, 56, 'filter', 'a');
+        const e = b.box(274, 140, 'enrich', 'a'), w = b.db(160, 140, 'sink', 'c');
+        b.link(r, p, { flow: true, label: 'pipe' }); b.link(p, f, { flow: true, label: 'pipe' }); b.link(f, e, { flow: true }); b.link(e, w, { flow: true });
+        b.text(66, 138, 'cat | grep', { mono: true, sm: true, mut: true }); b.text(66, 150, '  | sort', { mono: true, sm: true, mut: true });
+        b.text(160, 190, 'each stage: stream in, stream out', { sm: true, mut: true });
+      }) },
+
+    { id: 'mvc', name: 'MVC', aka: 'model-view-controller',
+      desc: 'The controller takes user input and updates the model. The model holds data and rules, and the view renders the model for the user. On the server (Rails, Django) the controller also picks which view to render per request.',
+      use: 'server-rendered web apps and classic desktop UIs',
+      cost: 'controllers bloat into "fat controllers" and models into god objects unless you add a service or domain layer',
+      ref: 'Trygve Reenskaug (Smalltalk-79), Ruby on Rails, ASP.NET MVC, Laravel, Django (MTV)',
+      prompt: 'MVC with thin controllers that only map requests to model calls and pick a view, models that hold the business rules, and views with no logic beyond formatting',
+      ex: dg(b => {
+        const u = b.user(36, 96, 'user');
+        const c = b.box(160, 40, 'Controller', 'a'), m = b.box(270, 100, 'Model', 'c'), v = b.box(160, 160, 'View', 'b');
+        b.link(u, c, { flow: true, label: 'input' }); b.link(c, m, { label: 'update' }); b.link(m, v, { label: 'read' }); b.link(v, u, { label: 'render' });
+        b.link(c, v, { dash: true });
+      }) },
+
+    { id: 'mvvm', name: 'MVVM', aka: 'model-view-viewmodel',
+      desc: 'The view model exposes observable state and commands shaped for one screen. The view binds to it declaratively and re-renders on change, and the view model calls into the model and services. The view model has no reference to the view, so it is testable without UI.',
+      use: 'data-bound client UIs: WPF, Android, SwiftUI, Vue and Knockout-style apps',
+      cost: 'binding magic is hard to debug, and view models grow into screen-sized god objects',
+      ref: 'John Gossman (WPF, 2005), Android Jetpack ViewModel, SwiftUI @Observable, Knockout.js',
+      prompt: 'MVVM: one view model per screen exposing immutable observable UI state and command methods, no references to view or platform types, and all data access through injected repositories so the view model is unit-tested without UI',
+      ex: dg(b => {
+        const v = b.box(40, 96, 'View', 'b', { h: 60 }), vm = b.box(168, 96, 'ViewModel', 'a', { h: 60, sub: 'state, cmds' }), m = b.box(280, 96, 'Model', 'c', { h: 60 });
+        b.link(v, vm, { both: true, dash: true, bend: 14, label: 'binding', c: 'a' });
+        b.link(v, vm, { bend: -14, label: 'command' });
+        b.link(vm, m, { both: true });
+        b.text(168, 176, 'no reference to View', { sm: true, mut: true });
+      }) },
+
+    { id: 'unidirectional', name: 'Unidirectional data flow', aka: 'Elm architecture, TEA, Redux, Flux, MVI',
+      desc: 'State lives in one store. The view renders from state and can only dispatch messages; a pure update function takes the old state and a message and returns new state, plus effects to run. Data moves in one loop, so every change is traceable.',
+      use: 'UIs with lots of interacting state, or anywhere you want time-travel debugging and easy tests of state changes',
+      cost: 'boilerplate for every action, and all state routed through one place even when it is purely local',
+      ref: 'Elm, Redux / Redux Toolkit, Flux, The Composable Architecture (Swift), Jetpack Compose UDF',
+      prompt: 'unidirectional data flow: a single immutable state tree, views that only render state and dispatch typed actions, a pure reducer (state, action) => state, and side effects isolated in middleware or effect handlers',
+      ex: dg(b => {
+        const v = b.box(58, 100, 'View', 'b'), mg = b.tag(160, 34, 'Msg', 'd'), u = b.box(262, 100, 'update', 'a', { sub: '(s, msg) → s' }), s = b.db(160, 162, 'State', 'c');
+        b.line([[58, 84], [58, 34], [142, 34]], { flow: true, c: 'd', label: 'dispatch' });
+        b.line([[178, 34], [262, 34], [262, 80]], { flow: true, c: 'd' });
+        b.line([[262, 120], [262, 162], [190, 162]], { flow: true });
+        b.line([[130, 162], [58, 162], [58, 116]], { flow: true, label: 'render' });
+        b.text(160, 104, 'one-way loop', { sm: true, b: true, mut: true });
+      }) },
+
+    { id: 'actors', name: 'Actor model', aka: 'actors, Erlang/OTP style, virtual actors',
+      desc: 'An actor is a unit of private state with a mailbox. It processes one message at a time, so it needs no locks, and talks to other actors only by sending messages. Supervisors watch child actors and restart them when they crash.',
+      use: 'highly concurrent stateful systems: chat, games, IoT devices, telecom, per-user or per-entity state',
+      cost: 'everything is async, ordering and delivery are at-most-once by default, and debugging message flows is harder than call stacks',
+      ref: 'Carl Hewitt (1973), Erlang/OTP, Elixir, Akka / Apache Pekko, Microsoft Orleans, Proto.Actor',
+      prompt: 'the actor model: one actor per entity (e.g. per device or chat room) owning its state, processing its mailbox one message at a time, communicating only by async messages, under supervisors that restart crashed children (let it crash)',
+      ex: dg(b => {
+        const sup = b.box(160, 32, 'Supervisor', 'n');
+        const a = b.circle(64, 108, 22, 'A', 'a'), bb = b.circle(258, 108, 22, 'B', 'b');
+        const mb = b.queue(170, 108, 'mailbox', 'b', { w: 64, slots: 4, filled: 3 });
+        b.link(a, mb, { flow: true, c: 'b' }); b.link(mb, bb, { c: 'b' });
+        b.link(sup, a, { dash: true }); b.link(sup, bb, { dash: true });
+        const c = b.circle(258, 172, 16, 'C', 'r', { small: true });
+        b.x(258, 172, 6);
+        b.line([[203, 34], [300, 34], [300, 172], [278, 172]], { dash: true, c: 'g' });
+        b.text(294, 146, 'restart', { sm: true, a: 'end', c: 'g', b: true });
+        b.text(64, 150, 'one msg', { sm: true, mut: true }); b.text(64, 162, 'at a time', { sm: true, mut: true });
+      }) },
+
+    { id: 'ecs', name: 'Entity component system', aka: 'ECS, data-oriented design',
+      desc: 'Entities are just ids. Components are plain data (Position, Velocity, Health) stored in tight arrays per type. Systems are functions that run every tick over all entities that have a given set of components.',
+      use: 'games and simulations with many similar objects, where composition and cache-friendly loops beat class hierarchies',
+      cost: 'unfamiliar for business software, and logic spread across systems is harder to follow than methods on objects',
+      ref: 'Unity DOTS (Entities), Bevy, flecs, EnTT, Overwatch GDC 2017 talk',
+      prompt: 'an entity component system: entities as plain ids, components as plain data in contiguous arrays per type, and systems as functions that query for a set of components and run in a fixed order each tick',
+      ex: dg(b => {
+        const cols = [['Pos', 'a', 132], ['Vel', 'b', 192], ['Health', 'c', 262]];
+        cols.forEach(([l, c, x]) => b.text(x, 30, l, { b: true, c }));
+        const has = [[1, 1, 1], [1, 1, 0], [1, 0, 1], [1, 1, 1]];
+        has.forEach((row, i) => {
+          const y = 54 + i * 24;
+          b.text(56, y + 4, 'entity ' + (i + 1), { sm: true, mono: true });
+          row.forEach((h, j) => { if (h) b.box(cols[j][2], y, '', cols[j][1], { w: 40, h: 16, r: 3 }); });
+        });
+        const mv = b.box(162, 168, 'MoveSystem', 'a', { w: 104, h: 24 }), dm = b.box(262, 168, 'Damage', 'c', { w: 72, h: 24 });
+        b.line([[132, 142], [132, 154]]); b.line([[192, 142], [192, 154]]); b.line([[262, 142], [262, 154]]);
+        b.text(56, 172, 'systems', { sm: true, b: true, mut: true });
+      }) }
+  ]
+});
+
+/* Events & messaging */
+pool.groups.push({
+  id: 'messaging', title: 'Messaging basics', slot: 'Messaging',
+  intro: 'The building blocks for moving work and facts between processes without a direct call: queues, topics, logs and the delivery rules that come with them.',
+  terms: [
+    { id: 'msgqueue', name: 'Message queue', aka: 'point-to-point channel, work queue',
+      desc: 'A producer puts a message on a queue and exactly one consumer takes it. The broker keeps the message until the consumer acks it, then deletes it. If the consumer dies before acking, the message becomes visible again after a timeout.',
+      use: 'handing a unit of work from one part of the system to another so the sender does not wait for it to finish',
+      cost: 'another piece of infrastructure to run and monitor; work becomes asynchronous, so the caller needs another way to learn the result',
+      ref: 'AWS SQS, RabbitMQ, Azure Service Bus queues, Enterprise Integration Patterns (Hohpe & Woolf)',
+      prompt: 'a point-to-point message queue between the producer and the worker: each message is handled by one consumer, acked only after the work commits, with a visibility timeout longer than the slowest expected handler',
+      ex: dg(b => {
+        const p = b.box(46, 96, 'Producer', 'a');
+        const q = b.queue(160, 96, 'orders', 'n', { w: 84, slots: 6, filled: 3 });
+        const c = b.box(270, 96, 'Consumer', 'b');
+        b.link(p, q, { flow: true, label: 'send' });
+        b.line([[205, 90], [231, 90]]);
+        b.line([[231, 103], [205, 103]], { dash: true, c: 'g' });
+        b.text(218, 80, 'take', { sm: true, mut: true });
+        b.text(218, 118, 'ack', { sm: true, c: 'g', b: true });
+        b.dot(160 + 84 / 2 - 7, 96, 'b', 4, { pulse: true });
+        b.tag(160, 46, 'msg 41: one consumer', 'n');
+        b.text(160, 160, 'deleted after ack', { sm: true, mut: true });
+        b.text(160, 174, 'no ack in 30 s → visible again', { sm: true, mut: true });
+      }) },
+    { id: 'pubsub', name: 'Publish/subscribe', aka: 'pub/sub, topics, fan-out',
+      desc: 'A publisher sends a message to a topic and every subscriber gets its own copy. Each subscription usually has its own queue, so a slow or broken subscriber does not hold up the others. The publisher does not know who is listening.',
+      use: 'one fact that several independent parts of the system need to react to',
+      cost: 'harder to see who depends on a message; changing its shape can break subscribers you forgot about',
+      ref: 'AWS SNS + SQS, Google Pub/Sub, RabbitMQ fanout exchange, NATS, Redis Pub/Sub (no persistence)',
+      prompt: 'publish/subscribe for order events: one topic per event type, one durable queue per subscribing service, so each subscriber gets its own copy and fails or lags independently',
+      ex: dg(b => {
+        const p = b.box(46, 100, 'Publisher', 'a');
+        const t = b.box(140, 100, 'topic', 'd', { sub: 'order.placed' });
+        b.link(p, t, { flow: true });
+        [['Email', 42, 'b'], ['Billing', 100, 'c'], ['Search', 158, 'g']].forEach(([n, y, c]) => {
+          const q = b.queue(222, y, '', c, { w: 36, slots: 3, filled: 2 });
+          const s = b.box(282, y, n, c, { w: 54 });
+          b.link(t, q); b.link(q, s);
+        });
+        b.text(140, 150, 'every sub gets', { sm: true, mut: true });
+        b.text(140, 161, 'its own copy', { sm: true, mut: true });
+      }) },
+    { id: 'eventlog', name: 'Event streaming log', aka: 'Kafka-style log, append-only log, event stream',
+      desc: 'Messages are appended to a partitioned log and kept for a retention period instead of being deleted on read. Each record has an offset in its partition. Each consumer group tracks its own committed offset, so many groups read the same data at their own pace and can rewind to replay.',
+      use: 'high-volume event streams, several independent readers, or when you need to replay history into a new consumer',
+      cost: 'ordering only within a partition; partition count is hard to change later; you run a cluster or pay for a managed one',
+      ref: 'Apache Kafka, Redpanda, AWS Kinesis, Azure Event Hubs, Apache Pulsar',
+      prompt: 'a Kafka-style partitioned log for domain events, 7-day retention, consumer groups that commit offsets only after processing, and the ability to reset a group\'s offset to replay',
+      ex: dg(b => {
+        b.text(14, 64, 'partition 0', { sm: true, b: true, a: 'start' });
+        const cells = [];
+        for (let i = 0; i < 8; i++) cells.push(b.box(38 + i * 30, 96, String(i), 'd', { w: 26, h: 26, r: 3 }));
+        const nw = b.box(278, 96, '8', 'd', { w: 26, h: 26, r: 3, dash: true });
+        const p = b.box(278, 34, 'Producer', 'a');
+        b.link(p, nw, { flow: true, label: 'append' });
+        const ga = b.box(218, 165, 'group A', 'b', { sub: 'offset 6' });
+        const gb = b.box(98, 165, 'group B', 'c', { sub: 'offset 2' });
+        b.link(ga, cells[6], { c: 'b' }); b.link(gb, cells[2], { c: 'c' });
+        b.text(14, 132, 'offset →', { sm: true, mut: true, a: 'start' });
+        b.text(14, 40, 'kept 7 days', { sm: true, mut: true, a: 'start' });
+      }) },
+    { id: 'competingconsumers', name: 'Competing consumers', aka: 'worker pool, consumer group',
+      desc: 'Several identical consumers read from the same queue, and each message goes to whichever one is free. You add consumers to raise throughput and lose nothing when one dies, because its unacked messages go back to the others.',
+      use: 'a backlog of independent work items where throughput matters more than strict order',
+      cost: 'messages finish out of order; handlers must be safe to run in parallel and to see the same message twice',
+      ref: 'Enterprise Integration Patterns (Hohpe & Woolf), Kafka consumer groups, SQS with multiple pollers, KEDA autoscaling on queue depth',
+      prompt: 'competing consumers on the jobs queue: N stateless workers pulling with a prefetch of 10, autoscaled on queue depth and oldest-message age, with handlers that tolerate parallel and duplicate delivery',
+      ex: dg(b => {
+        const a = b.box(32, 100, 'App', 'a');
+        const q = b.queue(118, 100, 'jobs', 'n', { w: 90, slots: 6, filled: 5 });
+        b.link(a, q, { flow: true });
+        [46, 100, 154].forEach((y, i) => {
+          const w = b.box(262, y, 'Worker ' + (i + 1), 'b');
+          b.link(q, w);
+        });
+        b.dot(200, 66, 'b', 3.5, { pulse: true }); b.dot(212, 100, 'b', 3.5); b.dot(194, 130, 'b', 3.5);
+        b.text(118, 150, 'whoever is free', { sm: true, mut: true });
+        b.text(118, 161, 'takes the next one', { sm: true, mut: true });
+      }) },
+    { id: 'partitionkeys', name: 'Partition keys and ordering', aka: 'message key, ordering key, message group',
+      desc: 'The producer gives each message a key, and the broker hashes the key to pick a partition. All messages with the same key land in the same partition and are read in order by one consumer. Different keys run in parallel with no ordering between them.',
+      use: 'events about the same entity (an order, an account) must be processed in the order they happened',
+      cost: 'a hot key overloads one partition; ordering across keys is gone; changing the partition count remaps keys',
+      ref: 'Kafka message keys, SQS FIFO message group ID, Azure Service Bus sessions, Kinesis partition keys',
+      prompt: 'partition events by entity id (order_id as the message key) so all events for one order are processed in order by one consumer, with no ordering assumed across different orders',
+      ex: dg(b => {
+        const p = b.box(42, 100, 'Producer', 'a');
+        b.text(42, 126, 'hash(key) % 3', { sm: true, mono: true, mut: true });
+        [['P0', 46, 'b', 'k=A'], ['P1', 100, 'c', 'k=B'], ['P2', 154, 'd', 'k=C']].forEach(([n, y, c, k], i) => {
+          const q = b.queue(170, y, n, c, { w: 72, slots: 5, filled: 3, top: true });
+          const cs = b.box(272, y, 'C' + (i + 1), c);
+          b.link(p, q, { label: k, c }); b.link(q, cs, { c });
+        });
+        b.text(160, 192, 'same key → same partition → in order', { sm: true, mut: true });
+      }) },
+    { id: 'deliveryguarantees', name: 'Delivery guarantees', aka: 'at-most-once, at-least-once, exactly-once, effectively-once',
+      desc: 'Where you ack decides what a crash does. Ack before the work and a crash loses the message (at-most-once). Ack after and a crash redelivers it (at-least-once). Effectively-once is at-least-once plus a consumer that ignores duplicates; end-to-end exactly-once across systems does not exist.',
+      use: 'any consumer: decide on purpose which failure you can live with, lost or duplicated',
+      cost: 'at-least-once means every handler must handle duplicates; at-most-once means silent loss',
+      ref: 'Kafka idempotent producer and transactions, Designing Data-Intensive Applications (Kleppmann), Tyler Treat "You Cannot Have Exactly-Once Delivery"',
+      prompt: 'at-least-once delivery everywhere (ack only after the handler\'s transaction commits) plus deduplication by message id in the consumer, giving effectively-once processing',
+      ex: code(`
+{c|// at-most-once: ack first}
+{k|await} m.{f|ack}(); {k|await} {f|handle}(m)
+{r|// crash in between: message lost}
+{c|// at-least-once: ack last}
+{k|await} {f|handle}(m); {k|await} m.{f|ack}()
+{r|// crash in between: handled twice}
+{c|// effectively-once}
+{h|if (await seen(m.id)) return m.ack()}
+{k|await} {f|handle}(m); {k|await} m.{f|ack}()`, 'consumer.ts') },
+    { id: 'idempotentconsumer', name: 'Idempotent consumer', aka: 'idempotent handler, idempotency key',
+      desc: 'A consumer written so that handling the same message twice leaves the same result as handling it once. You get there with conditional updates, upserts, natural keys, or by passing the message id as an idempotency key to anything downstream that has side effects.',
+      use: 'any at-least-once consumer, which is nearly all of them',
+      cost: 'you must think through every side effect; some (sending an email, charging a card) need a downstream that accepts idempotency keys',
+      ref: 'Enterprise Integration Patterns (Hohpe & Woolf), Stripe Idempotency-Key header, microservices.io (Chris Richardson)',
+      prompt: 'idempotent message handlers: state changes as conditional updates or upserts keyed on business ids, and the message id passed as the idempotency key to every external call with side effects',
+      ex: code(`
+{k|async function} {f|onPaid}(m: {t|PaymentCaptured}) &#123;
+  {c|// no-op if it already ran}
+  {h|await db.query(}
+  {h|  'UPDATE orders SET status=$1' +}
+  {h|  ' WHERE id=$2 AND status=$3',}
+  {h|  ['paid', m.orderId, 'pending'])}
+  {c|// downstream dedupes on the same key}
+  {k|await} mailer.{f|send}(receipt(m),
+    &#123; idempotencyKey: m.id &#125;)
+&#125;`, 'on-paid.ts') },
+    { id: 'deadletterqueue', name: 'Dead letter queue', aka: 'DLQ, dead letter channel, parking lot',
+      desc: 'After a message fails a set number of times, the broker or consumer moves it to a separate queue instead of retrying forever. Someone gets alerted, inspects it, fixes the cause and redrives it back to the main queue.',
+      use: 'any queue where one bad message must not block or burn the rest, which is every production queue',
+      cost: 'a DLQ nobody watches is a silent data loss bin; you need alerts, tooling to inspect and redrive, and handlers that are safe to replay',
+      ref: 'AWS SQS redrive policy, RabbitMQ dead letter exchanges, Azure Service Bus DLQ, Enterprise Integration Patterns',
+      prompt: 'a dead letter queue per consumer queue: after 5 failed attempts with backoff the message moves to the DLQ with the error attached, an alert fires when DLQ depth is above 0, and there is a one-command redrive',
+      ex: dg(b => {
+        const q = b.queue(62, 70, 'orders', 'n', { w: 80, slots: 5, filled: 3, top: true });
+        const c = b.box(196, 70, 'Consumer', 'b');
+        b.link(q, c, { flow: true });
+        b.link(c, q, { bend: 18, dash: true, label: 'retry ×5' });
+        b.x(244, 54, 5);
+        const d = b.queue(196, 152, 'orders.dlq', 'r', { w: 80, slots: 5, filled: 1 });
+        b.link(c, d, { c: 'r', label: 'after 5' });
+        b.line([[154, 152], [62, 152], [62, 84]], { dash: true, label: 'redrive' });
+        const u = b.user(286, 146, 'on-call', 'c');
+        b.link(d, u, { dash: true });
+        b.tag(286, 108, 'alarm', 'r');
+      }) },
+    { id: 'poisonmessage', name: 'Poison message handling', aka: 'poison pill, unprocessable message',
+      desc: 'A poison message is one that will never succeed, such as bad JSON or a reference to a deleted record. Retrying it forever crash-loops the consumer and, on an ordered log, blocks everything behind it. Detect it (parse errors, delivery count) and park it right away with the reason.',
+      use: 'consumers on ordered partitions, or any handler that can crash on unexpected input',
+      cost: 'parking a message on an ordered stream breaks order for that key; you need a policy for what happens to later messages for the same entity',
+      ref: 'Kafka error-handling deserializer (Spring Kafka), SQS ApproximateReceiveCount, Azure Service Bus MaxDeliveryCount',
+      prompt: 'poison message handling: schema or parse failures are parked to the DLQ immediately with the error and raw payload, other failures after a max delivery count of 5, so one bad message never blocks the partition',
+      ex: code(`
+{k|async function} {f|consume}(m: {t|Msg}) &#123;
+  {k|const} r = OrderEvent.{f|safeParse}(m.body)
+  {k|if} (!r.success)
+    {k|return} {r|park(m, 'bad payload', r.error)}
+  {k|if} (m.deliveryCount > {n|5})
+    {k|return} {r|park(m, 'max attempts')}
+  {k|await} {f|handle}(r.data)
+  {k|await} m.{f|ack}()
+&#125;
+{c|// park: copy to DLQ with reason, then ack}`, 'consume.ts') },
+    { id: 'backpressure', name: 'Backpressure', aka: 'flow control, load shedding',
+      desc: 'When the consumer is slower than the producer, something has to give. Backpressure means the slow side pushes back: a bounded buffer that blocks or rejects when full, a 429 to callers, or pull-based consumption where the consumer asks only for what it can handle.',
+      use: 'any pipeline where input can outrun processing: bursts, slow downstreams, batch imports',
+      cost: 'someone upstream now has to wait, retry or drop; unbounded queues hide the problem until memory or lag explodes',
+      ref: 'Reactive Streams, Node.js stream highWaterMark, Kafka consumer pull model, Akka Streams, "Backpressure explained" (Jay Phelps)',
+      prompt: 'explicit backpressure: bounded in-memory queues (max 1,000 items) that block producers when full, pull-based consumers with a fixed prefetch, and HTTP 429 with Retry-After at the edge when the backlog is over its limit',
+      ex: dg(b => {
+        const p = b.box(48, 100, 'Producer', 'a', { sub: '500 msg/s' });
+        const q = b.queue(160, 100, 'bounded: 1000', 'c', { w: 84, slots: 6, filled: 6 });
+        const c = b.box(270, 100, 'Consumer', 'b', { sub: '50 msg/s' });
+        b.link(p, q, { flow: true }); b.link(q, c);
+        b.line([[160, 86], [160, 44], [48, 44], [48, 80]], { c: 'r', dash: true, label: 'full: slow down / 429' });
+        b.text(160, 150, 'block · reject · drop oldest', { sm: true, mut: true });
+        b.text(160, 162, 'or scale the consumer', { sm: true, mut: true });
+      }) },
+    { id: 'requestreply', name: 'Request-reply over messaging', aka: 'async RPC, correlation identifier, return address',
+      desc: 'The requester sends a message with a correlation id and a replyTo address, then listens on its own reply queue. The responder does the work and sends the result to replyTo with the same correlation id, so the requester can match the reply to the pending request.',
+      use: 'you need an answer but want the decoupling, buffering or routing of a broker between caller and callee',
+      cost: 'more moving parts than plain HTTP; you must handle timeouts and late replies that arrive after the caller gave up',
+      ref: 'Enterprise Integration Patterns (Return Address, Correlation Identifier), RabbitMQ direct reply-to, JMS JMSReplyTo, NATS request',
+      prompt: 'request-reply over the broker: each request carries a correlation id and a replyTo queue, the requester keeps a map of pending ids with a 5 s timeout, and replies with unknown or expired ids are logged and dropped',
+      ex: dg(b => {
+        const r = b.box(46, 100, 'Requester', 'a');
+        const rq = b.queue(160, 44, 'rpc.requests', 'n', { w: 76, slots: 5, filled: 2, top: true });
+        const s = b.box(274, 100, 'Responder', 'b');
+        const pq = b.queue(160, 156, 'reply.A', 'a', { w: 76, slots: 5, filled: 1 });
+        b.link(r, rq, { flow: true }); b.link(rq, s);
+        b.link(s, pq, { c: 'b' }); b.link(pq, r, { c: 'a' });
+        b.tag(160, 82, 'corr=7f3 replyTo=A', 'n');
+        b.tag(160, 118, 'corr=7f3 result', 'b');
+      }) },
+    { id: 'jobqueue', name: 'Background job queue', aka: 'task queue, job runner, worker queue',
+      desc: 'The web request writes a job (name plus arguments) to a queue and returns right away. Separate worker processes pick jobs up, run them, and retry with backoff on failure. Most libraries add priorities, rate limits, uniqueness and a dashboard.',
+      use: 'slow or flaky work triggered by a user action: emails, image processing, exports, calls to third-party APIs',
+      cost: 'jobs run later and can fail after the user saw success; job arguments are a contract that outlives deploys',
+      ref: 'Sidekiq, BullMQ, Celery, Oban, GoodJob, Solid Queue, Hangfire, River',
+      prompt: 'a background job queue (BullMQ on Redis) for slow work: the request enqueues a job with ids only, never full objects, and returns 202; workers retry 5 times with exponential backoff, and every job is safe to run twice',
+      ex: dg(b => {
+        const u = b.user(26, 96, 'user', 'n');
+        const w = b.box(98, 100, 'Web app', 'a');
+        b.link(u, w);
+        b.line([[66, 120], [30, 128]], { dash: true, label: '202', ly: 10 });
+        const q = b.queue(188, 100, 'Redis', 'c', { w: 64, slots: 4, filled: 3 });
+        b.link(w, q, { flow: true, label: 'enqueue', ly: -14 });
+        const w1 = b.box(278, 60, 'Worker', 'b'), w2 = b.box(278, 140, 'Worker', 'b');
+        b.link(q, w1); b.link(q, w2);
+        b.tag(188, 160, 'send_receipt(42)', 'c');
+        b.text(278, 172, 'retry 5× backoff', { sm: true, mut: true });
+      }) },
+    { id: 'scheduledjobs', name: 'Scheduled and delayed jobs', aka: 'cron jobs, delayed delivery, timers',
+      desc: 'Delayed jobs run once at a future time; scheduled jobs run on a cron pattern. Doing this through the job system (not a cron entry on one box) gives you retries, one run per tick across many workers, and visibility. Give each delayed job a deterministic id so it can be cancelled or replaced.',
+      use: 'reminders, trial expiries, retry-later, nightly reports, cleanup',
+      cost: 'time zones and DST bite; a missed tick during an outage needs a policy (skip or catch up); long delays hold state in the queue',
+      ref: 'BullMQ job schedulers, Sidekiq-Cron, Celery beat, SQS delay queues (max 15 min), EventBridge Scheduler, pg_cron',
+      prompt: 'scheduled and delayed work through the job queue: delayed jobs with a deterministic job id so they can be cancelled, cron schedules in UTC that run once per tick across all workers, and a stated policy for missed runs',
+      ex: code(`
+{c|// once, 24 h from now; cancel by id}
+{k|await} q.{f|add}({s|'trial-ending'}, &#123; userId &#125;, &#123;
+  delay: {n|24 * 3600_000},
+  {h|jobId: 'trial-ending:' + userId,}
+&#125;)
+{c|// recurring: one run per tick, any worker}
+{k|await} q.{f|upsertJobScheduler}({s|'nightly'},
+  &#123; pattern: {s|'0 3 * * *'}, tz: {s|'UTC'} &#125;,
+  &#123; name: {s|'report'} &#125;)`, 'schedule.ts') },
+  ]
+});
+
+pool.groups.push({
+  id: 'eventpatterns', title: 'Event-driven patterns', slot: 'Event pattern',
+  intro: 'How services coordinate through events: what goes in an event, how state is rebuilt from them, how multi-step business processes recover from failure, and how to publish reliably.',
+  terms: [
+    { id: 'eda', name: 'Event-driven architecture', aka: 'EDA, broker topology, mediator topology',
+      desc: 'Services react to events instead of calling each other. In the broker topology each service listens for events and publishes its own, with no one in charge. In the mediator topology a central component receives the event and directs the steps in order.',
+      use: 'many parts need to react to the same business facts, and you want them to change and deploy independently',
+      cost: 'the flow is hard to see and debug without tracing; broker style has no single place that knows the process, mediator style puts that knowledge in one component',
+      ref: 'Software Architecture Patterns (Mark Richards), Fundamentals of Software Architecture (Richards & Ford), Martin Fowler "What do you mean by Event-Driven?"',
+      prompt: 'event-driven integration between services using the broker topology for simple fan-out reactions and a mediator (orchestrator) only where a process has ordered steps and error handling',
+      ex: dg(b => {
+        b.zone(8, 14, 148, 178, 'broker topology', 'a');
+        b.zone(164, 14, 148, 178, 'mediator topology', 'd');
+        const bus = b.box(82, 112, 'broker', 'n', { w: 110 });
+        const o = b.box(44, 56, 'Ord', 'a'), p = b.box(120, 56, 'Pay', 'a'), s = b.box(82, 164, 'Ship', 'a');
+        [o, p, s].forEach(n => b.link(n, bus, { both: true }));
+        const m = b.box(238, 56, 'Mediator', 'd');
+        const s1 = b.box(196, 150, 'Pay', 'd'), s2 = b.box(280, 150, 'Ship', 'd');
+        b.link(m, s1, { label: '1' }); b.link(m, s2, { label: '2' });
+        b.text(150, 140, 'each reacts', { sm: true, mut: true, a: 'end' });
+        b.text(238, 184, 'one owner of the steps', { sm: true, mut: true });
+      }) },
+    { id: 'eventnotification', name: 'Event notification', aka: 'thin events, notification events',
+      desc: 'The event says only that something happened and carries an id. A consumer that needs details calls back to the source to fetch them. Events stay small and the source stays the only owner of the data.',
+      use: 'consumers need fresh data at the moment they act, or the data is large or sensitive',
+      cost: 'every event triggers a call back, so the source must be up and able to take the load; the data may have changed since the event',
+      ref: 'Martin Fowler "What do you mean by Event-Driven?", CloudEvents',
+      prompt: 'thin event notifications: events carry the event type, entity id, version and timestamp only, and consumers fetch current state from the owning service\'s API when they need it',
+      ex: dg(b => {
+        const o = b.box(55, 70, 'Orders', 'a'), s = b.box(265, 70, 'Shipping', 'b');
+        b.link(o, s, { flow: true });
+        b.tag(160, 50, 'OrderPlaced { id: 42 }', 'a');
+        b.line([[265, 88], [265, 132], [55, 132], [55, 88]], { dash: true, c: 'b', label: 'GET /orders/42' });
+        b.text(160, 168, 'the event says what happened;', { sm: true, mut: true });
+        b.text(160, 180, 'the data stays with Orders', { sm: true, mut: true });
+      }) },
+    { id: 'ecst', name: 'Event-carried state transfer', aka: 'fat events, state-carrying events',
+      desc: 'The event carries the full new state of the entity, or at least everything consumers need. Consumers keep their own local copy up to date and never call back. They keep working when the source is down.',
+      use: 'consumers read the data often, need to work without the source being up, or the source cannot take callback load',
+      cost: 'copies of data everywhere, eventually consistent; bigger events and a wider contract to keep compatible',
+      ref: 'Martin Fowler "What do you mean by Event-Driven?", Kafka compacted topics',
+      prompt: 'event-carried state transfer for customer data: CustomerUpdated events carry the full current customer snapshot, published to a compacted topic keyed by customer id, and each consumer keeps its own read-only copy',
+      ex: dg(b => {
+        const c = b.box(55, 60, 'Customers', 'a'), s = b.box(265, 60, 'Shipping', 'b');
+        b.link(c, s, { flow: true });
+        b.tag(160, 36, 'CustomerMoved', 'a');
+        b.text(160, 76, '{ id, name, street,', { sm: true, mono: true });
+        b.text(160, 87, 'city, zip }', { sm: true, mono: true });
+        b.link(c, b.db(55, 150, 'customers', 'a'));
+        b.link(s, b.db(265, 150, 'local copy', 'b'));
+        b.line([[225, 128], [95, 128]], { dash: true, c: 'r' });
+        b.x(160, 128, 5);
+        b.text(160, 150, 'no call back', { sm: true, c: 'r', b: true });
+      }) },
+    { id: 'domainevents', name: 'Domain events vs integration events', aka: 'internal events, public events, published language',
+      desc: 'Domain events are raised inside one bounded context, in-process, in the model\'s own language, and can change freely. Integration events are the small, versioned, public contract another context subscribes to. A translator maps from the first to the second, often through the outbox.',
+      use: 'you want rich internal events without making every internal change a breaking change for other teams',
+      cost: 'two kinds of event and a mapping to maintain; people will be tempted to publish internal events directly',
+      ref: 'Domain-Driven Design (Eric Evans), Implementing Domain-Driven Design (Vaughn Vernon), Microsoft .NET microservices guide (eShopOnContainers)',
+      prompt: 'separate domain events (in-process, internal to the module, free to change) from integration events (versioned public contracts with a documented schema); only integration events leave the bounded context, via the outbox',
+      ex: dg(b => {
+        b.zone(8, 16, 196, 176, 'Ordering context', 'a');
+        b.zone(214, 56, 98, 96, 'Billing context', 'b');
+        const o = b.box(56, 60, 'Order', 'a'), h = b.box(56, 156, 'Handler', 'a');
+        b.link(o, h, { label: 'LineAdded' });
+        const t = b.box(150, 108, 'Translator', 'a');
+        b.link(o, t);
+        const bi = b.box(263, 108, 'Billing', 'b', { w: 70 });
+        b.link(t, bi, { flow: true });
+        b.tag(263, 168, 'OrderPlaced.v1', 'b');
+        b.text(108, 182, 'domain: in-process', { sm: true, mut: true });
+        b.text(263, 186, 'public contract', { sm: true, mut: true });
+      }) },
+    { id: 'eventsourcing', name: 'Event sourcing', aka: 'event store, append-only state',
+      desc: 'You store the sequence of events that happened to an entity instead of its current state. Current state is a fold over the events, often sped up by snapshots. You get a full audit trail and can rebuild any view, and writes use optimistic concurrency on the stream version.',
+      use: 'audit is a hard requirement, the history itself has business value, or you need temporal queries ("what did we know on March 3?")',
+      cost: 'events are forever, so schema changes need versioning and upcasting; querying needs projections; a steep learning curve for the team',
+      ref: 'Greg Young, EventStoreDB (KurrentDB), Marten, Axon, Martin Fowler "Event Sourcing"',
+      prompt: 'event sourcing for the Account aggregate only: an append-only event stream per account with optimistic concurrency on the expected version, state rebuilt by folding events, snapshots every 100 events, and read models built by projections',
+      ex: dg(b => {
+        b.zone(8, 18, 134, 160, 'stream: acct-9', 'd');
+        [['1 Opened', 46], ['2 Deposited 100', 78], ['3 Withdrew 30', 110], ['4 Deposited 50', 142]].forEach(([s, y]) => b.tag(75, y, s, 'd'));
+        b.text(75, 186, 'append only', { sm: true, mut: true });
+        const f = b.box(194, 94, 'fold', 'n', { sub: 'apply(e)' });
+        const st = b.box(276, 94, 'Balance', 'g', { sub: '120', w: 62 });
+        b.line([[144, 94], [164, 94]]);
+        b.link(f, st, { flow: true });
+        b.text(235, 140, 'state = replay', { sm: true, mut: true });
+        b.text(235, 151, 'of the events', { sm: true, mut: true });
+      }) },
+    { id: 'cqrs', name: 'CQRS', aka: 'command query responsibility segregation',
+      desc: 'Writes and reads go through separate models. Commands validate and change state in a write model shaped for consistency. Queries read from read models shaped for each screen, updated from the write side\'s events, often in a different store.',
+      use: 'read and write shapes differ a lot, reads vastly outnumber writes, or you already have event sourcing',
+      cost: 'two models to keep in sync; reads are eventually consistent, so the UI must handle "I just saved it but don\'t see it"',
+      ref: 'Greg Young, Udi Dahan, Martin Fowler "CQRS", Axon, MediatR (in-process variant)',
+      prompt: 'CQRS for the orders area: commands go through the domain model to the write database, queries read denormalized read models updated from events, and the UI handles read-your-own-writes by returning the new version from commands',
+      ex: dg(b => {
+        const u = b.user(28, 98, 'client', 'n');
+        const c = b.box(118, 50, 'Commands', 'a'), q = b.box(118, 150, 'Queries', 'b');
+        const wd = b.db(218, 50, 'write DB', 'a'), rd = b.db(218, 150, 'read DB', 'b');
+        b.link(u, c, { flow: true }); b.link(q, u);
+        b.link(c, wd); b.link(rd, q);
+        b.line([[252, 50], [292, 50], [292, 150], [252, 150]], { dash: true, label: 'events' });
+      }) },
+    { id: 'projections', name: 'Projections and read models', aka: 'projectors, materialized views, denormalizers',
+      desc: 'A projection subscribes to events and builds a table shaped for one query. It saves its position in the stream in the same transaction as its writes, so it resumes exactly where it stopped. Because it is derived, you can drop it and rebuild it from the start.',
+      use: 'any screen or API that needs data in a shape the write model does not have, especially with event sourcing or CQRS',
+      cost: 'lag between write and read; rebuilds of large streams take time; each projection is code to version and monitor',
+      ref: 'EventStoreDB (KurrentDB) subscriptions, Marten projections, Axon tracking processors, Kafka Streams materialized tables',
+      prompt: 'projections that build one read table per query from the event stream, store their checkpoint in the same transaction as the read-model write, are idempotent per event, and can be rebuilt from position 0 into a new table then swapped',
+      ex: code(`
+{k|on}({s|'OrderPlaced'}, {k|async} (e, tx) => &#123;
+  {k|await} tx.{f|upsert}({s|'order_summary'}, &#123;
+    id: e.orderId, status: {s|'placed'},
+    total: e.total, items: e.lines.length &#125;)
+&#125;)
+{k|on}({s|'OrderShipped'}, {k|async} (e, tx) => &#123;
+  {k|await} tx.{f|update}({s|'order_summary'},
+    e.orderId, &#123; status: {s|'shipped'} &#125;)
+&#125;)
+{h|// same tx: checkpoint = e.position}`, 'order-summary.ts') },
+    { id: 'sagachoreo', name: 'Saga (choreography)', aka: 'choreographed saga, event choreography',
+      desc: 'A multi-step business process across services where each service listens for the previous step\'s event, does its local transaction and publishes the next event. No one coordinates. On failure, services listen for failure events and run their own compensations.',
+      use: 'short processes of 2 to 4 steps owned by teams that want to stay independent',
+      cost: 'the process exists only implicitly across services; hard to see where an order is stuck; cyclic dependencies creep in as steps grow',
+      ref: 'Hector Garcia-Molina & Kenneth Salem "Sagas" (1987), microservices.io (Chris Richardson), Microservices Patterns',
+      prompt: 'a choreographed saga for checkout: each service reacts to the previous event, commits locally, and emits the next event or a failure event that triggers compensation upstream; a correlation id on every event and a dashboard of in-flight sagas',
+      ex: dg(b => {
+        const o = b.box(62, 50, 'Orders', 'a'), p = b.box(258, 50, 'Payments', 'b');
+        const i = b.box(258, 150, 'Inventory', 'c'), s = b.box(62, 150, 'Shipping', 'd');
+        b.link(o, p, { label: 'OrderPlaced', flow: true });
+        b.link(p, i, { label: 'Paid' });
+        b.link(i, s, { label: 'Reserved' });
+        b.link(s, o, { label: 'Shipped' });
+        b.text(160, 98, 'no coordinator:', { sm: true, mut: true });
+        b.text(160, 109, 'each listens and emits', { sm: true, mut: true });
+      }) },
+    { id: 'sagaorch', name: 'Saga (orchestration)', aka: 'orchestrated saga, process manager',
+      desc: 'A saga orchestrator holds the process state and sends commands to each service in turn, waiting for each reply. On failure it decides which compensations to run. The process is explicit, in one place, and persisted so it survives restarts.',
+      use: 'processes with more than a few steps, branching, timeouts, or a business need to see where each instance is',
+      cost: 'the orchestrator becomes a central component to own; risk of putting business logic there that belongs in services',
+      ref: 'microservices.io (Chris Richardson), Eventuate Tram, MassTransit state machines, NServiceBus sagas, Temporal',
+      prompt: 'an orchestrated saga for checkout: a persisted orchestrator that sends reserve, charge and ship commands one at a time, waits for replies with per-step timeouts, and runs compensations in reverse order on failure',
+      ex: dg(b => {
+        const m = b.box(150, 46, 'Checkout saga', 'd', { sub: 'state: CHARGING' });
+        const lg = b.db(272, 46, 'saga log', 'd', { w: 62 });
+        b.link(m, lg);
+        const i = b.box(55, 152, 'Inventory', 'c'), p = b.box(160, 152, 'Payments', 'b'), s = b.box(265, 152, 'Shipping', 'a', { dash: true });
+        b.link(m, i, { both: true, label: '1 reserve' });
+        b.link(m, p, { both: true, label: '2 charge', flow: true });
+        b.link(m, s, { both: true, label: '3 ship', dash: true });
+      }) },
+    { id: 'compensation', name: 'Compensating transactions', aka: 'compensation, semantic undo',
+      desc: 'Across services you cannot roll back, so each step that changes state has an undo action that runs if a later step fails. Compensations run in reverse order and are business actions (refund, release, cancel), and they must be idempotent and retried until they succeed.',
+      use: 'any saga or multi-service process where a later step can fail after earlier steps committed',
+      cost: 'some effects cannot be undone (an email sent), so you design around them; in-between states are visible to users',
+      ref: 'Azure Architecture Center "Compensating Transaction pattern", "Sagas" (Garcia-Molina & Salem), Temporal saga samples',
+      prompt: 'a compensating action for every state-changing saga step (release stock, refund payment, cancel booking), run in reverse order on failure, idempotent and retried until success, with irreversible steps such as notifications placed last',
+      ex: dg(b => {
+        const s1 = b.box(52, 58, 'Reserve', 'g', { sub: 'T1' }), s2 = b.box(160, 58, 'Charge', 'g', { sub: 'T2' }), s3 = b.box(268, 58, 'Ship', 'r', { sub: 'T3', dash: true });
+        b.link(s1, s2, { c: 'g', flow: true }); b.link(s2, s3, { c: 'g' });
+        b.x(268, 24, 5);
+        const c2 = b.box(160, 150, 'Refund', 'r', { sub: 'C2' }), c1 = b.box(52, 150, 'Release', 'r', { sub: 'C1' });
+        b.line([[268, 80], [268, 150], [198, 150]], { c: 'r' });
+        b.link(c2, c1, { c: 'r' });
+        b.text(160, 104, 'undo in reverse', { sm: true, c: 'r', b: true });
+      }) },
+    { id: 'durableexec', name: 'Durable execution', aka: 'workflow engine, durable functions, workflows as code',
+      desc: 'You write a long-running process as ordinary code, and the engine records the result of each step. If the worker crashes, another one replays the code from the recorded history and continues where it left off. Sleeps of days, retries and timeouts are built in.',
+      use: 'multi-step processes with retries, waits, human approvals or compensation, where hand-built state machines and job chains get messy',
+      cost: 'workflow code must be deterministic (no direct I/O, clocks or randomness); versioning running workflows takes care; another platform to run or pay for',
+      ref: 'Temporal, Restate, AWS Step Functions, Azure Durable Functions, Inngest, DBOS, Cadence',
+      prompt: 'durable execution (Temporal) for the onboarding flow: deterministic workflow code that calls activities for all I/O, each activity with a timeout and retry policy, durable timers for waits, and workflow versioning for changes to running instances',
+      ex: code(`
+{k|async function} {f|onboarding}(u: {t|User}) &#123;
+  {k|await} acts.{f|createAccount}(u) {c|// retried}
+  {k|await} acts.{f|sendWelcome}(u)
+  {h|await sleep('3 days')} {c|// no worker held}
+  {k|if} (!({k|await} acts.{f|hasLoggedIn}(u)))
+    {k|await} acts.{f|sendNudge}(u)
+&#125;
+{c|// each step's result is recorded; after}
+{c|// a crash, the code replays the history}
+{c|// and resumes at the next step}`, 'onboarding.workflow.ts') },
+    { id: 'outbox', name: 'Transactional outbox', aka: 'outbox pattern',
+      desc: 'Instead of writing to the database and publishing to the broker (two writes that can half-fail), the service writes the event to an outbox table in the same transaction as the business change. A relay reads the outbox, by polling or from the WAL, and publishes to the broker.',
+      use: 'any time a state change must reliably produce an event',
+      cost: 'at-least-once publishing, so consumers must dedupe; a relay to run and monitor; slight publish delay',
+      ref: 'microservices.io (Chris Richardson), Debezium outbox event router, Kafka Connect, NServiceBus outbox',
+      prompt: 'a transactional outbox: the event row is inserted in the same database transaction as the state change, and a relay publishes outbox rows in order (polling every 500 ms or via Debezium) and marks them sent, at-least-once',
+      ex: dg(b => {
+        const s = b.box(88, 46, 'Service', 'a', { sub: 'BEGIN … COMMIT' });
+        b.zone(10, 100, 156, 88, 'Postgres: one tx', 'a');
+        const o = b.box(50, 150, 'orders', 'a'), ob = b.box(124, 150, 'outbox', 'c');
+        b.link(s, o); b.link(s, ob);
+        const r = b.box(240, 150, 'Relay', 'c', { sub: 'poll or WAL' });
+        b.link(ob, r, { flow: true });
+        const q = b.queue(240, 56, 'broker', 'd', { w: 72, slots: 5, filled: 2, top: true });
+        b.link(r, q, { flow: true, label: 'publish' });
+        b.x(176, 46, 5); b.text(176, 28, 'no dual write', { sm: true, c: 'r', b: true });
+      }) },
+    { id: 'inbox', name: 'Inbox pattern', aka: 'deduplication table, processed messages table',
+      desc: 'The consumer records each message id in an inbox table with a unique constraint, in the same transaction as its business change. A redelivered message hits the constraint, so the consumer skips it and acks. This turns at-least-once delivery into effectively-once processing.',
+      use: 'consumers whose effects are not naturally idempotent, paired with an outbox on the producer side',
+      cost: 'a table that grows and needs pruning (keep ids longer than the broker\'s redelivery window); only works when the effect lives in the same database',
+      ref: 'microservices.io idempotent consumer, MassTransit transactional outbox and inbox, NServiceBus outbox (dedup)',
+      prompt: 'an inbox table (message_id primary key, received_at) written in the same transaction as the handler\'s changes; a unique violation means a duplicate, so skip and ack; prune rows older than 14 days',
+      ex: dg(b => {
+        const q = b.queue(55, 50, 'broker', 'n', { w: 76, slots: 5, filled: 3, top: true });
+        const c = b.box(196, 50, 'Consumer', 'b');
+        b.link(q, c, { flow: true });
+        b.tag(270, 26, 'm18', 'n'); b.tag(270, 50, 'm18 again', 'r');
+        b.zone(14, 96, 296, 96, 'one transaction', 'b');
+        const o = b.db(76, 146, 'orders', 'b');
+        const i = b.box(226, 140, 'inbox', 'b', { sub: 'PK message_id', w: 100 });
+        b.link(c, o, { label: 'UPDATE' }); b.link(c, i, { label: 'INSERT m18' });
+        b.text(226, 180, 'dup → conflict → skip, ack', { sm: true, c: 'r', b: true });
+      }) },
+    { id: 'cdc', name: 'Change data capture', aka: 'CDC, log-based CDC, WAL tailing',
+      desc: 'A connector reads the database\'s replication log (Postgres WAL, MySQL binlog) and turns every committed insert, update and delete into an event on a stream. Downstream systems such as search, caches and the warehouse stay in sync without the app publishing anything.',
+      use: 'syncing derived stores from a database, feeding analytics, or relaying an outbox table',
+      cost: 'raw row changes expose your table schema as a contract; replication slots can fill the disk if the connector stalls',
+      ref: 'Debezium, Kafka Connect, AWS DMS, Postgres logical replication, Maxwell, Airbyte',
+      prompt: 'log-based change data capture with Debezium from the Postgres WAL into Kafka, one topic per table, publishing the outbox table rather than raw business tables to other teams, with alerts on replication slot lag',
+      ex: dg(b => {
+        const a = b.box(45, 40, 'App', 'a');
+        const d = b.db(45, 116, 'Postgres', 'a');
+        b.link(a, d);
+        const z = b.box(140, 116, 'Debezium', 'c', { sub: 'reads WAL' });
+        b.link(d, z, { flow: true });
+        const k = b.queue(215, 116, 'Kafka', 'd', { w: 44, slots: 4, filled: 3 });
+        b.link(z, k);
+        [['Search', 50], ['Cache', 116], ['Lake', 182]].forEach(([n, y]) => b.link(k, b.box(282, y, n, 'b', { w: 54 })));
+      }) },
+    { id: 'schemaregistry', name: 'Event schema registry and versioning', aka: 'schema evolution, upcasting, Avro, Protobuf',
+      desc: 'Event schemas live in a registry that checks each new version for compatibility before producers can use it. Messages carry a schema id instead of the full schema. Old events still in the log are upgraded to the current shape when read (upcasting), and breaking changes get a new event type or topic.',
+      use: 'events cross team boundaries or live long (event sourcing, replayable logs)',
+      cost: 'schema tooling in every build; rules (add optional fields only, never reuse or rename) slow down quick changes',
+      ref: 'Confluent Schema Registry, Apicurio, AWS Glue Schema Registry, Avro, Protobuf, Buf breaking-change detection, Greg Young "Versioning in an Event Sourced System"',
+      prompt: 'versioned event schemas in Protobuf with a schema registry enforcing backward compatibility in CI (add optional fields only, never rename or reuse field numbers), breaking changes as a new event type, and upcasters for old stored events',
+      ex: dg(b => {
+        const p = b.box(48, 60, 'Producer', 'a'), c = b.box(272, 60, 'Consumer', 'b');
+        const q = b.queue(160, 60, '', 'n', { w: 74, slots: 5, filled: 3 });
+        b.link(p, q, { flow: true }); b.link(q, c);
+        b.tag(160, 30, 'schema id 7 + bytes', 'n');
+        const r = b.box(160, 150, 'Registry', 'd', { sub: 'compat: BACKWARD' });
+        b.link(p, r, { dash: true, label: 'register v2' });
+        b.link(c, r, { dash: true, label: 'fetch 7' });
+        b.text(312, 96, 'upcast v1 → v2', { sm: true, mut: true, a: 'end' });
+      }) },
+  ]
+});
+
+/* Page: Data */
+pool.groups.push({
+  id: 'datastore', title: 'Storage and ownership', slot: 'Data storage',
+  intro: 'Where data lives, who owns it, and how it is split, copied and shaped for reads. Most of these are decided once and are expensive to change later.',
+  terms: [
+    { id: 'dbperservice', name: 'Database per service', aka: 'private tables, data ownership',
+      desc: 'Each service owns its tables and is the only thing that reads or writes them. Other services get the data through its API or by consuming its events, never by querying its database. Separate schemas on one server count, as long as the access rules hold.',
+      use: 'services owned by different teams that need to deploy and change their schema on their own',
+      cost: 'no joins or transactions across services; you need events, sagas and some duplicated read data',
+      ref: 'Chris Richardson (microservices.io), Building Microservices (Sam Newman)',
+      prompt: 'database per service: each service owns its tables and is the only writer and reader; other services use its API or its events, never its database, enforced with separate database users or schemas',
+      ex: dg(b => {
+        const o = b.box(60, 50, 'Orders', 'a'), bi = b.box(160, 50, 'Billing', 'b'), s = b.box(260, 50, 'Shipping', 'c');
+        b.link(o, bi, { both: true, label: 'API' }); b.link(bi, s, { both: true, label: 'events' });
+        const od = b.db(60, 140, 'ord', 'a'), bd = b.db(160, 140, 'bill', 'b'), sd = b.db(260, 140, 'ship', 'c');
+        b.link(o, od); b.link(bi, bd); b.link(s, sd);
+        b.line([[150, 66], [88, 124]], { dash: true, c: 'r' }); b.x(119, 95, 5);
+        b.text(160, 188, 'no reads of another service\'s tables', { sm: true, mut: true });
+      }) },
+    { id: 'shareddb', name: 'Shared database', aka: 'integration database, single schema',
+      desc: 'All modules (or several apps) use one database. Inside a monolith this is the normal and sensible choice: you get joins, foreign keys and real transactions for free. The risk is coupling through tables, where any code can read any table and one schema change breaks distant parts of the app.',
+      use: 'a monolith or modular monolith, one team, or a domain where strong consistency across modules matters more than independent deploys',
+      cost: 'schema changes ripple everywhere and the database becomes the hidden contract; give each module its own schema and only cross boundaries through module APIs or views',
+      ref: 'Martin Fowler (IntegrationDatabase), Rails and Django defaults',
+      prompt: 'one shared Postgres database for the monolith, with a schema per module (orders, billing, catalog); modules write only their own schema and read others only through module APIs or published views',
+      ex: dg(b => {
+        b.zone(14, 16, 292, 76, 'one app', 'n');
+        const o = b.box(70, 58, 'Orders', 'a'), bi = b.box(160, 58, 'Billing', 'b'), c = b.box(250, 58, 'Catalog', 'c');
+        const d = b.db(160, 145, 'shared DB', 'n', { w: 110 });
+        b.link(o, d); b.link(bi, d); b.link(c, d);
+        b.text(160, 188, 'schemas: orders · billing · catalog', { sm: true, mono: true, mut: true });
+        b.text(272, 140, 'one\nmigration\npath', { sm: true, c: 'r' });
+      }) },
+    { id: 'polyglot', name: 'Polyglot persistence', aka: 'right store for the job',
+      desc: 'Use different storage engines for different kinds of data in the same system: a relational database for transactions, a key-value store for sessions, a search engine for text, object storage for files. Each store holds the data it is best at, and one of them stays the source of truth.',
+      use: 'when a real access pattern (full-text search, large files, sub-millisecond lookups) is poorly served by your main database',
+      cost: 'every extra engine is more ops, backups, monitoring and sync code; start with Postgres and add a store only when you can name the query it fixes',
+      ref: 'Martin Fowler and Pramod Sadalage (NoSQL Distilled), Postgres, Redis, OpenSearch, S3',
+      prompt: 'Postgres as the source of truth for transactional data; add Redis for sessions and rate limits, OpenSearch for full-text search and S3 for files only where a concrete query needs it, each fed from Postgres',
+      ex: dg(b => {
+        const app = b.box(160, 100, 'App', 'n');
+        const pg = b.db(60, 45, 'Postgres', 'a'), rd = b.db(260, 45, 'Redis', 'r'), os = b.db(60, 145, 'Search', 'c'), s3 = b.db(260, 145, 'S3', 'b');
+        b.link(app, pg); b.link(app, rd); b.link(app, os); b.link(app, s3);
+        b.text(60, 80, 'orders, truth', { sm: true, mut: true }); b.text(260, 80, 'sessions', { sm: true, mut: true });
+        b.text(60, 180, 'full text', { sm: true, mut: true }); b.text(260, 180, 'files', { sm: true, mut: true });
+      }) },
+    { id: 'readreplicas', name: 'Read replicas', aka: 'primary/replica, leader/follower',
+      desc: 'One primary takes all writes and streams its changes to one or more replicas, which serve reads. Replication is usually asynchronous, so a replica can be milliseconds to seconds behind the primary.',
+      use: 'read-heavy workloads, reporting queries that should not slow down writes, or reads in another region',
+      cost: 'replica lag means a user can write and then not see their own change; reads that must be fresh have to go to the primary',
+      ref: 'Postgres streaming replication, AWS RDS and Aurora replicas, MySQL replication',
+      prompt: 'one primary for writes and async read replicas for read-only queries; route reads that follow a write in the same session to the primary, and alert when replica lag exceeds 5 s',
+      ex: dg(b => {
+        const app = b.box(45, 100, 'App', 'n');
+        const p = b.db(165, 45, 'primary', 'a'), r1 = b.db(165, 145, 'replica', 'b'), r2 = b.db(270, 145, 'replica', 'b');
+        b.link(app, p, { label: 'writes', flow: true }); b.link(app, r1, { label: 'reads' });
+        b.line([[45, 116], [45, 186], [270, 186], [270, 169]]);
+        b.link(p, r1, { dash: true, c: 'b' }); b.link(p, r2, { dash: true, c: 'b', label: 'async' });
+        b.text(270, 62, 'lag: ms to s', { sm: true, c: 'c' });
+      }) },
+    { id: 'sharding', name: 'Sharding', aka: 'horizontal partitioning across nodes',
+      desc: 'Split one dataset across several database nodes by a shard key, so each node holds and serves only part of it. Hash sharding spreads keys evenly but makes range scans hit every shard; range sharding keeps neighbours together but can create hot shards.',
+      use: 'when one primary can no longer hold the data or the write load, after indexing, caching and a bigger machine are exhausted',
+      cost: 'cross-shard queries, joins and transactions get hard; picking the wrong key is very expensive to undo, and resharding needs tooling',
+      ref: 'Vitess, Citus, MongoDB sharding, DynamoDB partition keys, Designing Data-Intensive Applications (Kleppmann)',
+      prompt: 'shard by tenant_id using hash sharding (Citus or Vitess) so every query for one tenant hits one shard; no cross-shard transactions, and fan-out queries only for admin reporting',
+      ex: dg(b => {
+        const r = b.box(160, 40, 'Router', 'n', { sub: 'hash(tenant) % 4' });
+        const xs = [48, 122, 198, 272];
+        const sh = xs.map((x, i) => b.db(x, 148, 'shard ' + i, i === 2 ? 'a' : 'n'));
+        sh.forEach((s, i) => b.link(r, s, i === 2 ? { flow: true, c: 'a' } : {}));
+        b.tag(52, 88, 'tenant 42', 'a');
+        b.text(160, 190, 'range: a–f · g–m … neighbours together', { sm: true, mut: true });
+      }) },
+    { id: 'tablepartition', name: 'Table partitioning', aka: 'declarative partitioning',
+      desc: 'One logical table is stored as many smaller tables split by a key, usually time or tenant, inside a single database. Queries that filter on the key only touch the matching partitions, and old data is removed by dropping a partition instead of a huge DELETE.',
+      use: 'large append-heavy tables (events, logs, orders) with time-based retention or queries that almost always filter by date or tenant',
+      cost: 'queries without the partition key scan every partition; unique keys must include the partition key, and you need a job that creates future partitions',
+      ref: 'Postgres declarative partitioning, pg_partman, MySQL partitioning',
+      prompt: 'Postgres range partitioning by month on created_at for the events table, partitions created ahead by pg_partman, retention by dropping partitions older than 12 months',
+      ex: code(`
+{k|CREATE TABLE} events (
+  id {t|bigint}, tenant_id {t|int},
+  created_at {t|timestamptz} {k|NOT NULL} {d|...}
+) {h|{k|PARTITION BY RANGE} (created_at);}
+
+{k|CREATE TABLE} events_2026_10
+  {k|PARTITION OF} events {k|FOR VALUES}
+  {k|FROM} ({s|'2026-10-01'}) {k|TO} ({s|'2026-11-01'});
+{c|-- retention: drop, never DELETE}
+{k|DROP TABLE} events_2025_10;`, 'partitions.sql') },
+    { id: 'multitenancy', name: 'Multi-tenancy models', aka: 'silo, pool, bridge, tenant isolation',
+      desc: 'Silo gives each tenant its own database. Pool puts every tenant in the same tables with a tenant_id column, ideally enforced by row-level security. Bridge sits between them: one database, a schema per tenant.',
+      use: 'any SaaS; pool by default, silo for tenants that pay for or legally need isolation',
+      cost: 'pool risks data leaks and noisy neighbours; silo multiplies migrations, connections and cost per tenant',
+      ref: 'AWS SaaS Lens (silo/pool/bridge), Postgres row-level security, Citus',
+      prompt: 'pool multi-tenancy: every tenant table has tenant_id NOT NULL, Postgres row-level security policies filter on current_setting(\'app.tenant_id\') set per transaction, and indexes lead with tenant_id',
+      ex: dg(b => {
+        b.zone(10, 18, 94, 162, 'silo', 'n'); b.zone(113, 18, 94, 162, 'pool', 'n'); b.zone(216, 18, 94, 162, 'bridge', 'n');
+        b.db(38, 75, 'A', 'a', { w: 38 }); b.db(78, 75, 'B', 'c', { w: 38 });
+        b.text(57, 125, 'db per\ntenant', { sm: true });
+        b.db(160, 75, 'all', 'n', { w: 60 });
+        b.text(160, 125, 'tenant_id\n+ RLS', { sm: true, mono: true });
+        b.db(263, 62, 'one DB', 'n', { w: 70 });
+        b.tag(263, 110, 'schema_a', 'a'); b.tag(263, 130, 'schema_b', 'c');
+        b.text(57, 168, 'isolated, $$$', { sm: true, mut: true }); b.text(160, 168, 'cheap, shared', { sm: true, mut: true }); b.text(263, 168, 'in between', { sm: true, mut: true });
+      }) },
+    { id: 'matview', name: 'Materialized views', aka: 'precomputed views, summary tables',
+      desc: 'A query whose result is stored as a table and refreshed on a schedule or on change. Reads become a cheap lookup instead of a heavy aggregate, at the price of the data being as old as the last refresh.',
+      use: 'dashboards and list pages that aggregate lots of rows and can tolerate data that is a few minutes old',
+      cost: 'staleness between refreshes, and refresh cost grows with the data; incremental refresh needs extra tooling',
+      ref: 'Postgres materialized views, Oracle, Materialize, ClickHouse materialized views',
+      prompt: 'a Postgres materialized view for the daily sales aggregates with a unique index, refreshed CONCURRENTLY every 5 minutes by a scheduled job, and the page shows the last refresh time',
+      ex: code(`
+{k|CREATE MATERIALIZED VIEW} daily_sales {k|AS}
+{k|SELECT} {f|date_trunc}({s|'day'}, paid_at) day,
+       {f|sum}(total) {k|AS} revenue
+{k|FROM} orders {k|GROUP BY} {n|1};
+
+{k|CREATE UNIQUE INDEX ON} daily_sales(day);
+
+{c|-- every 5 min, readers never blocked}
+{h|{k|REFRESH MATERIALIZED VIEW CONCURRENTLY}}
+{h|  daily_sales;}`, 'daily_sales.sql') },
+    { id: 'searchindex', name: 'Search index from the primary store', aka: 'derived search index, CDC to search',
+      desc: 'Full-text and faceted search run on a dedicated engine, but the data is written to the primary database first. Changes flow to the index through change data capture or an outbox, and the index can always be rebuilt from the primary.',
+      use: 'relevance-ranked text search, typo tolerance, facets or filters across many fields that SQL LIKE or basic full-text cannot handle',
+      cost: 'a second system to run and an index that lags by seconds; you need a full reindex path for mapping changes',
+      ref: 'Elasticsearch, OpenSearch, Typesense, Meilisearch, Debezium',
+      prompt: 'Postgres stays the source of truth; changes stream to OpenSearch via Debezium CDC into an idempotent indexer that upserts by id, with a zero-downtime reindex through an index alias',
+      ex: dg(b => {
+        const app = b.box(50, 45, 'App', 'n');
+        const pg = b.db(50, 150, 'Postgres', 'a'), q = b.queue(150, 150, 'changes', 'd', { w: 64 }), ix = b.box(260, 150, 'Indexer', 'd');
+        const os = b.db(260, 45, 'OpenSearch', 'c');
+        b.link(app, pg, { label: 'writes' }); b.link(app, os, { label: 'search' });
+        b.link(pg, q, { label: 'CDC', flow: true }); b.link(q, ix); b.link(ix, os, { label: 'upsert' });
+      }) },
+    { id: 'objectstore', name: 'Object storage with metadata in a database', aka: 'presigned uploads, blob store',
+      desc: 'Files go to object storage and the database keeps a row with the key, size, type, owner and status. The client uploads straight to the bucket with a short-lived presigned URL, so large files never pass through your servers.',
+      use: 'user uploads, documents, images, exports, anything bigger than a few KB',
+      cost: 'two places to keep in sync: you need a status column, an upload-complete hook and a cleanup job for orphans',
+      ref: 'AWS S3 presigned URLs, Cloudflare R2, Google Cloud Storage signed URLs, MinIO',
+      prompt: 'files in S3 with metadata in Postgres: the API creates a pending row and returns a presigned PUT URL (5 min expiry, content-type and max size fixed), an S3 event marks the row ready, and a daily job deletes orphans',
+      ex: dg(b => {
+        const u = b.user(35, 125, 'client');
+        const api = b.box(140, 40, 'API', 'a'), d = b.db(272, 40, 'Postgres', 'a'), s3 = b.box(272, 145, 'S3 bucket', 'b');
+        b.link(u, api, { label: '1 URL', both: true });
+        b.link(u, s3, { label: '2 PUT', flow: true, c: 'b' });
+        b.link(api, d, { label: 'pending' });
+        b.link(s3, d, { dash: true, label: '3 ready' });
+      }) },
+    { id: 'timeseries', name: 'Time-series store', aka: 'TSDB, metrics store',
+      desc: 'A store built for timestamped measurements: fast appends, compression, time-bucketed queries, rollups and automatic retention. Raw points are kept briefly and downsampled into coarser buckets kept longer.',
+      use: 'metrics, IoT sensor readings, prices, usage counters: high write volume, queried by time range',
+      cost: 'weak at updates, joins and high-cardinality labels; another engine unless you use a Postgres extension',
+      ref: 'TimescaleDB, InfluxDB, Prometheus, ClickHouse, QuestDB',
+      prompt: 'TimescaleDB hypertable for sensor readings partitioned by time, continuous aggregates at 1 minute and 1 hour, raw data retained 30 days, 1-minute rollups 1 year, compression after 7 days',
+      ex: dg(b => {
+        const s = b.box(45, 100, 'Sensors', 'n');
+        b.zone(100, 14, 210, 176, 'TSDB', 'a');
+        const r = b.box(165, 45, 'raw', 'a', { sub: '10 s points' }), m = b.box(165, 102, '1-min', 'a', { sub: 'rollup' }), h = b.box(165, 160, '1-hour', 'a', { sub: 'rollup' });
+        b.link(s, r, { flow: true }); b.link(r, m); b.link(m, h);
+        b.text(258, 48, 'drop > 30 d', { sm: true, c: 'c' }); b.text(258, 105, 'drop > 1 y', { sm: true, c: 'c' }); b.text(258, 163, 'keep', { sm: true, c: 'g' });
+      }) },
+    { id: 'vectorstore', name: 'Vector store for retrieval', aka: 'embeddings, RAG, semantic search',
+      desc: 'Text is split into chunks, each chunk is turned into an embedding vector, and the vectors are stored with an approximate nearest-neighbour index. At query time the question is embedded too and the closest chunks are fetched and passed to the model.',
+      use: 'retrieval-augmented generation, semantic search, recommendations or dedup over text and images',
+      cost: 'retrieval quality depends on chunking and the embedding model; re-embedding everything when the model changes; ANN indexes trade recall for speed',
+      ref: 'pgvector, Pinecone, Qdrant, Weaviate, OpenSearch k-NN',
+      prompt: 'pgvector in the main Postgres: chunks of about 500 tokens with doc_id and an embedding column, an HNSW index with cosine distance, hybrid retrieval with full-text search, top 5 chunks filtered by tenant',
+      ex: code(`
+{k|CREATE EXTENSION} vector;
+{k|CREATE TABLE} chunks (
+  id {t|bigserial} {k|PRIMARY KEY},
+  doc_id {t|bigint}, body {t|text},
+  embedding {t|vector}({n|1536}));
+{k|CREATE INDEX ON} chunks {k|USING} hnsw
+  (embedding vector_cosine_ops);
+{c|-- 5 nearest chunks to the question}
+{k|SELECT} body {k|FROM} chunks
+{h|{k|ORDER BY} embedding <=> $1 {k|LIMIT} {n|5};}`, 'retrieval.sql') },
+    { id: 'oltpolap', name: 'OLTP and OLAP split', aka: 'data warehouse, ELT, analytics store',
+      desc: 'The app database (OLTP) handles small transactional reads and writes. Data is copied to a columnar warehouse (OLAP) where analysts run big scans, and transformations are written as SQL models inside the warehouse (ELT, typically with dbt).',
+      use: 'when reporting queries start slowing down the app database, or analysts need history and joins across several sources',
+      cost: 'another system, a pipeline to watch, and reports that are as fresh as the last load',
+      ref: 'Snowflake, BigQuery, ClickHouse, DuckDB, dbt, Fivetran, Airbyte',
+      prompt: 'keep analytics off the app database: load Postgres into the warehouse hourly with Airbyte, model it in dbt (staging, then marts) with tests on keys, and point dashboards only at marts',
+      ex: dg(b => {
+        b.zone(10, 18, 170, 76, 'OLTP: rows', 'a'); b.zone(196, 18, 116, 174, 'OLAP: columns', 'c');
+        const app = b.box(45, 60, 'App', 'a'), pg = b.db(130, 60, 'Postgres', 'a');
+        const wh = b.db(254, 60, 'raw', 'c'), mt = b.db(254, 150, 'marts', 'c');
+        const bi = b.box(110, 150, 'Dashboards', 'n');
+        b.link(app, pg); b.link(pg, wh, { label: 'EL', flow: true }); b.link(wh, mt, { label: 'dbt' }); b.link(mt, bi, { label: 'BI' });
+      }) },
+    { id: 'lakehouse', name: 'Data lakehouse', aka: 'medallion architecture, open table formats',
+      desc: 'Data sits in object storage as open table formats (Iceberg, Delta Lake) that add transactions, schemas and time travel on top of Parquet files. It is refined in layers: bronze holds raw copies, silver cleaned and joined data, gold business-ready tables, and many engines can query the same tables.',
+      use: 'large or varied data (events, logs, files, ML features) where a warehouse alone is too costly or too closed',
+      cost: 'many moving parts (catalog, compaction, engines) and real data-platform skills; overkill below a few TB',
+      ref: 'Apache Iceberg, Delta Lake, Databricks, Spark, Trino, Snowflake Iceberg tables',
+      prompt: 'a lakehouse on S3 with Apache Iceberg tables in a REST catalog: bronze as raw append-only ingests, silver deduplicated and typed, gold aggregated per use case; Spark for transforms, Trino for queries',
+      ex: dg(b => {
+        b.zone(10, 70, 300, 112, 'object storage · Iceberg tables', 'n');
+        const src = b.box(62, 34, 'Sources', 'n'), eng = b.box(210, 34, 'Spark · Trino', 'd');
+        const br = b.box(62, 128, 'Bronze', 'c', { sub: 'raw' }), sl = b.box(160, 128, 'Silver', 'n', { sub: 'cleaned' }), gd = b.box(258, 128, 'Gold', 'a', { sub: 'business' });
+        b.link(src, br, { flow: true }); b.link(br, sl); b.link(sl, gd);
+        b.link(eng, sl, { dash: true, c: 'd' }); b.link(eng, gd, { dash: true, c: 'd' });
+      }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'dataaccess', title: 'Data in the code', slot: 'Data access',
+  intro: 'How application code reads, writes, locks, caches and evolves data. These choices show up in every pull request, so name them early.',
+  terms: [
+    { id: 'repository', name: 'Repository', aka: 'repository pattern',
+      desc: 'A collection-like interface for loading and saving one aggregate, such as get(id) and save(order). Domain code depends on the interface, and the database details live in one implementation behind it.',
+      use: 'domain logic you want to test without a database, or when you want queries for one aggregate in one place',
+      cost: 'an extra layer; generic repositories that just wrap the ORM add indirection and no value',
+      ref: 'Domain-Driven Design (Eric Evans), Patterns of Enterprise Application Architecture (Martin Fowler)',
+      prompt: 'a repository per aggregate (OrderRepository with get, save and a few named queries), domain code depends on the interface, one Postgres implementation and an in-memory fake for tests; no generic Repository<T>',
+      ex: code(`
+{k|interface} {t|OrderRepo} &#123;
+  {f|get}(id: {t|OrderId}): {t|Promise}<{t|Order} | {k|null}>
+  {f|save}(o: {t|Order}): {t|Promise}<{k|void}>
+&#125;
+{c|// domain code sees only the interface}
+{k|class} {t|PgOrderRepo} {k|implements} {t|OrderRepo}
+{k|class} {t|InMemoryRepo} {k|implements} {t|OrderRepo}
+
+{h|{k|const} o = {k|await} repo.{f|get}(id)}
+o.{f|ship}(); {k|await} repo.{f|save}(o)`, 'orders.ts') },
+    { id: 'unitofwork', name: 'Unit of work', aka: 'change tracking, session, DbContext',
+      desc: 'An object that tracks every entity loaded and changed during one business operation and writes all the changes in a single transaction at the end. ORMs like Hibernate, EF Core and SQLAlchemy have one built in.',
+      use: 'operations that touch several aggregates or tables and must succeed or fail together',
+      cost: 'hidden writes at commit time can surprise you; a long-lived unit of work holds stale objects and grows memory',
+      ref: 'Patterns of Enterprise Application Architecture (Martin Fowler), EF Core DbContext, SQLAlchemy Session, MikroORM',
+      prompt: 'one unit of work per request or command: load entities, change them in memory, then commit once in a single transaction that also writes outbox rows; no commits inside domain methods',
+      ex: code(`
+{k|const} uow = {k|new} {t|UnitOfWork}(db)
+{k|const} order = {k|await} uow.orders.{f|get}(id)
+{k|const} item  = {k|await} uow.stock.{f|get}(sku)
+
+order.{f|confirm}()      {c|// tracked as dirty}
+item.{f|reserve}(qty)    {c|// tracked as dirty}
+uow.outbox.{f|add}({f|orderConfirmed}(order))
+
+{c|// one transaction: 2 UPDATEs + 1 INSERT}
+{h|{k|await} uow.{f|commit}()}`, 'confirm.ts') },
+    { id: 'activerecord', name: 'Active record', aka: 'model with persistence',
+      desc: 'Each object wraps one table row and carries its own persistence methods: find, save, destroy. Fields map one-to-one to columns, and validations and associations live on the model class.',
+      use: 'CRUD-heavy apps where the domain model looks like the tables, which is most web apps',
+      cost: 'business logic and persistence mix; models grow fat and hide queries (N+1) unless you keep an eye on them',
+      ref: 'Rails ActiveRecord, Django ORM, Laravel Eloquent, Patterns of Enterprise Application Architecture (Martin Fowler)',
+      prompt: 'active record models (Rails style) with validations and associations on the model, eager loading with includes to avoid N+1, and logic that spans several models moved into service objects',
+      ex: code(`
+{k|class} {t|Order} < {t|ApplicationRecord}
+  {f|belongs_to} {s|:customer}
+  {f|has_many} {s|:lines}
+  {f|validates} {s|:total}, numericality: {k|true}
+{k|end}
+
+order = {t|Order}.{f|find}({n|42})
+order.status = {s|"paid"}
+{h|order.{f|save!}}   {c|# UPDATE orders SET ...}`, 'order.rb') },
+    { id: 'ormvsql', name: 'ORM vs query builder vs raw SQL', aka: 'data mapper, SQL builder, hand-written SQL',
+      desc: 'A data mapper ORM maps objects to tables and tracks changes for you. A query builder writes SQL in typed code and returns plain rows. Raw SQL gives full control and you map rows by hand.',
+      use: 'ORM for rich domain objects and CRUD, query builder for typed queries with joins, raw SQL for reports and tuned hot paths',
+      cost: 'ORMs hide the queries they run; builders still need you to know SQL; raw SQL needs discipline on mapping and injection',
+      ref: 'Hibernate, EF Core, MikroORM, Prisma, Drizzle, Kysely, jOOQ, sqlc',
+      prompt: 'use Kysely as a typed query builder for most data access, raw parameterized SQL for reports, no ORM change tracking; every query visible in code and covered by an integration test against real Postgres',
+      ex: code(`
+{c|// 1. ORM: objects + change tracking}
+{k|const} o = {k|await} em.{f|findOne}({t|Order}, id)
+o.status = {s|'paid'}; {k|await} em.{f|flush}()
+{c|// 2. query builder: typed SQL (Kysely)}
+{k|await} db.{f|updateTable}({s|'orders'})
+  .{f|set}(&#123; status: {s|'paid'} &#125;)
+  .{f|where}({s|'id'}, {s|'='}, id).{f|execute}()
+{c|// 3. raw SQL: you write it, you map it}
+{k|await} pool.{f|query}({s|'UPDATE orders SET '} +
+  {s|'status=$1 WHERE id=$2'}, [{s|'paid'}, id])`, 'three-ways.ts') },
+    { id: 'dtomapping', name: 'DTOs and mapping at boundaries', aka: 'data transfer objects, view models, anti-corruption mapping',
+      desc: 'Each layer has its own shapes: request and response DTOs at the API, domain objects in the middle, rows at the database. Explicit mapping functions translate at each boundary, so a column rename does not change your public API.',
+      use: 'public APIs, domains with invariants, or any table that has fields clients must never see',
+      cost: 'more types and mapping code that can feel repetitive; keep mappers dumb and tested',
+      ref: 'Patterns of Enterprise Application Architecture (Martin Fowler), zod, Pydantic, MapStruct',
+      prompt: 'separate request DTOs (validated with zod), domain types and database rows, with explicit mapping functions at each boundary; never return ORM entities or rows directly from the API',
+      ex: dg(b => {
+        b.zone(8, 22, 96, 150, 'API', 'a'); b.zone(112, 22, 96, 150, 'domain', 'b'); b.zone(216, 22, 96, 150, 'storage', 'c');
+        const inn = b.box(56, 65, 'OrderIn', 'a', { sub: 'JSON in' }), out = b.box(56, 135, 'OrderOut', 'a', { sub: 'JSON out' });
+        const dom = b.box(160, 100, 'Order', 'b', { sub: 'invariants' }), row = b.box(264, 100, 'OrderRow', 'c', { sub: 'table row' });
+        b.link(inn, dom, { label: 'map' }); b.link(dom, out, { label: 'map' }); b.link(dom, row, { both: true, label: 'map' });
+        b.text(160, 188, 'nothing crosses a layer unmapped', { sm: true, mut: true });
+      }) },
+    { id: 'optimisticlock', name: 'Optimistic concurrency', aka: 'optimistic locking, version column, ETag, compare-and-set',
+      desc: 'Each row has a version number. An update only succeeds if the version is still the one you read, and bumps it; zero rows updated means someone else changed it first. Over HTTP the version travels as an ETag with If-Match.',
+      use: 'edits where conflicts are rare: forms, documents, admin screens, aggregates in a DDD model',
+      cost: 'the caller has to handle a conflict (retry or show a merge); bad fit for hot rows many writers update at once',
+      ref: 'JPA @Version, EF Core concurrency tokens, HTTP ETag and If-Match (RFC 9110)',
+      prompt: 'optimistic concurrency with an integer version column: UPDATE ... WHERE id = $1 AND version = $2, zero rows returns 409 Conflict; the API exposes it as an ETag and requires If-Match on PUT and PATCH',
+      ex: code(`
+{c|-- read: version = 7}
+{k|SELECT} id, total, version {k|FROM} orders
+{k|WHERE} id = {n|42};
+
+{c|-- write only if nobody else did}
+{k|UPDATE} orders
+{k|SET} total = {n|120}, version = version + {n|1}
+{h|{k|WHERE} id = {n|42} {k|AND} version = {n|7};}
+{r|-- 0 rows updated → 409 Conflict,}
+{r|-- reload and retry or ask the user}`, 'update.sql') },
+    { id: 'pessimisticlock', name: 'Pessimistic locking', aka: 'SELECT FOR UPDATE, row locks, advisory locks',
+      desc: 'Lock the row before changing it so other transactions wait until you commit. SELECT ... FOR UPDATE locks rows; SKIP LOCKED lets workers grab different rows of a job table; advisory locks guard things that are not rows, like "only one importer runs".',
+      use: 'hot rows where conflicts are likely (balances, inventory counts), job queues in Postgres, single-runner jobs',
+      cost: 'waiting, deadlocks and lower throughput; never hold a lock across a network call or user think time',
+      ref: 'Postgres FOR UPDATE / SKIP LOCKED / pg_advisory_xact_lock, MySQL InnoDB locking, graphile-worker, Oban',
+      prompt: 'pessimistic locking with SELECT ... FOR UPDATE inside short transactions, locks taken in a consistent order to avoid deadlocks, lock_timeout of 2 s, and FOR UPDATE SKIP LOCKED for the job queue',
+      ex: code(`
+{k|BEGIN};
+{c|-- others block here until COMMIT}
+{k|SELECT} balance {k|FROM} accounts
+ {h|{k|WHERE} id = {n|7} {k|FOR UPDATE};}
+{k|UPDATE} accounts {k|SET} balance = {n|450}
+ {k|WHERE} id = {n|7};
+{k|COMMIT};
+{c|-- job queue: take a row nobody holds}
+{k|SELECT} * {k|FROM} jobs {k|WHERE} state={s|'ready'}
+ {h|{k|LIMIT} {n|1} {k|FOR UPDATE SKIP LOCKED};}`, 'locks.sql') },
+    { id: 'softdelete', name: 'Soft delete', aka: 'deleted_at, tombstone, archive flag',
+      desc: 'Rows are marked deleted with a timestamp instead of being removed, so they can be restored and audited. Every normal query then has to filter them out, and unique constraints only apply to live rows.',
+      use: 'user-facing undo or trash, records other data refers to, or legal and support needs to see what was deleted',
+      cost: 'every query must remember the filter; tables grow; it conflicts with GDPR erasure, so plan a hard-delete or anonymize job',
+      ref: 'Rails discard / paranoia gems, Laravel SoftDeletes, Django safedelete, Hibernate @SoftDelete',
+      prompt: 'soft delete with a nullable deleted_at timestamptz, a default scope or view that hides deleted rows, partial unique indexes WHERE deleted_at IS NULL, and a job that hard-deletes after 30 days',
+      ex: code(`
+{k|ALTER TABLE} customers
+  {k|ADD COLUMN} deleted_at {t|timestamptz};
+{c|-- "delete"}
+{h|{k|UPDATE} customers {k|SET} deleted_at = {f|now}()}
+{k|WHERE} id = {n|42};
+
+{c|-- unique only among live rows}
+{k|CREATE UNIQUE INDEX} customers_email
+  {k|ON} customers (email)
+  {g|{k|WHERE} deleted_at {k|IS NULL};}`, 'soft_delete.sql') },
+    { id: 'auditlog', name: 'Audit log and history tables', aka: 'temporal tables, system-versioned tables, change history',
+      desc: 'Keep a record of who changed what and when. Temporal (system-versioned) tables keep every old version of a row automatically and let you query the table as of a past time; an application audit log writes an explicit entry with actor, action and before and after values in the same transaction.',
+      use: 'regulated data, money, permissions, or any "who changed this?" support question',
+      cost: 'storage grows with every change; history must be kept out of hot queries and covered by a retention policy',
+      ref: 'SQL:2011 temporal tables, SQL Server and MariaDB system versioning, PaperTrail, Hibernate Envers, pgaudit',
+      prompt: 'an append-only audit_log table (actor, action, entity, before and after as jsonb, request id, timestamp) written in the same transaction as the change, with no updates or deletes allowed on it',
+      ex: code(`
+{c|-- SQL Server / MariaDB temporal table}
+{k|SELECT} sku, amount {k|FROM} prices
+{h|{k|FOR SYSTEM_TIME AS OF} {s|'2026-03-01'};}
+
+{c|-- app-level audit row, same transaction}
+{k|INSERT INTO} audit_log
+  (actor, action, entity, before, after)
+{k|VALUES} ({s|'u_17'}, {s|'price.update'},
+  {s|'sku:A1'}, {s|'&#123;"amount":10&#125;'},
+  {s|'&#123;"amount":12&#125;'});`, 'audit.sql') },
+    { id: 'expandcontract', name: 'Expand and contract migrations', aka: 'parallel change, zero-downtime schema change',
+      desc: 'Change a schema in small steps where old and new code both keep working. Add the new column, write to both and backfill, switch reads to the new column, then drop the old one in a later deploy.',
+      use: 'any rename, type change or split on a live table when you deploy without downtime or run several app versions at once',
+      cost: 'one logical change becomes three or four deploys plus a backfill job, and you must remember to finish the contract step',
+      ref: 'Martin Fowler (ParallelChange), Refactoring Databases (Ambler & Sadalage), pgroll, gh-ost, strong_migrations',
+      prompt: 'expand and contract for schema changes: add nullable columns, dual-write and backfill in batches, switch reads, drop the old column in a later release; no locking ALTERs on large tables and indexes built CONCURRENTLY',
+      ex: dg(b => {
+        b.text(160, 18, 'rename name → full_name', { sm: true, mono: true, mut: true });
+        const xs = [42, 118, 194, 270];
+        const st = [['Expand', 'add col'], ['Write\nboth', 'backfill'], ['Read\nnew', 'deploy'], ['Contract', 'drop old']].map(([l, s], i) => b.box(xs[i], 62, l, i === 3 ? 'g' : 'a', { w: 64, sub: s, h: 52 }));
+        for (let i = 0; i < 3; i++) b.link(st[i], st[i + 1]);
+        xs.forEach((x, i) => { if (i < 3) b.tag(x, 115, 'name', 'c'); b.tag(x, 137, 'full_name', 'a'); });
+        b.text(160, 180, 'each step ships alone; old code keeps working', { sm: true, mut: true });
+      }) },
+    { id: 'cacheaside', name: 'Cache-aside', aka: 'lazy loading cache, look-aside',
+      desc: 'The app checks the cache first. On a miss it reads the database, stores the result in the cache with a TTL, and returns it. Writes go to the database and delete the cached key.',
+      use: 'read-heavy data that is costly to compute and fine to be slightly stale: product pages, profiles, config',
+      cost: 'the first request after a miss is slow, stale reads until TTL or invalidation, and races between a delete and a refill',
+      ref: 'Redis, Memcached, AWS ElastiCache docs, Microsoft Azure Architecture Center (Cache-Aside)',
+      prompt: 'cache-aside in Redis for product reads: get, on miss load from Postgres and set with a 5 min TTL; writes update Postgres then delete the key; cache errors fall through to the database',
+      ex: dg(b => {
+        const app = b.box(55, 100, 'App', 'n');
+        const c = b.db(235, 45, 'Redis', 'r'), d = b.db(235, 155, 'Postgres', 'a');
+        b.link(app, c, { label: '1 get' });
+        b.link(app, d, { label: '2 miss: read' });
+        b.link(app, c, { label: '3 set + TTL', bend: -24, dash: true, c: 'r' });
+      }) },
+    { id: 'writecache', name: 'Write-through and write-behind caching', aka: 'write-back cache',
+      desc: 'Write-through writes to the cache and the database in the same request, so the cache is always warm and current. Write-behind writes to the cache and acknowledges at once, then flushes to the database later in batches.',
+      use: 'write-through for read-after-write data that must be fast; write-behind for very high write rates like counters and view tracking',
+      cost: 'write-through adds latency to every write; write-behind can lose acknowledged writes if the cache dies before flushing',
+      ref: 'Redis, Hazelcast, Oracle Coherence, Caffeine (JVM), Azure Architecture Center caching guidance',
+      prompt: 'write-behind for view counters: INCR in Redis on each hit, a worker flushes deltas to Postgres every 10 s in one batched upsert; losing up to 10 s of counts on a crash is acceptable',
+      ex: dg(b => {
+        b.zone(8, 12, 304, 86, 'write-through', 'a'); b.zone(8, 106, 304, 88, 'write-behind', 'c');
+        const a1 = b.box(50, 60, 'App', 'n'), c1 = b.box(160, 60, 'Cache', 'r'), d1 = b.db(265, 60, 'DB', 'a');
+        b.link(a1, c1, { flow: true }); b.link(c1, d1, { label: 'sync' });
+        const a2 = b.box(50, 150, 'App', 'n'), c2 = b.box(135, 150, 'Cache', 'r'), q = b.queue(205, 150, 'flush later', 'c', { w: 48, slots: 4, filled: 3 }), d2 = b.db(272, 150, 'DB', 'a');
+        b.link(a2, c2, { flow: true }); b.link(c2, q); b.link(q, d2, { dash: true });
+      }) },
+    { id: 'stampede', name: 'Cache invalidation and stampede protection', aka: 'thundering herd, dogpile, request coalescing',
+      desc: 'When a hot key expires, hundreds of requests can miss at once and all hit the database. Add random jitter to TTLs so keys do not expire together, and coalesce concurrent misses so only one request recomputes while the rest wait for its result.',
+      use: 'hot keys under high traffic, or any cache whose miss path is an expensive query',
+      cost: 'more cache logic; locks and coalescing need timeouts, and serving stale-while-revalidate means some users see old data',
+      ref: 'Go singleflight, Nginx proxy_cache_lock, HTTP stale-while-revalidate (RFC 5861), XFetch probabilistic early expiration',
+      prompt: 'stampede protection: TTL 300 s with ±10% jitter, per-key request coalescing (singleflight) so one miss recomputes, serve stale for up to 60 s while refreshing, invalidate by deleting keys on write',
+      ex: dg(b => {
+        [30, 75, 120, 165].forEach(y => { const u = b.user(32, y, '', 'n'); b.line([[48, y], [104, 100]], { c: 'n' }); });
+        const co = b.box(150, 100, 'Coalesce', 'd', { sub: '1 in flight' });
+        const d = b.db(272, 100, 'DB', 'a');
+        b.link(co, d, { label: '1 query', flow: true });
+        b.tag(150, 40, 'key expired', 'r');
+        b.text(150, 172, 'TTL 300 s ± 10%', { sm: true, mono: true, mut: true });
+      }) },
+    { id: 'consistency', name: 'Consistency models', aka: 'strong, eventual, read-your-writes, monotonic reads',
+      desc: 'Strong consistency means every read sees the latest write. Eventual means replicas converge later. Between them, read-your-writes guarantees you see your own changes, and monotonic reads guarantee you never see data go backwards in time.',
+      use: 'whenever reads come from replicas, caches or another region; pick the weakest model each screen can live with',
+      cost: 'stronger models cost latency and availability; weaker ones push edge cases into the UI',
+      ref: 'Designing Data-Intensive Applications (Kleppmann), Jepsen consistency models, DynamoDB and Cosmos DB consistency levels',
+      prompt: 'read-your-writes for the user\'s own data: after a write, return the commit LSN in a cookie and serve that user\'s reads from the primary or from a replica that has replayed past it; everything else may read eventually consistent replicas',
+      ex: dg(b => {
+        const u = b.user(40, 100, 'client');
+        const l = b.db(150, 45, 'leader', 'a'), f = b.db(150, 155, 'follower', 'b');
+        b.link(u, l, { label: '1 write', flow: true }); b.link(u, f, { label: '2 read' });
+        b.link(l, f, { dash: true, label: 'lag', c: 'b' });
+        b.tag(210, 45, 'v2', 'g'); b.tag(210, 155, 'v1', 'r'); b.x(85, 140, 5);
+        b.text(268, 82, 'read-your-\nwrites: go to\nleader or wait\nfor LSN', { sm: true });
+      }) },
+    { id: 'idempotencykey', name: 'Idempotency keys for writes', aka: 'Idempotency-Key header, request dedup',
+      desc: 'The client sends a unique key with each write. The server stores the key with the result in the same transaction, and a retry with the same key gets the stored result instead of doing the work twice.',
+      use: 'payments, orders and any POST a client or queue may retry after a timeout',
+      cost: 'a key table with a unique constraint and expiry, and handling for two requests with the same key in flight at once',
+      ref: 'Stripe idempotent requests, IETF draft Idempotency-Key header, AWS Lambda Powertools idempotency',
+      prompt: 'idempotency keys on all POSTs: Idempotency-Key header required, stored with a request hash and the response in the same transaction under a unique constraint, replay on repeat, 409 if in flight, 422 if the body differs, keys expire after 24 h',
+      ex: code(`
+{d|POST /payments}
+{d|Idempotency-Key: 8f1c2a…}
+
+{k|const} hit = {k|await} keys.{f|find}(key)
+{k|if} (hit) {k|return} hit.response   {c|// replay}
+{k|await} db.{f|tx}({k|async} tx => &#123;
+  {h|{k|await} tx.keys.{f|insert}(key, {f|hash}(body))}
+  {k|const} res = {k|await} {f|charge}(tx, body)
+  {k|await} tx.keys.{f|saveResponse}(key, res)
+&#125;)`, 'payments.ts') },
+    { id: 'uuidv7', name: 'UUIDv7 and ULID keys', aka: 'time-ordered IDs, vs auto-increment, vs UUIDv4',
+      desc: 'UUIDv7 and ULID put a millisecond timestamp in the first 48 bits followed by random bits. They can be generated anywhere without a round trip like random UUIDs, yet sort by creation time like auto-increment, so B-tree inserts stay at the end of the index.',
+      use: 'primary keys created by clients or many services, IDs exposed in URLs, or merging data from several databases',
+      cost: '16 bytes instead of 8, and they leak creation time; auto-increment bigint stays the simplest choice for internal tables in one database',
+      ref: 'RFC 9562 (UUIDv7), ULID spec, Postgres 18 uuidv7(), uuid npm package',
+      prompt: 'UUIDv7 primary keys generated in the app (or Postgres 18 uuidv7()), stored as the native uuid type, never random UUIDv4 for clustered or indexed keys',
+      ex: code(`
+{c|-- auto-increment: guessable, one writer}
+id {t|bigint} {k|GENERATED ALWAYS AS IDENTITY}
+
+{c|-- UUIDv4: random, scatters the B-tree}
+{r|0b9e2f4a-7c1d-4e8b-9a6f-2d5c8e1b3a7f}
+
+{c|-- UUIDv7: 48-bit ms timestamp first}
+{h|{g|019a1c3e-5b20}-7d4e-8f12-3a9b7c6d5e4f}
+{c|-- ULID: same idea, Crockford base32}
+{g|01JA2F7XKQ}8M4N6P2R9T3V5W7Y`, 'keys.sql') }
+  ]
+});
+
+/* ---------- APIs & integration ---------- */
+pool.groups.push({
+  id: 'apistyle', title: 'API styles and contracts', slot: 'API',
+  intro: 'How services and clients talk to each other, and the contract details that decide whether an API is pleasant to use and safe to change.',
+  terms: [
+    { id: 'apirest', name: 'REST resource API', aka: 'RESTful HTTP, resource-oriented API',
+      desc: 'Model the domain as resources with stable URLs and act on them with HTTP methods: GET reads, POST creates, PUT or PATCH updates, DELETE removes. Status codes, caching headers and content types do the work that custom envelopes would otherwise do.',
+      use: 'public or partner APIs, CRUD-heavy domains, anything that benefits from HTTP caching and universal tooling',
+      cost: 'chatty for screens that need data from many resources, and actions that are not CRUD (refund, approve) need a deliberate naming choice',
+      ref: 'Roy Fielding (2000 dissertation), Google API Design Guide, Microsoft REST API Guidelines, Stripe API',
+      prompt: 'a resource-oriented REST API: plural nouns (/orders, /orders/{id}), standard methods and status codes (201 + Location on create, 204 on delete, 404/409/422 for errors), PATCH with JSON Merge Patch, and Idempotency-Key on POST',
+      ex: dg(b => {
+        const u = b.user(30, 100, 'client', 'n');
+        const api = b.box(105, 100, 'Orders\nAPI', 'a');
+        const rows = [['GET /orders', 30, 'g'], ['POST /orders', 65, 'a'], ['GET /orders/42', 100, 'g'], ['PATCH /orders/42', 135, 'c'], ['DELETE /orders/42', 170, 'r']];
+        b.link(u, api, { flow: true });
+        rows.forEach(([t, y, c]) => { const tg = b.tag(245, y, t, c); b.line([[138, 100], [160, 100], [160, y], [tg.x - tg.w / 2 - 2, y]], { c }); });
+        b.text(105, 150, '200 · 201 · 204\n404 · 409 · 422', { sm: true, mono: true, mut: true });
+      }) },
+
+    { id: 'apigraphql', name: 'GraphQL', aka: 'GraphQL federation, supergraph',
+      desc: 'Clients send a query that names exactly the fields they want, and one endpoint resolves it against a typed schema. With federation, each team owns a subgraph and a router stitches them into one supergraph and plans the calls.',
+      use: 'many client screens with different data needs over a connected domain, or several teams that want one graph for front ends',
+      cost: 'HTTP caching mostly goes away, N+1 resolver queries need DataLoader-style batching, and you must limit query depth and cost or one query can melt the backend',
+      ref: 'GraphQL spec, Apollo Federation and Router, GraphQL Yoga, Hasura, GitHub and Shopify GraphQL APIs',
+      prompt: 'a GraphQL API with a schema-first SDL, DataLoader batching per request, query depth and cost limits, persisted queries in production, and errors in the errors array with stable extension codes',
+      ex: dg(b => {
+        b.zone(76, 16, 236, 172, 'supergraph', 'a');
+        const u = b.user(32, 100, 'client', 'n');
+        const r = b.box(140, 100, 'Router', 'a', { sub: 'query plan' });
+        const s1 = b.box(258, 50, 'Users', 'b', { sub: 'subgraph' }), s2 = b.box(258, 102, 'Orders', 'c', { sub: 'subgraph' }), s3 = b.box(258, 154, 'Reviews', 'd', { sub: 'subgraph' });
+        b.link(u, r, { flow: true, label: '1 query', ly: -16 });
+        [s1, s2, s3].forEach(s => b.link(r, s));
+        b.text(140, 150, '{ user { orders\n  { reviews } } }', { sm: true, mono: true, mut: true });
+      }) },
+
+    { id: 'apigrpc', name: 'gRPC', aka: 'protobuf RPC',
+      desc: 'Services are defined in .proto files and code generators produce typed client stubs and server interfaces. Calls go over HTTP/2 with compact protobuf messages, and support unary calls plus client, server and bidirectional streaming.',
+      use: 'internal service-to-service calls where latency, strict contracts and streaming matter, especially across languages',
+      cost: 'browsers need gRPC-Web or a proxy, payloads are not human-readable, and L7 load balancing must understand HTTP/2 streams',
+      ref: 'gRPC (CNCF), Protocol Buffers, Buf, Envoy, grpcurl',
+      prompt: 'gRPC between internal services: .proto contracts in a shared repo linted and breaking-change checked with Buf, deadlines set on every call, status codes mapped deliberately (UNAVAILABLE retryable, INVALID_ARGUMENT not)',
+      ex: dg(b => {
+        const p = b.box(160, 40, 'orders.proto', 'c', { sub: 'contract' });
+        const c = b.box(62, 120, 'Client', 'a', { sub: 'generated stub' });
+        const s = b.box(258, 120, 'Server', 'b', { sub: 'generated base' });
+        b.link(p, c, { dash: true, label: 'codegen', c: 'c' }); b.link(p, s, { dash: true, label: 'codegen', c: 'c' });
+        b.link(c, s, { both: true, flow: true, label: 'HTTP/2', ly: -12 });
+        b.dot(140, 120, 'a', 3.5, { pulse: true }); b.dot(182, 120, 'b', 3.5, { pulse: true });
+        b.text(160, 175, 'unary · server · client · bidi streams', { sm: true, mut: true });
+      }) },
+
+    { id: 'apitypedrpc', name: 'Typed RPC', aka: 'tRPC, Connect, end-to-end typesafe API',
+      desc: 'The client calls server procedures as if they were local functions, and the type checker sees both sides. tRPC shares TypeScript types directly with no codegen. Connect generates clients from protobuf and speaks gRPC, gRPC-Web and plain JSON over HTTP.',
+      use: 'a TypeScript monorepo where the same team owns the front end and the back end (tRPC), or polyglot teams that want gRPC contracts that browsers can call (Connect)',
+      cost: 'tRPC couples client and server builds and is a poor fit for third-party consumers; you still need versioning discipline once mobile apps lag behind',
+      ref: 'tRPC, Connect (Buf), Zod, oRPC',
+      prompt: 'typed RPC with tRPC: one router per feature, Zod input validation on every procedure, queries vs mutations kept distinct, and the AppRouter type imported by the client so a server change breaks the client build',
+      ex: code(`
+{c|// server}
+{k|export const} appRouter = {f|router}(&#123;
+  getOrder: publicProcedure
+    .{f|input}(z.{f|object}(&#123; id: z.{f|string}() &#125;))
+    .{f|query}((&#123; input &#125;) => {f|load}(input.id)),
+&#125;);
+{k|export type} {t|AppRouter} = {k|typeof} appRouter;
+{c|// client: types only, no codegen}
+{h|{k|const} o = {k|await} api.getOrder.{f|query}(&#123;id&#125;)}
+{c|// o: Order, checked at compile time}`, 'trpc.ts') },
+
+    { id: 'apijsonrpc', name: 'JSON-RPC', aka: 'JSON-RPC 2.0, MCP transport',
+      desc: 'A tiny protocol: send an object with method, params and id, get back a result or an error with the same id. It is transport-agnostic, so it runs over HTTP, WebSockets or stdio. The Model Context Protocol (MCP) uses it for tool calls between AI clients and servers.',
+      use: 'command-style APIs, editor and agent tooling (LSP, MCP), or bidirectional channels where either side can call the other',
+      cost: 'no resource semantics, so HTTP caching and status codes do not help; you define method naming, errors and versioning yourself',
+      ref: 'JSON-RPC 2.0 spec, Language Server Protocol, Model Context Protocol, Ethereum JSON-RPC',
+      prompt: 'JSON-RPC 2.0: namespaced methods (tools/call, orders/get), every request carries an id, standard error codes (-32600, -32601, -32602) plus app codes from -32000, and batch requests supported',
+      ex: code(`
+{c|→ request}
+&#123;{s|"jsonrpc"}:{s|"2.0"}, {s|"id"}:{n|7},
+ {s|"method"}:{s|"tools/call"},
+ {s|"params"}:&#123;{s|"name"}:{s|"search"},
+   {s|"arguments"}:&#123;{s|"q"}:{s|"refunds"}&#125;&#125;&#125;
+{c|← result, matched by id}
+{g|&#123;"jsonrpc":"2.0","id":7,"result":&#123;..&#125;&#125;}
+{c|← or an error}
+{r|&#123;"jsonrpc":"2.0","id":7,"error":}
+{r| &#123;"code":-32601,"message":"no method"&#125;&#125;}`, 'mcp.jsonl') },
+
+    { id: 'apiwebhooks', name: 'Webhooks', aka: 'HTTP callbacks, push notifications',
+      desc: 'When something happens, the provider POSTs an event to a URL the consumer registered. The body is signed with a shared secret so the receiver can verify it, and failed deliveries are retried with backoff for hours or days.',
+      use: 'telling partner systems about events without making them poll (payments settled, PR merged, file processed)',
+      cost: 'delivery is at-least-once and can arrive out of order, so receivers must dedupe and tolerate gaps; you also own retries, a dead-letter view and secret rotation',
+      ref: 'Stripe and GitHub webhooks, Standard Webhooks spec, Svix, Hookdeck',
+      prompt: 'webhooks per the Standard Webhooks spec: HMAC-SHA256 signature over id + timestamp + body, 5-minute timestamp tolerance, retries with exponential backoff for up to 3 days, and receivers that return 2xx fast, enqueue, and dedupe by event id',
+      ex: dg(b => {
+        const p = b.box(60, 52, 'Provider', 'a', { sub: 'HMAC sign' });
+        const e = b.box(250, 52, 'Endpoint', 'b', { sub: 'verify sig' });
+        b.link(p, e, { flow: true, label: 'POST event', ly: -12 });
+        b.line([[250, 74], [250, 92], [60, 92], [60, 74]], { dash: true, c: 'r', label: '5xx → retry 1m, 5m, 30m…' });
+        const q = b.queue(250, 140, 'inbox', 'b', { w: 70 });
+        const w = b.box(90, 140, 'Worker', 'b', { sub: 'dedupe by id' });
+        b.line([[284, 52], [302, 52], [302, 140], [287, 140]], { label: '2xx fast', lx: -28 });
+        b.link(q, w, { label: 'process' });
+      }) },
+
+    { id: 'apiwebsockets', name: 'WebSockets', aka: 'WS, full-duplex socket',
+      desc: 'An HTTP request upgrades into a long-lived, two-way connection where either side can send frames at any time. Each server node holds its own sockets, so broadcasting to users on other nodes goes through a shared pub/sub.',
+      use: 'chat, multiplayer, collaborative editing, live dashboards where the client also sends frequently',
+      cost: 'stateful connections complicate deploys and load balancing, you build heartbeats, reconnect with resume, auth refresh and backpressure yourself',
+      ref: 'RFC 6455, Socket.IO, ws (Node), Phoenix Channels, Centrifugo, Redis pub/sub',
+      prompt: 'WebSockets with auth on the upgrade request, ping/pong heartbeats every 30 s, client reconnect with jittered backoff and resume from last seen sequence number, and fan-out across nodes via Redis pub/sub',
+      ex: dg(b => {
+        const u1 = b.user(34, 52, 'client', 'a'), u2 = b.user(34, 140, 'client', 'c');
+        const s1 = b.box(150, 55, 'WS node 1', 'n'), s2 = b.box(150, 145, 'WS node 2', 'n');
+        const ps = b.box(268, 100, 'Pub/Sub', 'd', { sub: 'Redis' });
+        b.link(u1, s1, { both: true, flow: true, label: 'frames', ly: -12 }); b.link(u2, s2, { both: true });
+        b.link(s1, ps, { both: true }); b.link(s2, ps, { both: true });
+        b.text(150, 100, '101 Upgrade, then\nping/pong 30 s', { sm: true, mut: true });
+      }) },
+
+    { id: 'apisse', name: 'Server-sent events', aka: 'SSE, EventSource, text/event-stream',
+      desc: 'The client opens one ordinary HTTP request and the server keeps it open, writing text events down it as they happen. Browsers reconnect on their own and send Last-Event-ID so the server can resume.',
+      use: 'one-way server-to-client updates: notifications, progress bars, LLM token streaming, live feeds',
+      cost: 'one direction only (client actions go over normal requests), text only, and proxies that buffer responses must be configured to flush',
+      ref: 'WHATWG HTML EventSource, OpenAI and Anthropic streaming APIs, Mercure',
+      prompt: 'server-sent events: text/event-stream with an id on every event, resume from Last-Event-ID, a comment heartbeat every 15 s to keep proxies from closing the stream, and proxy buffering turned off for that route',
+      ex: code(`
+GET /events  {d|Accept: text/event-stream}
+
+{s|200 OK  Content-Type: text/event-stream}
+{h|id: 41}
+event: order.updated
+data: &#123;"id":"o_9","status":"paid"&#125;
+
+{d|: heartbeat}
+retry: 5000
+{c|# reconnect sends Last-Event-ID: 41}`, 'stream.http') },
+
+    { id: 'apilongpoll', name: 'Long polling', aka: 'hanging GET, Comet',
+      desc: 'The client makes a request and the server holds it open until there is news or a timeout passes, then responds. The client immediately asks again, passing the last position it saw.',
+      use: 'near-real-time updates where WebSockets or SSE are blocked, or as a simple fallback; also common for job and queue consumers',
+      cost: 'one held request per waiting client and a fresh request per message, so it costs more than a stream under heavy traffic',
+      ref: 'Telegram Bot API getUpdates, Consul blocking queries, AWS SQS long polling, Socket.IO fallback',
+      prompt: 'long polling with a 25 s server hold (below every proxy timeout), a since cursor on each request, 200 with events or 204 on timeout, and immediate re-poll on the client',
+      ex: dg(b => {
+        b.box(70, 20, 'Client', 'a', { h: 24 }); b.box(250, 20, 'Server', 'b', { h: 24 });
+        b.line([[70, 32], [70, 192]], { none: true, dash: true }); b.line([[250, 32], [250, 192]], { none: true, dash: true });
+        b.box(250, 72, '', 'b', { w: 10, h: 36, r: 2 }); b.text(262, 76, 'hold', { sm: true, a: 'start', mut: true });
+        b.line([[72, 54], [244, 54]], { label: 'GET ?since=10', c: 'a' });
+        b.line([[244, 90], [72, 90]], { label: '200 + 2 events', c: 'b' });
+        b.box(250, 142, '', 'b', { w: 10, h: 44, r: 2 }); b.text(262, 146, '25 s', { sm: true, a: 'start', mut: true });
+        b.line([[72, 120], [244, 120]], { label: 'GET ?since=12', c: 'a' });
+        b.line([[244, 164], [72, 164]], { label: '204 timeout', c: 'n', dash: true });
+        b.text(78, 186, 're-poll', { sm: true, mut: true, a: 'start' });
+      }) },
+
+    { id: 'apiasyncreply', name: 'Async request-reply', aka: '202 Accepted + status URL, long-running operation',
+      desc: 'For work that takes longer than a request should, the API validates the input, queues the job and returns 202 Accepted with a Location pointing to a status resource. The client polls that URL (or gets a webhook) until the job finishes and links to the result.',
+      use: 'exports, video processing, report generation, bulk imports, anything over a few seconds',
+      cost: 'you need a durable job store, status retention and cleanup, and clients must handle the polling loop',
+      ref: 'Azure Architecture Center (Asynchronous Request-Reply), Google AIP-151 Long-running operations, RFC 9110 (202, 303)',
+      prompt: 'async request-reply: POST returns 202 Accepted with Location: /jobs/{id} and Retry-After; the job resource reports queued, running, succeeded or failed with progress, and on success links to the result; jobs are kept 7 days',
+      ex: dg(b => {
+        [[45, 'Client', 'a'], [160, 'API', 'b'], [272, 'Worker', 'd']].forEach(([x, l, c]) => { b.box(x, 18, l, c, { h: 22 }); b.line([[x, 29], [x, 194]], { none: true, dash: true }); });
+        b.line([[47, 46], [156, 46]], { label: 'POST /exports', c: 'a' });
+        b.line([[156, 70], [47, 70]], { label: '202 + Location', c: 'b' });
+        b.line([[164, 70], [268, 70]], { dash: true, label: 'enqueue', c: 'd' });
+        b.line([[47, 100], [156, 100]], { label: 'GET /jobs/7', c: 'a' });
+        b.line([[156, 122], [47, 122]], { label: 'running 40%', c: 'b' });
+        b.line([[268, 146], [164, 146]], { dash: true, label: 'succeeded', c: 'd' });
+        b.line([[47, 166], [156, 166]], { label: 'GET /jobs/7', c: 'a' });
+        b.line([[156, 186], [47, 186]], { label: 'done → /files/7', c: 'g' });
+      }) },
+
+    { id: 'apicontractfirst', name: 'Contract-first API', aka: 'spec-first, design-first, OpenAPI, AsyncAPI',
+      desc: 'Write the API description (OpenAPI for HTTP, AsyncAPI for events) before the code, review it like code, and generate server stubs, typed clients, docs and mocks from it. CI diffs each change against the last released spec and fails on breaking changes.',
+      use: 'APIs with several consumers or teams, public APIs, or whenever front end and back end work in parallel',
+      cost: 'the spec becomes one more artifact to keep honest; generated code can be awkward and needs a thin hand-written layer on top',
+      ref: 'OpenAPI 3.1, AsyncAPI 3.0, Spectral, oasdiff, openapi-typescript, Prism mock server, Redocly',
+      prompt: 'contract-first with OpenAPI 3.1 in the repo: lint with Spectral, generate typed clients and server request validation from it, run oasdiff in CI to block breaking changes, and validate real responses against the spec in tests',
+      ex: dg(b => {
+        const s = b.box(140, 52, 'openapi.yaml', 'c', { sub: 'reviewed in PR' });
+        const ci = b.box(272, 52, 'CI diff', 'r', { sub: 'oasdiff' });
+        b.link(s, ci, { label: 'breaking?', dash: true, c: 'r' });
+        const outs = [['Server\nstubs', 46, 'b'], ['Client\nSDK', 122, 'a'], ['Docs', 198, 'n'], ['Mock', 270, 'd']];
+        outs.forEach(([l, x, c]) => { const n = b.box(x, 150, l, c, { w: 62 }); b.link(s, n, { c: 'c' }); });
+      }) },
+
+    { id: 'apiversioning', name: 'API versioning', aka: 'URL versioning, header versioning, API evolution',
+      desc: 'Three common ways to change an API without stranding clients: put a major version in the path, pin each client to a dated version in a header and translate old shapes at the edge, or never break anything and only add. Most mature APIs combine additive evolution with rare major versions.',
+      use: 'any API with clients you do not deploy yourself: mobile apps, partners, public developers',
+      cost: 'URL versions duplicate code paths, header versions need a translation layer, pure additive evolution accumulates cruft; deprecations need telemetry on who still calls the old shape',
+      ref: 'Stripe API versioning (dated versions), GitHub REST API versions, Google AIP-180, RFC 8594 Sunset header, RFC 9745 Deprecation header',
+      prompt: 'API versioning by additive evolution first (new optional fields and endpoints only, never rename, retype or remove), a major version in the URL (/v2) only for real breaks, and Deprecation + Sunset headers with usage tracking before removing anything',
+      ex: code(`
+{c|# 1. major version in the URL}
+GET /{h|v2}/orders/42
+{c|# 2. dated version in a header}
+GET /orders/42
+{h|Api-Version: 2026-09-30}
+{c|# 3. evolve without breaking}
+{g|+ new optional fields, new endpoints}
+{r|- rename, retype, remove, new required}
+{c|# retiring an old shape}
+{d|Deprecation: @1767225600  Sunset: ...}`, 'versions.http') },
+
+    { id: 'apipagination', name: 'Cursor pagination', aka: 'keyset pagination, seek method (vs offset/limit)',
+      desc: 'Offset pagination asks the database to count past every skipped row, so deep pages get slow, and rows inserted meanwhile shift pages and cause duplicates or gaps. Cursor pagination returns an opaque token that encodes the last row\'s sort key, and the next query seeks straight past it.',
+      use: 'feeds, large tables, infinite scroll, sync APIs; keep offset only for small admin tables that need "jump to page 7"',
+      cost: 'no random page access or total count for free, and the sort must be on a unique, indexed key (add id as a tiebreaker)',
+      ref: 'Markus Winand, Use The Index, Luke (seek method), Stripe starting_after, Slack API cursors, Relay connection spec',
+      prompt: 'cursor pagination: opaque base64 cursor encoding (created_at, id), WHERE (created_at, id) < cursor ORDER BY created_at DESC, id DESC, limit default 50 max 200, response returns next_cursor and has_more, backed by a composite index',
+      ex: code(`
+{c|-- offset: reads and drops 10k rows}
+{r|SELECT * FROM orders ORDER BY id}
+{r| LIMIT 50 OFFSET 10000;}
+
+{c|-- cursor: seeks via the index}
+{g|SELECT * FROM orders}
+{g| WHERE (created_at, id) < ($1, $2)}
+{g| ORDER BY created_at DESC, id DESC}
+{g| LIMIT 51;} {c|-- 51st row = has_more}
+{d|next_cursor = b64(created_at, id)}`, 'page.sql') },
+
+    { id: 'apiratelimit', name: 'Rate limiting and quotas', aka: 'throttling, token bucket, 429',
+      desc: 'Each caller gets a budget, usually a token bucket that refills at a steady rate and allows short bursts. Calls over budget get 429 Too Many Requests with Retry-After, and response headers tell clients how much is left. Quotas are the slower, longer budgets (per day or per plan).',
+      use: 'any API exposed to other teams, customers or the internet, and to protect expensive endpoints from your own clients',
+      cost: 'a shared counter store (often Redis) on the hot path, plus decisions on keying (API key, user, IP) and on fairness between tenants',
+      ref: 'IETF RateLimit header fields draft, GitHub and Stripe rate limits, Envoy rate limit service, Cloudflare, redis-cell',
+      prompt: 'rate limiting per API key with a token bucket (100 req/s, burst 200) in Redis at the gateway, 429 with Retry-After and RateLimit headers when exceeded, separate stricter limits on login and expensive endpoints, and clients that honor Retry-After',
+      ex: dg(b => {
+        const a = b.user(30, 52, 'key A', 'a'), k = b.user(30, 140, 'key B', 'r');
+        const l = b.box(150, 96, 'Limiter', 'c', { sub: 'token bucket' });
+        [128, 140, 152, 164, 176].forEach((x, i) => b.dot(x, 68, i < 2 ? 'n' : 'c', 3.5));
+        const api = b.box(272, 96, 'API', 'b');
+        const r = b.db(150, 168, 'Redis', 'c', { h: 34 });
+        b.link(a, l, { flow: true }); b.link(l, api, { label: 'ok' }); b.link(l, r, { both: true });
+        b.link(k, l, { bend: 8 }); b.link(l, k, { bend: 8, c: 'r', label: '429', lx: 6, ly: 10 });
+        b.text(26, 188, 'Retry-After: 30', { sm: true, mono: true, c: 'r', a: 'start' });
+      }) },
+
+    { id: 'apiproblem', name: 'Problem details errors', aka: 'RFC 9457, application/problem+json',
+      desc: 'A standard JSON shape for HTTP errors: a type URI that identifies the error kind, a human title, the status, a detail for this occurrence and an instance pointing at the request. You can add your own fields such as a trace id or per-field validation errors.',
+      use: 'every HTTP API, so clients can branch on type instead of parsing messages',
+      cost: 'you must keep the catalog of type URIs stable and documented, and be careful not to leak internals in detail',
+      ref: 'RFC 9457 (obsoletes RFC 7807), Spring ProblemDetail, ASP.NET Core ProblemDetails, Zalando RESTful API Guidelines',
+      prompt: 'errors as RFC 9457 problem details (application/problem+json) with a stable type URI per error kind, a field-level errors array for 422 validation failures, a traceId extension, and no stack traces or SQL in detail',
+      ex: code(`
+HTTP/1.1 {r|409 Conflict}
+Content-Type: application/problem+json
+
+&#123;
+  {s|"type"}: {h|{s|"/problems/out-of-stock"}},
+  {s|"title"}: {s|"Item is out of stock"},
+  {s|"status"}: {n|409},
+  {s|"detail"}: {s|"SKU 812 has 0 left"},
+  {s|"traceId"}: {s|"4bf92f3577b34da6"}
+&#125;`, 'problem.http') },
+
+    { id: 'apipact', name: 'Consumer-driven contract tests', aka: 'Pact, CDC testing',
+      desc: 'Each consumer writes tests against a mock provider, and those tests record the exact requests and responses it relies on into a contract file. The provider replays every consumer\'s contracts against its real code in CI, and a broker answers whether a given version is safe to deploy.',
+      use: 'several services owned by different teams that deploy independently and currently rely on slow, flaky end-to-end tests',
+      cost: 'setup and a broker to run, contracts only cover what consumers wrote down, and provider states (test data) take care to maintain',
+      ref: 'Pact, PactFlow, Pact Broker can-i-deploy, Spring Cloud Contract, Martin Fowler on consumer-driven contracts',
+      prompt: 'consumer-driven contract tests with Pact: consumers publish pacts from unit tests to a Pact Broker tagged by branch and environment, providers verify them in CI, and every deploy is gated by can-i-deploy',
+      ex: dg(b => {
+        const c = b.box(52, 48, 'Consumer', 'b', { sub: 'unit test' });
+        const p = b.box(160, 48, 'pact.json', 'c', { sub: 'contract' });
+        const br = b.db(270, 48, 'Broker', 'd');
+        const pr = b.box(270, 148, 'Provider', 'a', { sub: 'replay pacts' });
+        const g = b.box(130, 148, 'can-i-deploy', 'g', { sub: 'CI gate' });
+        b.link(c, p, { label: 'record' }); b.link(p, br, { label: 'publish' });
+        b.link(br, pr, { both: true, label: 'verify', flow: true });
+        b.link(br, g, { dash: true, label: 'results', c: 'g' });
+        b.ok(130, 182);
+      }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'boundaries', title: 'Gateways and boundaries', slot: 'Integration',
+  intro: 'What sits between callers and services, and how to connect to systems you do not control, including old ones you are slowly replacing.',
+  terms: [
+    { id: 'apigateway', name: 'API gateway', aka: 'edge gateway, API management',
+      desc: 'One entry point in front of many services that handles the cross-cutting work: TLS, authentication, rate limits, routing, request size limits and logging. Services behind it can stay simpler and are not exposed directly.',
+      use: 'more than a couple of backend services exposed to outside clients, or when auth and limits must be enforced in one place',
+      cost: 'an extra hop and a critical shared component; business logic creeping into gateway config turns it into a hard-to-test monolith',
+      ref: 'Kong, AWS API Gateway, Envoy Gateway, Apigee, Tyk, Azure API Management',
+      prompt: 'an API gateway that terminates TLS, validates JWTs, applies per-key rate limits, routes by path to services, and adds a request id; no business logic or response reshaping in the gateway',
+      ex: dg(b => {
+        const us = [['web', 45], ['mobile', 100], ['partner', 155]].map(([l, y]) => b.user(28, y - 4, l, 'n'));
+        const g = b.box(140, 100, 'Gateway', 'a', { sub: 'auth · limits', h: 70 });
+        b.text(140, 124, 'TLS · route', { sm: true, mono: true });
+        const ss = [['Orders', 40, 'b'], ['Users', 100, 'c'], ['Search', 160, 'd']].map(([l, y, c]) => b.box(266, y, l, c));
+        us.forEach((u, i) => b.link(u, g, i === 1 ? { flow: true } : {}));
+        ss.forEach(s => b.link(g, s));
+      }) },
+
+    { id: 'apibff', name: 'Backend for frontend', aka: 'BFF',
+      desc: 'Each client type gets its own thin backend, owned by the team that builds that client. It aggregates and reshapes calls to downstream services into exactly what its screens need, and can hold sessions so tokens never reach the browser.',
+      use: 'web and mobile apps with clearly different needs, or a browser app where you want cookie sessions instead of tokens in JavaScript',
+      cost: 'more deployables, and logic duplicated across BFFs unless shared pieces move down into services',
+      ref: 'Sam Newman (Pattern: Backends For Frontends), SoundCloud, Next.js route handlers, Duende BFF',
+      prompt: 'a backend for frontend per client (web, mobile), owned by that client team, that aggregates downstream calls, shapes responses per screen, keeps OAuth tokens server-side behind an httpOnly session cookie, and holds no domain rules',
+      ex: dg(b => {
+        const w = b.user(30, 52, 'web', 'a'), m = b.user(30, 140, 'mobile', 'c');
+        const bw = b.box(125, 55, 'Web BFF', 'a'), bm = b.box(125, 145, 'Mobile BFF', 'c');
+        const ss = [['Orders', 40], ['Users', 100], ['Search', 160]].map(([l, y]) => b.box(266, y, l, 'n'));
+        b.link(w, bw, { flow: true }); b.link(m, bm);
+        ss.forEach(s => { b.link(bw, s, { c: 'a' }); b.link(bm, s, { c: 'c' }); });
+      }) },
+
+    { id: 'apimesh', name: 'Service mesh', aka: 'Istio, Linkerd',
+      desc: 'Every service instance gets a proxy (a sidecar, or a per-node proxy in newer ambient modes) that handles its network traffic. A control plane pushes config to all proxies, giving you mTLS, retries, timeouts, traffic splitting and uniform metrics without changing app code.',
+      use: 'many services in Kubernetes where you need zero-trust mTLS and consistent traffic policy across teams and languages',
+      cost: 'real operational weight, extra latency and memory per hop, and retries configured both in the mesh and in apps can multiply',
+      ref: 'Istio (including ambient mode), Linkerd, Cilium service mesh, Consul Connect, Envoy',
+      prompt: 'a service mesh (Linkerd or Istio ambient) providing automatic mTLS between services, per-route timeouts and retry budgets set in mesh config rather than app code, and golden-signal metrics per route',
+      ex: dg(b => {
+        const cp = b.box(160, 30, 'Control plane', 'd', { sub: 'config + certs' });
+        b.zone(16, 76, 128, 66, 'pod A', 'n'); b.zone(176, 76, 128, 66, 'pod B', 'n');
+        const a = b.box(50, 112, 'App', 'a'), pa = b.box(108, 112, 'Proxy', 'd', { w: 50 });
+        const pb = b.box(212, 112, 'Proxy', 'd', { w: 50 }), bb = b.box(270, 112, 'App', 'b');
+        b.link(a, pa); b.link(pa, pb, { flow: true, label: 'mTLS', ly: -14 }); b.link(pb, bb);
+        b.link(cp, pa, { dash: true, c: 'd' }); b.link(cp, pb, { dash: true, c: 'd' });
+        b.text(160, 170, 'retries · timeouts · metrics', { sm: true, mut: true });
+      }) },
+
+    { id: 'apisidecar', name: 'Sidecar', aka: 'sidecar container',
+      desc: 'A helper process deployed next to the main app, sharing its lifecycle, network namespace and often a volume. It adds a capability such as log shipping, TLS, config reloads or secrets fetching, so the app does not have to implement it.',
+      use: 'adding the same cross-cutting capability to apps in many languages, or to an app you cannot change',
+      cost: 'more containers to schedule and monitor per instance, plus startup ordering and resource limits to tune',
+      ref: 'Kubernetes native sidecar containers (restartPolicy: Always init containers), Envoy, Fluent Bit, Vault Agent, Dapr',
+      prompt: 'a sidecar container (Kubernetes native sidecar) next to the app that ships logs from the shared volume and fetches secrets into it, with its own CPU and memory limits, started before and stopped after the app',
+      ex: dg(b => {
+        b.zone(10, 26, 222, 150, 'pod: same host, same lifecycle', 'n');
+        const a = b.box(62, 72, 'App', 'a', { sub: 'business code' });
+        const s = b.box(180, 72, 'Sidecar', 'c', { sub: 'log + secrets' });
+        b.link(a, s, { both: true });
+        b.text(121, 104, 'localhost', { sm: true, mono: true, mut: true });
+        const v = b.db(121, 146, 'volume', 'n', { h: 32, w: 64 });
+        b.link(a, v, { dash: true }); b.link(s, v, { dash: true });
+        const o = b.box(282, 50, 'Logs', 'n'), vt = b.box(282, 130, 'Vault', 'd');
+        b.link(s, o, { flow: true }); b.link(vt, s, { dash: true });
+      }) },
+
+    { id: 'apiambassador', name: 'Ambassador', aka: 'out-of-process client proxy',
+      desc: 'A local proxy that the app calls on localhost instead of calling a remote service directly. The ambassador handles the messy client-side work: connection pooling, retries, circuit breaking, TLS, and routing to the right shard or region.',
+      use: 'legacy or third-party apps that cannot be changed to add resilient client logic, or one client policy shared across many languages',
+      cost: 'another moving part per host and an extra local hop; if the app also retries, retries multiply',
+      ref: 'Azure Architecture Center (Ambassador pattern), Brendan Burns, Designing Distributed Systems, Twemproxy, Envoy as egress proxy',
+      prompt: 'an ambassador proxy on localhost that the app calls for the payments provider, owning TLS, connection pooling, 2 s timeouts, retries with jittered backoff on 503 only, and a circuit breaker; the app itself does no retries',
+      ex: dg(b => {
+        b.zone(8, 46, 204, 108, 'host', 'n');
+        const a = b.box(50, 100, 'App', 'a', { sub: 'no retries' });
+        const am = b.box(155, 100, 'Ambassador', 'c', { sub: 'retry, TLS, CB' });
+        b.link(a, am, { label: ':9000', ly: -14 });
+        const p = b.box(270, 52, 'Primary', 'b', { sub: 'remote' }), r = b.box(270, 148, 'Replica', 'b', { sub: 'remote' });
+        b.link(am, p, { flow: true }); b.link(am, r, { dash: true, label: 'failover', lx: -16, ly: 8 });
+      }) },
+
+    { id: 'apiacl', name: 'Anti-corruption layer', aka: 'ACL, translation layer',
+      desc: 'A layer at the boundary with another system that translates its model into yours and back. Your domain code only ever sees your own types, so the other system\'s naming, quirks and changes are contained in one place.',
+      use: 'integrating with a legacy system, an ERP or a third party whose model does not match your domain',
+      cost: 'mapping code to write and test both ways, and some data the other side has may not fit your model cleanly',
+      ref: 'Eric Evans, Domain-Driven Design (2003), Vaughn Vernon, Implementing Domain-Driven Design',
+      prompt: 'an anti-corruption layer between our domain and the legacy ERP: one module that maps ERP records to our domain types (and back), validates them, and is the only code that imports ERP client types',
+      ex: dg(b => {
+        b.zone(10, 22, 116, 160, 'our domain', 'a'); b.zone(202, 22, 108, 160, 'legacy ERP', 'n');
+        const o = b.box(68, 110, 'Orders', 'a');
+        const acl = b.box(164, 110, 'ACL', 'c', { sub: 'translate', w: 64 });
+        const e = b.box(256, 110, 'ERP', 'n');
+        b.link(o, acl, { both: true }); b.link(acl, e, { both: true, flow: true });
+        b.tag(68, 60, 'Customer', 'a'); b.tag(256, 60, 'KNA1 row', 'n');
+        b.line([[222, 60], [104, 60]], { dash: true, c: 'c' });
+        b.text(164, 160, 'no ERP types\npast this line', { sm: true, c: 'r' });
+      }) },
+
+    { id: 'apistrangler', name: 'Strangler fig migration', aka: 'strangler pattern, incremental rewrite',
+      desc: 'Put a routing layer in front of the old system, then rebuild one slice at a time and switch its routes to the new code. The legacy system shrinks until nothing routes to it and it can be switched off.',
+      use: 'replacing a large legacy system while it keeps serving traffic, instead of a big-bang rewrite',
+      cost: 'both systems run for a long time, data often must be synced between them, and the last 10% is the hardest',
+      ref: 'Martin Fowler (StranglerFigApplication, 2004), Sam Newman, Monolith to Microservices, AWS Migration Hub Refactor Spaces',
+      prompt: 'a strangler fig migration: a proxy in front of the monolith routes migrated paths to the new service and everything else to the monolith, with each slice switchable per route via config and shadow traffic compared before cutover',
+      ex: dg(b => {
+        const u = b.user(26, 100, 'client', 'n');
+        const p = b.box(112, 100, 'Proxy', 'c', { sub: 'route table' });
+        const n = b.box(258, 48, 'New service', 'b');
+        const l = b.box(258, 150, 'Monolith', 'n', { dash: true });
+        b.link(u, p, { flow: true });
+        b.link(p, n, { label: '/orders/*', c: 'b', flow: true }); b.link(p, l, { label: 'everything else' });
+        b.raw('<g class="c-b"><rect class="nd" x="210" y="88" width="96" height="10" rx="3"/><rect class="solid" x="210" y="88" width="38" height="10" rx="3" opacity=".75"/></g>');
+        b.text(258, 112, '40% moved', { sm: true, mut: true });
+      }) },
+
+    { id: 'apifacade', name: 'Facade over legacy', aka: 'legacy facade, simplified API',
+      desc: 'A clean, small API placed in front of one or more awkward legacy systems. Callers use the facade\'s simple operations, and the facade does the multi-step calls, protocol conversion and data cleanup behind it.',
+      use: 'new apps that need data from mainframes, SOAP services or old databases, or as the first step of a strangler migration',
+      cost: 'the facade can hide slow or fragile backends but not fix them, so it needs timeouts and caching; it can grow into a god service',
+      ref: 'Gang of Four (Facade), Sam Newman, Monolith to Microservices',
+      prompt: 'a facade service exposing a small REST API (GET /customers/{id}) over the mainframe, CRM and billing database, with its own response model, per-backend timeouts, and short-lived caching of slow lookups',
+      ex: dg(b => {
+        const u = b.user(26, 100, 'new app', 'a');
+        const f = b.box(118, 100, 'Facade', 'a', { sub: 'GET /customers/42' });
+        const m = b.box(262, 42, 'Mainframe', 'n', { sub: 'CICS' }), c = b.box(262, 104, 'CRM', 'n', { sub: 'SOAP' });
+        const d = b.db(262, 162, 'Billing', 'n', { h: 36 });
+        b.link(u, f, { flow: true });
+        [m, c, d].forEach(t => b.link(f, t, { dash: true }));
+      }) },
+
+    { id: 'apiadapter', name: 'Adapter at the boundary', aka: 'translator, port adapter, gateway class',
+      desc: 'Wrap each external SDK or API behind an interface your code owns, and put all the mapping in one adapter class. The rest of the code talks to your interface, so swapping vendors or faking it in tests touches one file.',
+      use: 'every third-party dependency with a fat SDK: payments, email, storage, search, LLM providers',
+      cost: 'one more interface and mapping per dependency, and a lowest-common-denominator interface can hide useful vendor features',
+      ref: 'Gang of Four (Adapter), Alistair Cockburn (Ports and Adapters), Martin Fowler (Gateway)',
+      prompt: 'an adapter per external service: an interface in our domain terms (Payments.charge), one adapter class that alone imports the vendor SDK and maps its types and errors to ours, and an in-memory fake for tests',
+      ex: code(`
+{k|interface} {t|Payments} &#123; {c|// our port}
+  {f|charge}(c: {t|Charge}): {t|Promise}<{t|Paid}>
+&#125;
+{c|// adapter: only file that sees Stripe}
+{k|class} {t|StripePay} {k|implements} {t|Payments} &#123;
+  {k|async} {f|charge}(c: {t|Charge}) &#123;
+    {k|const} pi = {k|await} stripe
+      .paymentIntents.{f|create}({f|toPI}(c));
+    {h|{k|return} {f|toPaid}(pi); {c|// our types}}
+&#125;&#125;`, 'payments.ts') },
+
+    { id: 'apilb', name: 'Reverse proxy and load balancer', aka: 'L4 vs L7 load balancing, ingress',
+      desc: 'A reverse proxy accepts client connections and forwards them to a pool of backends. An L4 balancer works on TCP or UDP connections and only sees IPs and ports. An L7 balancer terminates HTTP, so it can route by host, path or header, retry, and balance per request.',
+      use: 'L4 for raw throughput, non-HTTP protocols and TLS passthrough; L7 for HTTP routing, gRPC per-request balancing and edge features',
+      cost: 'L7 costs more CPU and sees decrypted traffic; L4 balances connections, so long-lived HTTP/2 or gRPC connections can pin load to one backend',
+      ref: 'NGINX, HAProxy, Envoy, AWS NLB (L4) and ALB (L7), Kubernetes Gateway API',
+      prompt: 'an L7 load balancer (Envoy or ALB) that terminates TLS, routes by host and path, balances per request with least-request, health-checks backends with outlier ejection, and drains connections on deploy',
+      ex: dg(b => {
+        b.text(8, 18, 'L4', { b: true, a: 'start', c: 'c' }); b.text(8, 118, 'L7', { b: true, a: 'start', c: 'a' });
+        const u1 = b.user(32, 52, '', 'n'), u2 = b.user(32, 148, '', 'n');
+        const l4 = b.box(118, 54, 'L4 LB', 'c', { sub: 'IP:port, TCP' });
+        [26, 54, 82].forEach(y => b.link(l4, b.box(262, y, 'app', 'n', { w: 54, h: 20 })));
+        b.line([[8, 102], [312, 102]], { none: true, dash: true });
+        const l7 = b.box(118, 150, 'L7 LB', 'a', { sub: 'host, path' });
+        b.link(u1, l4, { flow: true }); b.link(u2, l7, { flow: true });
+        b.link(l7, b.box(262, 126, 'API', 'b', { w: 54, h: 22 }), { label: '/api/*' });
+        b.link(l7, b.box(262, 176, 'Web', 'd', { w: 54, h: 22 }), { label: '/*' });
+      }) },
+
+    { id: 'apidiscovery', name: 'Service discovery', aka: 'service registry, DNS-based discovery',
+      desc: 'Instances register their address with a registry when they start and are removed when health checks fail. Callers look up a logical name (orders) and get healthy addresses, either directly (client-side) or through a load balancer or DNS (server-side).',
+      use: 'any environment where instances come and go: autoscaling groups, containers, Kubernetes',
+      cost: 'the registry is critical infrastructure; stale entries and DNS caching cause calls to dead instances unless TTLs and health checks are tight',
+      ref: 'Kubernetes Services and CoreDNS, HashiCorp Consul, Netflix Eureka, AWS Cloud Map',
+      prompt: 'service discovery through Kubernetes Services and DNS names (orders.default.svc), readiness probes that gate registration, and callers that never hard-code instance IPs',
+      ex: dg(b => {
+        const r = b.db(160, 40, 'Registry', 'd');
+        const i1 = b.box(258, 100, 'orders-1', 'b', { sub: '10.0.1.7:8080' });
+        const i2 = b.box(258, 160, 'orders-2', 'b', { sub: '10.0.2.4:8080' });
+        const c = b.box(60, 130, 'Checkout', 'a');
+        b.link(i1, r, { dash: true, c: 'd', label: 'register' }); b.line([[300, 141], [300, 40], [195, 40]], { dash: true, c: 'd' });
+        b.link(c, r, { label: 'lookup', both: true });
+        b.link(c, i1, { flow: true, label: 'call' });
+        b.text(258, 192, 'health-checked', { sm: true, mut: true });
+      }) },
+
+    { id: 'apiedge', name: 'Edge functions and CDN', aka: 'edge compute, CDN in front of APIs',
+      desc: 'A CDN with points of presence near users sits in front of your API. It caches cacheable responses and runs small functions at the edge for auth checks, redirects, geo routing, A/B assignment or header rewrites, so only misses and dynamic calls reach the origin.',
+      use: 'global users, read-heavy public endpoints, and cheap per-request logic that benefits from running close to the user',
+      cost: 'cache invalidation and personalized responses need care (Vary, cache keys), edge runtimes are limited, and a wrong cache rule can serve one user\'s data to another',
+      ref: 'Cloudflare Workers, Fastly Compute, Vercel and Netlify edge functions, AWS CloudFront Functions and Lambda@Edge',
+      prompt: 'a CDN in front of the API caching public GET responses with Cache-Control s-maxage and stale-while-revalidate, never caching responses that vary by user, and an edge function that verifies the JWT and rejects bad requests before the origin',
+      ex: dg(b => {
+        b.zone(80, 14, 82, 176, 'edge POPs', 'c');
+        const es = [40, 102, 164].map((y, i) => { const u = b.user(30, y - 4, '', 'n'); const e = b.box(121, y, 'Edge', 'c', { sub: i === 1 ? 'MISS' : 'HIT', w: 62 }); b.link(u, e); return e; });
+        const o = b.box(262, 102, 'Origin\nAPI', 'a');
+        b.link(es[1], o, { flow: true, label: 'miss' });
+        b.ok(172, 40); b.ok(172, 164);
+        b.text(262, 150, 'auth, redirects,\nA/B at the edge', { sm: true, mut: true });
+      }) },
+
+    { id: 'apibatch', name: 'File and batch integration', aka: 'batch ETL, file drop, SFTP exchange',
+      desc: 'One system exports a file (CSV, Parquet, JSON lines) on a schedule to shared storage, and another picks it up and loads it. Done well, each file has a manifest or done marker, a schema, and loads are idempotent so reruns are safe.',
+      use: 'large volumes that do not need to be fresh (nightly reconciliations, reporting, bank and partner feeds) or partners that can only do files',
+      cost: 'data is hours old, failures surface late unless you check row counts and arrival times, and schema changes break silently without validation',
+      ref: 'AWS S3 + Glue, Airflow, dbt, Fivetran, SFTP partner feeds, Parquet',
+      prompt: 'batch file integration: nightly Parquet export to S3 under dated prefixes with a _SUCCESS manifest holding row count and schema version, an idempotent loader that upserts by key, and an alert if the file is late or counts do not match',
+      ex: dg(b => {
+        const s = b.db(48, 60, 'ERP', 'n');
+        const f = b.box(168, 60, 'S3 bucket', 'c', { sub: 'dt=2026-10-14/' });
+        const l = b.box(168, 148, 'Loader', 'd', { sub: 'cron 02:00' });
+        const w = b.db(278, 148, 'DW', 'a');
+        b.link(s, f, { label: 'export' });
+        b.link(f, l, { flow: true, label: '_SUCCESS?', c: 'c' });
+        b.link(l, w, { label: 'upsert' });
+        b.text(56, 140, 'check row\ncount + schema', { sm: true, mut: true });
+      }) },
+
+    { id: 'apicomposition', name: 'API composition', aka: 'aggregator, scatter-gather',
+      desc: 'A composer receives one request, calls several services in parallel, and merges their answers into one response. Each downstream call has its own timeout, and optional parts are dropped instead of failing the whole response.',
+      use: 'pages or queries that need data owned by several services, when a precomputed read model would be overkill',
+      cost: 'latency is the slowest call, availability is the product of all required calls, and joins over large sets do not work this way',
+      ref: 'Chris Richardson, Microservices Patterns (API Composition), Enterprise Integration Patterns (Scatter-Gather), Netflix API',
+      prompt: 'API composition: fan out to orders, profile and reviews in parallel with per-call timeouts (300 ms), mark reviews optional so a timeout returns the page without them, and an overall deadline of 800 ms',
+      ex: dg(b => {
+        const u = b.user(26, 100, 'client', 'n');
+        const a = b.box(118, 100, 'Composer', 'a', { sub: 'parallel' });
+        const o = b.box(262, 40, 'Orders', 'b'), p = b.box(262, 100, 'Profile', 'c'), r = b.box(262, 160, 'Reviews', 'd', { dash: true });
+        b.link(u, a, { flow: true });
+        b.link(a, o, { label: '40 ms' }); b.link(a, p, { label: '25 ms' }); b.link(a, r, { label: 'timeout', c: 'r', dash: true });
+        b.x(206, 158, 5);
+        b.text(118, 150, 'merge, skip\noptional parts', { sm: true, mut: true });
+      }) }
+  ]
+});
+
+/* Reliability & scale: staying up, scaling and deploying, seeing inside */
+(() => {
+// small local helpers for shapes the kit doesn't have
+const rect = (b, x, y, w, h, c, o = {}) => b.raw(`<g class="c-${c}"><rect class="${o.solid ? 'solid' : 'nd'}${o.dash ? ' dash' : ''}" x="${x}" y="${y}" width="${w}" height="${h}" rx="${o.r == null ? 3 : o.r}"${o.op ? ` opacity="${o.op}"` : ''}/></g>`);
+const path = (b, d, c, cls = 'ln k') => b.raw(`<g class="c-${c}"><path class="${cls}" d="${d}"/></g>`);
+
+pool.groups.push({
+  id: 'resilience', title: 'Staying up', slot: 'Resilience',
+  intro: 'How a service keeps working when the things it depends on are slow, down or overloaded. Most of these are cheap to add early and painful to retrofit after the first outage.',
+  terms: [
+    { id: 'deadlines', name: 'Timeouts and deadlines', aka: 'deadline propagation, request budget',
+      desc: 'Every network call gets a timeout, and the whole request gets a deadline. Each hop passes the time that is left to the next one, so a downstream service stops working on a request the caller has already given up on.',
+      use: 'any call that crosses a network, which is every call to a database, cache, queue or other service',
+      cost: 'picking numbers takes real latency data; too tight and you fail healthy requests, too loose and threads pile up behind a slow dependency',
+      ref: 'gRPC deadlines, Go context.WithTimeout, AbortSignal.timeout(), Release It! (Michael Nygard)',
+      prompt: 'explicit timeouts on every outbound call (connect 1 s, request set from measured p99) and a per-request deadline propagated downstream (gRPC deadline or a header with time remaining); work stops when the deadline passes',
+      ex: dg(b => {
+        b.text(160, 26, 'deadline travels with the request', { sm: true, mut: true });
+        const u = b.user(26, 96, 'client');
+        const g = b.box(105, 100, 'API', 'a', { w: 62, sub: '1000 ms' });
+        const o = b.box(190, 100, 'Orders', 'b', { w: 62, sub: '700 ms' });
+        const s = b.box(275, 100, 'Stock', 'c', { w: 62, sub: '250 ms' });
+        b.link(u, g, { flow: true }); b.link(g, o); b.link(o, s);
+        rect(b, 74, 150, 232, 10, 'n');
+        rect(b, 74, 150, 232, 10, 'a', { solid: true, op: .25 });
+        rect(b, 159, 150, 147, 10, 'b', { solid: true, op: .35 });
+        rect(b, 244, 150, 62, 10, 'c', { solid: true, op: .5 });
+        b.text(74, 172, 'time left shrinks at each hop; 0 = give up', { sm: true, a: 'start' });
+      }) },
+
+    { id: 'retrybackoff', name: 'Retries with backoff and jitter', aka: 'exponential backoff, full jitter',
+      desc: 'When a call fails with something transient, wait and try again, doubling the wait each time up to a cap. Jitter randomizes each wait so a thousand clients that failed together do not all retry in the same millisecond.',
+      use: 'transient failures: timeouts, connection resets, 429 and 503, on operations that are safe to repeat',
+      cost: 'retries multiply load on a dependency that is already struggling, and retrying a non-idempotent call can do the thing twice',
+      ref: 'AWS Architecture Blog "Exponential Backoff and Jitter" (Marc Brooker), Polly, resilience4j, tenacity, Google SRE book',
+      prompt: 'retries with exponential backoff and full jitter (base 100 ms, cap 10 s, max 4 attempts), only for idempotent operations and only on timeouts, connection errors, 429 and 503; honor Retry-After when present',
+      ex: dg(b => {
+        b.text(160, 26, 'wait = random(0, min(cap, base × 2ⁿ))', { sm: true, mono: true });
+        path(b, 'M18 120 L304 120', 'n', 'ln');
+        // jitter windows
+        rect(b, 34, 106, 14, 28, 'c', { dash: true, r: 2 });
+        rect(b, 52, 106, 30, 28, 'c', { dash: true, r: 2 });
+        rect(b, 86, 106, 60, 28, 'c', { dash: true, r: 2 });
+        rect(b, 150, 106, 120, 28, 'c', { dash: true, r: 2 });
+        const xs = [28, 46, 76, 128, 250];
+        xs.forEach((x, i) => b.dot(x, 120, i < 4 ? 'r' : 'g', 4));
+        [28, 46, 76, 128].forEach(x => b.x(x, 88, 4.5)); b.ok(250, 88);
+        b.text(41, 148, '100', { sm: true, mono: true }); b.text(67, 148, '200', { sm: true, mono: true });
+        b.text(116, 148, '400', { sm: true, mono: true }); b.text(210, 148, '800 ms', { sm: true, mono: true });
+        b.text(160, 176, 'dashed = the window each retry lands in', { sm: true, mut: true });
+      }) },
+
+    { id: 'retrybudget', name: 'Retry budget', aka: 'retry ratio, adaptive retry',
+      desc: 'A cap on retries as a share of normal traffic, for example retries may add at most 10% on top of first attempts. When the dependency is healthy the budget is never touched. When it is down, retries stop instead of tripling the load.',
+      use: 'services with several layers that each retry, where retries can multiply into a retry storm',
+      cost: 'one more piece of shared state per client; during an outage some requests fail that a blind retry might have saved',
+      ref: 'Finagle RetryBudget, Envoy retry_budget, AWS SDK adaptive retry mode, Google SRE book (handling overload)',
+      prompt: 'a retry budget per client: retries limited to 10% of successful request volume (plus a small floor of 10/s), retry only at one layer of the stack, and no retry when the budget is spent',
+      ex: dg(b => {
+        const c = b.box(48, 100, 'Client', 'a', { h: 96 });
+        const d = b.box(272, 100, 'Payments', 'r', { h: 96, w: 72 });
+        b.line([[80, 70], [232, 70]], { label: '100 req/s', flow: true });
+        b.line([[80, 100], [232, 100]], { label: 'retries ≤ 10/s', c: 'c', dash: true });
+        b.line([[80, 130], [232, 130]], { c: 'r', dash: true, none: true });
+        b.x(156, 130, 5);
+        b.text(156, 172, 'extra retries are dropped', { sm: true, c: 'r', b: true });
+        b.text(156, 30, 'budget = 10% of first attempts', { sm: true, mut: true });
+      }) },
+
+    { id: 'circuitbreaker', name: 'Circuit breaker', aka: 'breaker',
+      desc: 'A wrapper around calls to a dependency that counts failures. Closed lets calls through; past a failure threshold it opens and fails fast without calling. After a cool-down it goes half-open and lets a few probe calls through to decide whether to close again.',
+      use: 'a dependency that can go down or get very slow, where waiting on it would tie up your own threads and spread the outage',
+      cost: 'thresholds need tuning per dependency; while open, every caller gets an error or a fallback even if the dependency is partly working',
+      ref: 'Release It! (Michael Nygard), Martin Fowler "CircuitBreaker", resilience4j, Polly, Envoy outlier detection',
+      prompt: 'a circuit breaker per downstream dependency: opens when the failure rate passes 50% over a rolling window of at least 20 calls, fails fast for 30 s, then half-opens and allows 3 probe calls before closing',
+      ex: dg(b => {
+        const cl = b.circle(56, 64, 30, 'Closed', 'g');
+        const op = b.circle(264, 64, 30, 'Open', 'r');
+        const hf = b.circle(160, 158, 30, 'Half-\nopen', 'c');
+        b.link(cl, op, { label: 'failures ≥ 50%', c: 'r' });
+        b.link(op, hf, { label: 'after 30 s', lx: -30, ly: -4 });
+        b.link(hf, op, { bend: 16, label: 'probe fails', c: 'r', lx: 18, ly: 6 });
+        b.link(hf, cl, { label: 'probes ok', c: 'g', lx: -26, ly: 6 });
+        b.text(62, 22, 'calls pass', { sm: true, mut: true }); b.text(258, 22, 'fail fast', { sm: true, mut: true });
+      }) },
+
+    { id: 'bulkhead', name: 'Bulkhead', aka: 'isolated pools, compartments',
+      desc: 'Give each dependency, or each class of work, its own limited pool of threads, connections or concurrency slots. When one dependency hangs, only its pool fills up and the rest of the service keeps serving.',
+      use: 'one service that talks to several dependencies of different reliability, or serves tenants or features you want isolated from each other',
+      cost: 'pools you size by hand, and idle capacity in one pool cannot be borrowed by another',
+      ref: 'Release It! (Michael Nygard), resilience4j Bulkhead, Hystrix (thread pool isolation), Kubernetes resource limits',
+      prompt: 'bulkheads: a separate bounded connection pool and concurrency limit per downstream dependency (e.g. 20 for payments, 50 for search), so a slow dependency can exhaust only its own pool',
+      ex: dg(b => {
+        const u = b.user(26, 96, 'callers');
+        const z = b.zone(56, 24, 140, 160, 'one service', 'n');
+        const p = b.queue(126, 60, 'payments pool', 'r', { w: 84, slots: 5, filled: 5 });
+        const s = b.queue(126, 104, 'search pool', 'b', { w: 84, slots: 5, filled: 2 });
+        const f = b.queue(126, 148, 'profile pool', 'd', { w: 84, slots: 5, filled: 1 });
+        const P = b.box(266, 60, 'Payments', 'r'), S = b.box(266, 104, 'Search', 'b'), F = b.box(266, 148, 'Profile', 'd');
+        b.link(u, z);
+        b.link(p, P, { c: 'r', dash: true }); b.link(s, S); b.link(f, F);
+        b.text(266, 32, 'hangs', { sm: true, c: 'r', b: true });
+      }) },
+
+    { id: 'fallback', name: 'Fallback and graceful degradation', aka: 'degraded mode, default response',
+      desc: 'Decide ahead of time what a feature does when its dependency fails: serve a cached or static answer, hide the widget, or do a simpler version. The page still loads; one part of it is less good for a while.',
+      use: 'non-critical parts of a request, like recommendations, avatars, personalization or counts',
+      cost: 'each fallback is a code path that rarely runs, so it needs its own tests, and stale data must be acceptable for that feature',
+      ref: 'Netflix (fallbacks in Hystrix), resilience4j fallback, stale-if-error (RFC 5861)',
+      prompt: 'graceful degradation: each non-critical dependency (recommendations, reviews) has a defined fallback (cached last-good value or hidden section) used on timeout or open breaker; core flows like checkout never depend on them',
+      ex: dg(b => {
+        const u = b.user(26, 96, 'user');
+        const p = b.box(110, 100, 'Product\npage', 'a');
+        const r = b.box(250, 52, 'Recs', 'r');
+        const c = b.db(250, 148, 'last good', 'g', { w: 74 });
+        b.link(u, p, { flow: true });
+        b.link(p, r, { c: 'r', dash: true, label: 'timeout' });
+        b.link(p, c, { c: 'g', label: 'fallback' });
+        b.x(290, 30, 5);
+        b.text(160, 190, 'the page loads, with older picks', { sm: true, mut: true });
+      }) },
+
+    { id: 'loadshed', name: 'Load shedding', aka: 'admission control, concurrency limit',
+      desc: 'When a server is near its limit, it rejects some requests early and cheaply (a fast 503 or 429) instead of accepting everything and getting slow for everyone. Good shedders drop low-priority work first and keep the important paths alive.',
+      use: 'services that see spikes beyond capacity, where latency climbs sharply once queues build up',
+      cost: 'some users get errors on purpose; you need a priority scheme and clients that back off on 503',
+      ref: 'Netflix concurrency-limits, Envoy overload manager, AWS Builders\' Library "Using load shedding to avoid overload", Google SRE book',
+      prompt: 'load shedding at the edge of each service: an adaptive concurrency limit, and when it is reached reject low-priority requests first with 503 and Retry-After, keeping checkout and auth paths admitted',
+      ex: dg(b => {
+        [[20, 70], [30, 92], [18, 110], [34, 128], [24, 146]].forEach(([x, y]) => b.dot(x, y, 'n', 3.5));
+        const g = b.box(118, 100, 'Admit?', 'c', { sub: 'limit 200' });
+        const s = b.box(252, 100, 'Server', 'a', { sub: 'in flight 200' });
+        b.line([[42, 108], [80, 102]], {});
+        b.link(g, s, { flow: true, label: 'priority' });
+        const t = b.tag(118, 168, '503 Retry-After', 'r');
+        b.link(g, t, { c: 'r' });
+        b.text(252, 150, 'stays fast', { sm: true, c: 'g', b: true });
+      }) },
+
+    { id: 'loadlevel', name: 'Queue-based load leveling', aka: 'buffering, work queue',
+      desc: 'Put a queue between a bursty producer and the service doing the work. The producer writes as fast as it likes; workers pull at the rate they can sustain, and the queue absorbs the peaks.',
+      use: 'work that does not need an answer in the same request: emails, image processing, imports, webhooks',
+      cost: 'the caller no longer gets the result right away, and you have to watch queue depth and age or the backlog grows quietly',
+      ref: 'Azure Architecture Center (Queue-Based Load Leveling), AWS SQS, RabbitMQ, Sidekiq, Celery',
+      prompt: 'queue-based load leveling: producers enqueue jobs to a durable queue, a fixed-size worker pool pulls at a steady rate, with alerts on queue age (oldest message > 5 min) and a dead-letter queue after 5 failed attempts',
+      ex: dg(b => {
+        b.text(54, 46, 'bursty', { sm: true, c: 'c', b: true });
+        b.line([[16, 120], [28, 120], [34, 64], [42, 120], [54, 120], [60, 76], [68, 120], [80, 120], [86, 92], [92, 120]], { none: true, c: 'c' });
+        const q = b.queue(162, 104, 'queue', 'd', { w: 92, slots: 6, filled: 5 });
+        const w = b.box(266, 104, 'Workers', 'a', { sub: '50 jobs/s' });
+        b.line([[96, 104], [112, 104]], {});
+        b.link(q, w, { flow: true });
+        b.text(266, 46, 'steady', { sm: true, c: 'a', b: true });
+        b.line([[232, 64], [300, 64]], { none: true, c: 'a' });
+        b.text(162, 160, 'peaks wait here', { sm: true, mut: true });
+      }) },
+
+    { id: 'ratelimit', name: 'Rate limiting', aka: 'token bucket, leaky bucket, sliding window, throttling',
+      desc: 'Cap how many requests a caller can make per unit of time. A token bucket refills at a fixed rate and each request spends a token, which allows short bursts up to the bucket size. A leaky bucket drains at a fixed rate and smooths bursts out; a sliding window counts requests in the last N seconds.',
+      use: 'public APIs, login and signup endpoints, expensive operations, and fair sharing between tenants',
+      cost: 'a distributed limiter needs shared state (usually Redis), and limits that are too tight block real users',
+      ref: 'Stripe "Scaling your API with rate limiters", Envoy and NGINX rate limiting, Redis + GCRA (redis-cell), IETF RateLimit header fields draft',
+      prompt: 'rate limiting with a token bucket per API key (refill 10/s, burst 20) stored in Redis, returning 429 with Retry-After and RateLimit headers; stricter per-IP limits on login and signup',
+      ex: dg(b => {
+        b.text(160, 22, 'refill 10 tokens/s', { sm: true, mono: true });
+        b.line([[160, 32], [160, 58]], { c: 'g' });
+        path(b, 'M120 64 L128 146 L192 146 L200 64', 'a', 'nd');
+        [[140, 134], [154, 134], [168, 134], [182, 134], [147, 120], [161, 120], [175, 120], [154, 106]].forEach(([x, y]) => b.dot(x, y, 'c', 5));
+        b.text(160, 160, 'burst 20', { sm: true, mut: true });
+        const u = b.user(32, 96, 'calls');
+        b.line([[48, 100], [118, 100]], { flow: true });
+        const ok = b.box(276, 66, 'API', 'g');
+        const no = b.tag(276, 140, '429', 'r');
+        b.line([[200, 92], [248, 70]], { label: 'token', c: 'g' });
+        b.line([[198, 118], [262, 138]], { label: 'empty', c: 'r', dash: true });
+      }) },
+
+    { id: 'healthchecks', name: 'Health checks', aka: 'liveness, readiness, startup probes',
+      desc: 'Separate endpoints answer separate questions. Liveness asks "is this process stuck?" and a failure restarts it. Readiness asks "should this instance get traffic right now?" and a failure takes it out of the load balancer. A startup probe gives slow boots time before the others kick in.',
+      use: 'anything running behind a load balancer or an orchestrator like Kubernetes, ECS or Nomad',
+      cost: 'a liveness check that calls the database will restart every pod when the database blips; checks that are too deep cause the outage they were meant to detect',
+      ref: 'Kubernetes liveness, readiness and startup probes, AWS ELB target health checks, Spring Boot Actuator health groups',
+      prompt: 'separate health endpoints: /livez checks only the process itself (no dependencies), /readyz checks it can serve (warm, connected to its own DB) and fails during shutdown drain, and a startup probe for slow boots',
+      ex: dg(b => {
+        const k = b.box(56, 72, 'kubelet', 'n');
+        const lb = b.box(56, 150, 'Load\nbalancer', 'a');
+        b.zone(124, 24, 186, 160, 'pod', 'b');
+        const st = b.tag(180, 54, '/startupz', 'b');
+        const lv = b.tag(180, 96, '/livez', 'b');
+        const rd = b.tag(180, 150, '/readyz', 'b');
+        b.link(k, st, { dash: true }); b.link(k, lv);
+        b.link(lb, rd);
+        b.text(216, 54, 'then the others', { sm: true, a: 'start' });
+        b.text(216, 96, 'fail: restart', { sm: true, a: 'start', c: 'r' });
+        b.text(216, 150, 'fail: no traffic', { sm: true, a: 'start', c: 'c' });
+      }) },
+
+    { id: 'hedging', name: 'Hedged requests', aka: 'backup requests, request hedging',
+      desc: 'Send a request to one replica; if it has not answered by about the p95 latency, send the same request to a second replica and use whichever answers first, cancelling the other. It cuts tail latency at the cost of a few percent extra load.',
+      use: 'read-heavy fan-out systems where p99 matters and any replica can answer, like search, caches and storage reads',
+      cost: 'extra load on replicas, and only safe for idempotent reads; badly tuned, it doubles traffic during an incident',
+      ref: '"The Tail at Scale" (Dean & Barroso, 2013), gRPC hedging policy, Envoy hedge_policy',
+      prompt: 'hedged reads: if a replica has not answered within the p95 latency, send one backup request to another replica, take the first response and cancel the other; reads only, and cap hedging at 5% of traffic',
+      ex: dg(b => {
+        const c = b.box(62, 100, 'Client', 'a');
+        const r1 = b.box(252, 54, 'Replica 1', 'c', { sub: 'slow' });
+        const r2 = b.box(252, 146, 'Replica 2', 'g');
+        b.link(c, r1, { label: 't = 0' });
+        b.link(c, r2, { dash: true, label: 'at p95', lx: -6, ly: -4 });
+        b.link(r2, c, { bend: -14, c: 'g', label: 'first wins', lx: 10, ly: 6 });
+        b.text(252, 90, 'cancelled', { sm: true, c: 'r', b: true });
+      }) },
+
+    { id: 'idempotentops', name: 'Idempotent operations', aka: 'idempotency keys, safe retries',
+      desc: 'Design writes so doing them twice has the same effect as doing them once. The usual tool is an idempotency key the client sends with the request; the server stores the result under that key and replays it on a retry instead of running the operation again. This is what makes retries safe.',
+      use: 'any write that a client, queue or proxy might retry: payments, orders, emails, webhooks',
+      cost: 'a key store with a TTL, and care about the race when two copies of the same request arrive at once',
+      ref: 'Stripe Idempotency-Key header, IETF Idempotency-Key header draft, AWS ClientToken, Brandur Leach "Implementing Stripe-like Idempotency Keys in Postgres"',
+      prompt: 'idempotent writes: clients send an Idempotency-Key header, the server inserts the key under a unique constraint before doing the work, stores the response for 24 h and replays it on retries with the same key',
+      ex: code(`
+{c|// client sends the same key on every retry}
+{k|async function} {f|pay}(req) &#123;
+  {k|const} saved = {k|await} keys.{f|get}(req.key)
+  {h|  if (saved) return saved.response}
+  {k|await} keys.{f|claim}(req.key) {c|// unique}
+  {k|const} res = {k|await} {f|charge}(req)
+  {k|await} keys.{f|save}(req.key, res)
+  {k|return} res
+&#125;`, 'payments.ts') },
+
+    { id: 'chaos', name: 'Chaos engineering and game days', aka: 'fault injection, disaster recovery drills',
+      desc: 'Break things on purpose in a controlled way to find weaknesses before an outage does. You state the steady state you expect (error rate, latency), inject a fault such as killing instances, adding latency or cutting a zone, watch whether the steady state holds, and fix what it reveals.',
+      use: 'once you have timeouts, retries and failover in place and want proof they work; game days are the team-scale version with people in the loop',
+      cost: 'real risk if the blast radius is not limited, and time from the team to run, observe and follow up',
+      ref: 'Netflix Chaos Monkey, Principles of Chaos Engineering, Gremlin, AWS Fault Injection Service, Chaos Mesh, LitmusChaos',
+      prompt: 'chaos experiments: a written steady-state hypothesis (e.g. p99 < 300 ms, errors < 0.5%), faults injected in staging first and then in production with a small blast radius and an abort switch, run on a schedule',
+      ex: dg(b => {
+        const s = b.box(160, 40, 'Steady state', 'g', { sub: 'p99 < 300 ms' });
+        const i = b.box(262, 104, 'Inject', 'r', { sub: 'kill 1 zone' });
+        const o = b.box(160, 166, 'Observe', 'a', { sub: 'did it hold?' });
+        const f = b.box(58, 104, 'Fix', 'c', { sub: 'then repeat' });
+        b.link(s, i, { bend: -8 }); b.link(i, o, { bend: -8 }); b.link(o, f, { bend: -8 }); b.link(f, s, { bend: -8 });
+        b.text(160, 104, 'small blast radius', { sm: true, mut: true });
+      }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'scaling', title: 'Scaling and deploying', slot: 'Scaling',
+  intro: 'How a system grows past one machine and one region, and how new code gets in front of users without taking the system down.',
+  terms: [
+    { id: 'stateless', name: 'Stateless services, horizontal scaling', aka: 'scale out, shared-nothing',
+      desc: 'Keep no user state in the app process: sessions, uploads and caches go to shared stores. Then any instance can serve any request, and you scale by adding identical instances behind a load balancer.',
+      use: 'web and API tiers, which is where most load shows up first',
+      cost: 'every bit of state moves to an external store that now has to scale and stay up; local caches become per-instance and can disagree',
+      ref: 'The Twelve-Factor App (processes), Kubernetes Deployments, AWS Auto Scaling groups',
+      prompt: 'stateless app instances: no in-memory sessions or local files, sessions in Redis or signed cookies, uploads straight to object storage, so any instance can serve any request behind the load balancer',
+      ex: dg(b => {
+        const u = b.user(24, 96, 'users');
+        const lb = b.box(86, 100, 'LB', 'n');
+        const z = b.zone(124, 24, 96, 154, 'any one', 'a');
+        const a1 = b.box(172, 56, 'app', 'a'), a2 = b.box(172, 100, 'app', 'a'), a3 = b.box(172, 144, 'app', 'a', { dash: true });
+        b.link(u, lb, { flow: true }); [a1, a2, a3].forEach(a => b.link(lb, a));
+        const r = b.db(274, 62, 'Redis', 'd'); const d = b.db(274, 140, 'DB', 'c');
+        b.line([[222, 70], [246, 64]], {}); b.line([[222, 130], [246, 138]], {});
+        b.text(172, 188, '+1 when busy', { sm: true, mut: true });
+      }) },
+
+    { id: 'scaleup', name: 'Vertical scaling', aka: 'scale up, bigger box',
+      desc: 'Move to a machine with more CPU, memory or faster disks. No code changes, no new failure modes, and modern instances are very large, so a single database server goes much further than people expect.',
+      use: 'first, especially for databases, before sharding or splitting services',
+      cost: 'there is a ceiling, prices grow faster than size at the top end, and resizing often means a restart or failover',
+      ref: 'AWS and GCP instance families (up to hundreds of vCPUs and terabytes of RAM), Stack Overflow\'s small server footprint',
+      prompt: 'scale up before scaling out: measure the bottleneck, move the database to a larger instance with a failover replica, and only split or shard once the largest sensible instance is not enough',
+      ex: dg(b => {
+        path(b, 'M20 30 L300 30', 'r', 'ln k dash');
+        b.text(300, 20, 'largest instance', { sm: true, c: 'r', a: 'end' });
+        const s = b.db(66, 150, 'DB', 'c', { w: 56, h: 44 });
+        const l = b.db(226, 110, 'DB', 'c', { w: 120, h: 124 });
+        b.text(66, 186, '4 vCPU · 16 GB', { sm: true, mono: true });
+        b.text(226, 186, '64 vCPU · 512 GB', { sm: true, mono: true });
+        b.link(s, l, { label: 'resize', flow: true });
+      }) },
+
+    { id: 'autoscale', name: 'Autoscaling', aka: 'HPA, auto scaling group, KEDA',
+      desc: 'Add or remove instances automatically based on a metric. CPU works for request-serving tiers; for workers, scale on queue depth or message age, because a stuck queue can sit at low CPU while the backlog grows.',
+      use: 'load that changes over the day or week, and worker pools fed by a queue',
+      cost: 'scaling takes minutes, so it does not save you from sudden spikes; it also needs min and max bounds or a bug can scale you into a large bill',
+      ref: 'Kubernetes HPA, KEDA, AWS Auto Scaling target tracking, Google Cloud Run',
+      prompt: 'autoscaling with explicit bounds (min 2, max 20): API pods target 60% CPU, worker pods scale on queue depth (about 100 messages per pod) via KEDA, with a 5 min scale-down cooldown',
+      ex: dg(b => {
+        const q = b.queue(76, 72, 'jobs: 480', 'd', { w: 96, slots: 6, filled: 5, top: true });
+        const a = b.box(76, 150, 'Autoscaler', 'c', { sub: '100 / pod' });
+        b.link(q, a, { dash: true, label: 'depth' });
+        const ps = [44, 76, 108].map(y => b.box(262, y, 'pod', 'a', { w: 64, h: 24 }));
+        const n1 = b.box(262, 140, 'pod', 'a', { w: 64, h: 24, dash: true }), n2 = b.box(262, 172, 'pod', 'a', { w: 64, h: 24, dash: true });
+        b.line([[126, 72], [228, 72]], { flow: true });
+        b.link(a, n1, { label: 'scale out', c: 'c' });
+      }) },
+
+    { id: 'cachelayers', name: 'Caching layers', aka: 'browser cache, CDN, application cache, read-through',
+      desc: 'A response can be cached at several points: the browser, a CDN at the edge, an app-level cache like Redis, and the database\'s own buffer pool. Each layer closer to the user saves more work, and each has its own expiry and invalidation story.',
+      use: 'read-heavy data that tolerates a little staleness: catalogs, profiles, config, rendered pages',
+      cost: 'invalidation and stale reads; a cold or flushed cache can send a stampede of misses to the database',
+      ref: 'HTTP Cache-Control (RFC 9111), Cloudflare, Fastly, CloudFront, Redis, Memcached',
+      prompt: 'caching in layers: Cache-Control with max-age and stale-while-revalidate for the browser and CDN, a read-through Redis cache with TTLs and explicit invalidation on writes, and request coalescing on misses to avoid stampedes',
+      ex: dg(b => {
+        const u = b.user(28, 76, 'Browser');
+        const c = b.box(108, 80, 'CDN', 'b');
+        const a = b.box(190, 80, 'App', 'a');
+        const d = b.db(276, 80, 'DB', 'c');
+        const r = b.db(190, 156, 'Redis', 'd');
+        b.link(u, c, { flow: true }); b.link(c, a, { label: 'miss' }); b.link(a, d, { label: 'miss' }); b.link(a, r, { both: true });
+        b.text(28, 120, 'max-age', { sm: true, mono: true });
+        b.text(108, 120, 's-maxage', { sm: true, mono: true });
+        b.text(240, 156, 'TTL 5m', { sm: true, mono: true, a: 'start' });
+        b.text(276, 120, 'buffers', { sm: true, mono: true });
+        b.text(78, 172, 'closer = cheaper,\nharder to purge', { sm: true, mut: true });
+      }) },
+
+    { id: 'consistenthash', name: 'Consistent hashing', aka: 'hash ring, rendezvous hashing',
+      desc: 'Place nodes and keys on the same hash ring; each key belongs to the next node clockwise. Adding or removing a node moves only the keys in its slice, instead of reshuffling nearly everything as hash(key) mod N would.',
+      use: 'distributing keys across cache nodes, shards or partitions that come and go',
+      cost: 'uneven load unless each node gets many virtual nodes, and hot keys still land on a single node',
+      ref: 'Karger et al. 1997, Amazon Dynamo paper, Cassandra token ring, Discord and memcached clients (ketama)',
+      prompt: 'consistent hashing with virtual nodes (about 100 per physical node) to map keys to cache or shard nodes, so adding a node moves only about 1/N of the keys',
+      ex: dg(b => {
+        const cx = 112, cy = 102, R = 66;
+        b.circle(cx, cy, R, '', 'n', { dash: true });
+        const at = (deg, r = R) => [cx + r * Math.cos(deg * Math.PI / 180), cy + r * Math.sin(deg * Math.PI / 180)];
+        const node = (deg, l, c, o) => { const [x, y] = at(deg); return b.circle(Math.round(x), Math.round(y), 12, l, c, o); };
+        node(-90, 'A', 'a'); node(30, 'B', 'b'); node(150, 'C', 'd'); node(-25, 'D', 'g', { dash: true });
+        [[-65, 'g'], [-45, 'g'], [70, 'd'], [100, 'd'], [200, 'a'], [235, 'a'], [5, 'b']].forEach(([d, c]) => { const [x, y] = at(d); b.dot(Math.round(x), Math.round(y), c, 4); });
+        b.text(250, 64, 'key → next node\nclockwise', { sm: true });
+        b.text(250, 124, 'add D: only keys\nbetween A and D\nmove to D', { sm: true, c: 'g' });
+      }) },
+
+    { id: 'leaderelect', name: 'Leader election', aka: 'lease, single active instance',
+      desc: 'Several instances run, but only one at a time holds a lease in a coordination store and does the singleton work (a scheduler, a migration runner, a partition owner). If the leader stops renewing the lease, another instance takes it over.',
+      use: 'jobs that must run exactly once at a time but still need failover',
+      cost: 'a paused leader can wake up thinking it still leads, so writes need fencing tokens; and you now depend on the coordination store',
+      ref: 'Kubernetes Lease API (client-go leaderelection), etcd and ZooKeeper recipes, Martin Kleppmann "How to do distributed locking"',
+      prompt: 'leader election through a lease in etcd or a Kubernetes Lease (TTL 15 s, renew every 5 s); only the leader runs the scheduler, and its writes carry a fencing token that storage checks',
+      ex: dg(b => {
+        const e = b.db(160, 50, 'etcd', 'c', { w: 70 });
+        const n1 = b.box(60, 150, 'node 1', 'a', { sub: 'leader' });
+        const n2 = b.box(160, 150, 'node 2', 'n', { sub: 'standby' });
+        const n3 = b.box(260, 150, 'node 3', 'n', { sub: 'standby' });
+        b.link(n1, e, { label: 'renew', c: 'a', flow: true });
+        b.link(n2, e, { dash: true }); b.link(n3, e, { dash: true, label: 'watch' });
+        b.text(240, 50, 'lease 15 s', { sm: true, mono: true, a: 'start' });
+      }) },
+
+    { id: 'consensus', name: 'Consensus', aka: 'Raft, Paxos, replicated log',
+      desc: 'A group of nodes agrees on one ordered log of changes even if some of them crash. In Raft, an elected leader appends entries and replicates them; an entry is committed once a majority has it, so 5 nodes survive 2 failures.',
+      use: 'small, critical state that must never disagree: cluster config, locks, leader leases, metadata; usually by using etcd, ZooKeeper or Consul, not writing your own',
+      cost: 'every write waits on a majority round trip, the cluster stops accepting writes without a quorum, and it does not scale to bulk data',
+      ref: 'Raft paper (Ongaro & Ousterhout), Paxos (Lamport), etcd, ZooKeeper (ZAB), Consul, CockroachDB, Kafka KRaft',
+      prompt: 'use an existing consensus system (etcd, ZooKeeper or Consul) for coordination state, deployed as 3 or 5 nodes across zones; do not implement a consensus protocol ourselves',
+      ex: dg(b => {
+        b.text(160, 18, 'commit when 3 of 5 have it', { sm: true, b: true });
+        const l = b.box(160, 100, 'Leader', 'a', { sub: 'term 7' });
+        const f = [[62, 50], [258, 50], [62, 152], [258, 152]].map(([x, y]) => b.box(x, y, 'Follower', 'n', { w: 72 }));
+        f.forEach((n, i) => b.link(l, n, { dash: i === 3, flow: i === 0 }));
+        b.ok(62, 24); b.ok(258, 24); b.x(258, 180, 5);
+        b.queue(160, 158, 'log', 'a', { w: 56, slots: 4, filled: 3 });
+      }) },
+
+    { id: 'activepassive', name: 'Multi-region active-passive', aka: 'warm standby, pilot light, DR region',
+      desc: 'One region serves all traffic; a second region holds an asynchronously replicated copy of the data and a scaled-down copy of the app. On a regional outage you promote the standby database and point DNS at the second region.',
+      use: 'a recovery target of minutes to an hour, without the cost and complexity of serving from two regions at once',
+      cost: 'async replication loses the last few seconds of writes on failover (RPO > 0), and a standby that is never exercised tends not to work when you need it',
+      ref: 'AWS disaster recovery strategies (pilot light, warm standby), Route 53 failover routing, Aurora Global Database, Postgres streaming replication',
+      prompt: 'active-passive multi-region: primary region serves all traffic, async database replication to a warm standby region, DNS failover with health checks, target RPO under 1 min and RTO under 30 min, failover drilled each quarter',
+      ex: dg(b => {
+        const d = b.box(160, 26, 'DNS', 'n', { w: 60 });
+        b.zone(14, 54, 136, 136, 'us-east · active', 'a');
+        b.zone(170, 54, 136, 136, 'us-west · standby', 'n');
+        const a1 = b.box(82, 96, 'App', 'a'), a2 = b.box(238, 96, 'App', 'n', { dash: true });
+        const d1 = b.db(82, 152, 'DB', 'a'), d2 = b.db(238, 152, 'replica', 'n');
+        b.link(d, a1, { flow: true }); b.line([[190, 26], [238, 26], [238, 80]], { dash: true, label: 'failover' });
+        b.link(a1, d1); b.link(a2, d2, { dash: true });
+        b.link(d1, d2, { label: 'async', c: 'a' });
+      }) },
+
+    { id: 'activeactive', name: 'Multi-region active-active', aka: 'multi-master, geo-distributed',
+      desc: 'Two or more regions serve traffic at the same time, each close to its users, with data replicated between them. Users get low latency and a region can fail without a promotion step, but concurrent writes to the same record in two regions have to be resolved.',
+      use: 'global user bases with tight latency needs, or availability targets where a failover step is too slow',
+      cost: 'the hardest option: write conflicts (last-writer-wins, CRDTs or per-record home regions), double the infrastructure, and subtle bugs from replication lag',
+      ref: 'DynamoDB global tables, Cassandra multi-DC, CockroachDB, Spanner, Cosmos DB, Netflix multi-region',
+      prompt: 'active-active across two regions with geo-routed DNS; each record has a home region for writes (or uses a database with multi-region consensus like Spanner or CockroachDB) so we avoid last-writer-wins conflicts',
+      ex: dg(b => {
+        const d = b.box(160, 26, 'Geo DNS', 'n');
+        b.zone(14, 54, 136, 136, 'eu-west', 'a');
+        b.zone(170, 54, 136, 136, 'us-east', 'b');
+        const a1 = b.box(82, 96, 'App', 'a'), a2 = b.box(238, 96, 'App', 'b');
+        const d1 = b.db(82, 152, 'DB', 'a'), d2 = b.db(238, 152, 'DB', 'b');
+        b.link(d, a1, { flow: true }); b.link(d, a2, { flow: true });
+        b.link(a1, d1); b.link(a2, d2);
+        b.link(d1, d2, { both: true, label: 'repl', c: 'c' });
+        b.text(160, 124, 'conflicts?', { sm: true, c: 'r', b: true });
+      }) },
+
+    { id: 'cappacelc', name: 'CAP and PACELC in practice', aka: 'consistency vs availability, consistency vs latency',
+      desc: 'CAP says that during a network partition a replicated store must choose between staying available and staying consistent. PACELC adds the everyday case: else, when there is no partition, it chooses between low latency and consistency. Most real decisions are the ELC half.',
+      use: 'choosing a datastore or a replication setting, and deciding per operation which reads may be stale',
+      cost: 'strong consistency costs latency on every write; availability-first means designing for stale reads and conflicts',
+      ref: 'Eric Brewer (CAP), Daniel Abadi (PACELC, 2012), Designing Data-Intensive Applications (Martin Kleppmann), Jepsen',
+      prompt: 'state the consistency choice per data type: balances and inventory use strongly consistent (linearizable) reads and writes, while feeds, counters and search tolerate eventual consistency with bounded staleness',
+      ex: dg(b => {
+        const p = b.box(160, 34, 'Partition?', 'n');
+        const y = b.box(82, 104, 'pick A or C', 'r'), n = b.box(238, 104, 'pick L or C', 'a');
+        b.link(p, y, { label: 'yes' }); b.link(p, n, { label: 'else' });
+        b.tag(82, 146, 'Cassandra: A', 'c'); b.tag(82, 170, 'etcd: C', 'd');
+        b.tag(238, 146, 'Cassandra: L', 'c'); b.tag(238, 170, 'etcd: C', 'd');
+      }) },
+
+    { id: 'bluegreen', name: 'Blue-green deploys', aka: 'red-black deploys',
+      desc: 'Run two full production environments. Deploy the new version to the idle one, test it, then switch the router so all traffic goes there at once. Rolling back is switching the router back.',
+      use: 'releases where you want instant, all-or-nothing cutover and rollback',
+      cost: 'double the capacity during a release, and the database is shared, so schema changes must work with both versions',
+      ref: 'Martin Fowler "BlueGreenDeployment", AWS CodeDeploy, Argo Rollouts, Cloud Foundry',
+      prompt: 'blue-green deploys: deploy to the idle environment, run smoke tests against it, flip the load balancer target, keep the old environment for 1 h for instant rollback; schema changes follow expand-and-contract',
+      ex: dg(b => {
+        const r = b.box(66, 100, 'Router', 'n');
+        const bl = b.box(244, 52, 'Blue · v1', 'a', { w: 96, sub: 'idle, kept' });
+        const gr = b.box(244, 148, 'Green · v2', 'g', { w: 96, sub: 'live' });
+        b.link(r, gr, { flow: true, label: '100%', c: 'g' });
+        b.link(r, bl, { dash: true, label: 'rollback' });
+        b.text(66, 140, 'one switch', { sm: true, mut: true });
+      }) },
+
+    { id: 'canary', name: 'Canary releases', aka: 'progressive delivery, staged rollout',
+      desc: 'Send a small slice of real traffic to the new version, compare its error rate and latency to the current version, and widen the slice step by step. If the canary looks worse, roll it back automatically before most users see it.',
+      use: 'frequent releases to services with enough traffic for the metrics to mean something',
+      cost: 'needs traffic splitting and good per-version metrics; two versions run at once, so they must be compatible',
+      ref: 'Argo Rollouts, Flagger, Spinnaker (Kayenta), AWS CodeDeploy, Google SRE workbook',
+      prompt: 'canary releases: 1% → 10% → 50% → 100% with 15 min per step, automatic rollback if the canary\'s 5xx rate or p99 latency is worse than the stable version by a set margin',
+      ex: dg(b => {
+        b.text(160, 20, '1% → 10% → 50% → 100%', { sm: true, mono: true });
+        const r = b.box(66, 104, 'Router', 'n');
+        const s = b.box(244, 62, 'v1 stable', 'a');
+        const c = b.box(244, 150, 'v2 canary', 'c');
+        b.link(r, s, { label: '90%', flow: true });
+        b.link(r, c, { label: '10%', c: 'c' });
+        b.text(244, 106, 'compare 5xx, p99', { sm: true, mut: true });
+      }) },
+
+    { id: 'rolling', name: 'Rolling deploys', aka: 'rolling update',
+      desc: 'Replace instances a few at a time: start a new one, wait until it is ready, then stop an old one, and repeat. No extra environment is needed, and capacity stays close to normal throughout.',
+      use: 'the default for most stateless services on Kubernetes, ECS or VM groups',
+      cost: 'old and new versions serve side by side for the whole rollout, and rollback is another rolling deploy, not an instant switch',
+      ref: 'Kubernetes Deployment RollingUpdate (maxSurge, maxUnavailable), AWS ECS, Nomad',
+      prompt: 'rolling deploys with maxSurge 25% and maxUnavailable 0, readiness probes gating each step, graceful shutdown that drains connections for 30 s, and old and new versions compatible with each other',
+      ex: dg(b => {
+        const rows = [0, 1, 2, 4];
+        rows.forEach((n, ri) => {
+          const y = 38 + ri * 42;
+          b.text(40, y, ['start', 'step 1', 'step 2', 'done'][ri], { sm: true, mono: true });
+          for (let i = 0; i < 4; i++) {
+            const nw = i < n;
+            b.box(104 + i * 56, y, nw ? 'v2' : 'v1', nw ? 'g' : 'a', { w: 44, h: 26 });
+          }
+        });
+      }) },
+
+    { id: 'featureflags', name: 'Feature flags and dark launches', aka: 'feature toggles, kill switch, shadow traffic',
+      desc: 'Ship code turned off and turn it on at runtime, for a percentage of users, specific accounts or a region. A dark launch runs the new path on real traffic without showing the result, to test load and correctness before anyone sees it.',
+      use: 'separating deploy from release, gradual rollouts, kill switches for risky features, trunk-based development',
+      cost: 'every flag is a branch to test, and old flags pile up into dead code unless they have an owner and an expiry',
+      ref: 'LaunchDarkly, Unleash, OpenFeature, Flagsmith, Pete Hodgson "Feature Toggles" (martinfowler.com)',
+      prompt: 'feature flags through OpenFeature with percentage and per-account targeting, a kill switch for each risky feature, every flag with an owner and removal date; new backends dark-launched with shadow traffic first',
+      ex: code(`
+{c|// rollout: staff → 5% → 50% → 100%}
+{k|if} ({k|await} flags.{f|isOn}({s|'new-checkout'}, &#123;
+      userId: u.id, country: u.country &#125;)) &#123;
+  {k|return} {f|newCheckout}(cart)
+&#125;
+{k|return} {f|oldCheckout}(cart)
+
+{c|// dark launch: run it, compare, discard}
+{h|shadow(() => newPricing(cart))}`, 'checkout.ts') }
+  ]
+});
+
+pool.groups.push({
+  id: 'observe', title: 'Seeing inside', slot: 'Observability',
+  intro: 'How you find out what a running system is doing and why it broke, ideally before your users tell you.',
+  terms: [
+    { id: 'structlog', name: 'Structured logging', aka: 'JSON logs, semantic logging',
+      desc: 'Log events as key-value records (usually one JSON object per line) instead of formatted sentences. Every line carries the same core fields such as level, timestamp, service and trace id, so you can filter and aggregate without regex.',
+      use: 'any service whose logs end up in a search tool like Loki, Elasticsearch, Datadog or CloudWatch',
+      cost: 'more bytes per line, and the field names need to stay consistent across services to be useful',
+      ref: 'pino, structlog, zap, slog (Go), Serilog, OpenTelemetry logs data model',
+      prompt: 'structured JSON logs with consistent fields (ts, level, service, msg, trace_id, request_id, user_id when known), event names as stable message keys, and no secrets or full request bodies',
+      ex: code(`
+log.{f|info}({s|"payment.captured"}, &#123;
+  orderId: o.id, amountCents: {n|4200},
+  provider: {s|"stripe"}, durationMs: {n|182}
+&#125;)
+{c|// one JSON line out:}
+{d|&#123;"level":"info","ts":"2026-10-15T…",}
+{d| "msg":"payment.captured",}
+{d| "orderId":"o_81","amountCents":4200,}
+{h| "trace_id":"4bf92f…"&#125;}`, 'pay.ts') },
+
+    { id: 'redmetrics', name: 'Metrics with RED and USE', aka: 'golden signals',
+      desc: 'Two checklists for what to measure. RED is for request-serving services: Rate, Errors and Duration. USE is for resources like CPU, disks, pools and queues: Utilization, Saturation and Errors. Together they cover most of what you need on a first dashboard.',
+      use: 'deciding which metrics each service and each resource exports, before building dashboards and alerts',
+      cost: 'metrics with high-cardinality labels (user id, full URL) get expensive fast; you trade detail for cost',
+      ref: 'Tom Wilkie (RED), Brendan Gregg (USE), Google SRE four golden signals, Prometheus, OpenTelemetry metrics',
+      prompt: 'metrics by the RED method for every endpoint (request rate, error rate, latency histogram with p50/p95/p99) and USE for each resource (CPU, memory, connection pools, queue depth), exported via OpenTelemetry or Prometheus with low-cardinality labels',
+      ex: dg(b => {
+        b.zone(10, 22, 144, 166, 'RED · services', 'a');
+        b.zone(166, 22, 144, 166, 'USE · resources', 'c');
+        b.box(82, 60, 'API', 'a', { w: 80 });
+        b.tag(82, 102, 'rate 1.2k/s', 'a'); b.tag(82, 130, 'errors 0.4%', 'r'); b.tag(82, 158, 'p99 210 ms', 'a');
+        b.box(238, 60, 'CPU · pool', 'c', { w: 100 });
+        b.tag(238, 102, 'util 78%', 'c'); b.tag(238, 130, 'saturation: 12 wait', 'c'); b.tag(238, 158, 'errors 0', 'c');
+      }) },
+
+    { id: 'tracing', name: 'Distributed tracing', aka: 'OpenTelemetry, spans, traceparent',
+      desc: 'Each request gets a trace id that is passed along on every call (the W3C traceparent header). Each service records spans with start time, duration and attributes, and a tracing backend stitches them into one waterfall that shows where the time went.',
+      use: 'any request that crosses more than a couple of services, or when you need to know which call made p99 slow',
+      cost: 'instrumentation in every service, storage cost (usually handled with sampling), and context lost wherever a hop forgets to propagate the header',
+      ref: 'OpenTelemetry, W3C Trace Context, Jaeger, Grafana Tempo, Honeycomb, Zipkin, Dapper paper (Google)',
+      prompt: 'distributed tracing with OpenTelemetry SDKs in every service, W3C traceparent propagated over HTTP and message headers, spans around each external call, and tail-based sampling that keeps all errors and slow traces',
+      ex: dg(b => {
+        b.text(14, 22, 'trace 4bf92f… · 420 ms', { sm: true, mono: true, a: 'start' });
+        path(b, 'M84 34 L84 180', 'n', 'ln dash');
+        const rows = [
+          ['GET /checkout', 84, 216, 'a'],
+          ['auth', 88, 26, 'b'],
+          ['cart.load', 116, 52, 'b'],
+          ['db.query', 124, 34, 'c'],
+          ['payment', 172, 124, 'r']
+        ];
+        rows.forEach(([n, x, w, c], i) => {
+          const y = 46 + i * 28;
+          b.text(78, y + 7, n, { sm: true, mono: true, a: 'end' });
+          rect(b, x, y, w, 14, c);
+        });
+        b.text(234, 186, 'slow span stands out', { sm: true, c: 'r', b: true });
+      }) },
+
+    { id: 'correlationid', name: 'Correlation and request ids', aka: 'request id, X-Request-Id',
+      desc: 'Assign an id at the edge for each incoming request and carry it through every service call, queue message and log line. When a user reports an error, one id finds every log line that request produced across the system.',
+      use: 'any system with more than one process, and anything users or support staff report problems with',
+      cost: 'it has to be threaded through every hop, including async jobs, or the trail goes cold; mostly solved by reusing the trace id',
+      ref: 'X-Request-Id convention, Heroku and NGINX $request_id, OpenTelemetry trace id, AsyncLocalStorage (Node), MDC (Java)',
+      prompt: 'a request id generated at the edge (or taken from an incoming X-Request-Id), carried in async context, added to every log line, forwarded on outbound calls and queue messages, and returned in error responses',
+      ex: dg(b => {
+        b.tag(160, 30, 'X-Request-Id: req_7f3a', 'a');
+        const u = b.user(24, 76, 'user');
+        const g = b.box(98, 80, 'Gateway', 'a', { sub: 'assigns id' });
+        const o = b.box(190, 80, 'Orders', 'b');
+        const bi = b.box(274, 80, 'Billing', 'c');
+        b.link(u, g, { flow: true }); b.link(g, o); b.link(o, bi, { dash: true });
+        const l = b.db(190, 158, 'logs', 'n');
+        [g, o, bi].forEach(n => b.link(n, l, { dash: true, c: 'a' }));
+        b.text(268, 166, 'search one id', { sm: true, mono: true });
+      }) },
+
+    { id: 'slo', name: 'SLIs, SLOs and error budgets', aka: 'service level objectives, burn rate',
+      desc: 'An SLI is a measured ratio of good events, like the share of requests under 300 ms. An SLO is the target for it over a window, like 99.9% over 30 days. The 0.1% left over is the error budget: while there is budget you ship freely, and when it runs out reliability work comes first.',
+      use: 'agreeing with product on how reliable a service needs to be, and deciding when to slow releases',
+      cost: 'needs good SLIs measured close to the user, and a real agreement on what happens when the budget is spent',
+      ref: 'Google SRE book and SRE workbook, Implementing Service Level Objectives (Alex Hidalgo), OpenSLO, Sloth, Nobl9',
+      prompt: 'SLOs per user-facing journey (e.g. 99.9% of checkout requests succeed and 99% finish under 500 ms, over 30 days), with an error budget policy that pauses risky releases when the budget is spent',
+      ex: dg(b => {
+        b.text(160, 18, 'SLO 99.9% / 30 days = 43 min of budget', { sm: true, b: true });
+        path(b, 'M44 40 L44 168 L304 168', 'n', 'ln');
+        b.text(38, 46, '100%', { sm: true, mono: true, a: 'end' });
+        b.text(38, 166, '0', { sm: true, mono: true, a: 'end' });
+        b.line([[44, 46], [110, 60], [130, 112], [230, 128], [300, 142]], { none: true, c: 'a', w: 2 });
+        b.text(140, 92, 'incident', { sm: true, c: 'r', b: true, a: 'start' });
+        b.text(174, 158, 'budget left: ship; gone: fix', { sm: true, mut: true });
+        b.text(44, 182, 'day 1', { sm: true, mono: true, a: 'start' }); b.text(304, 182, 'day 30', { sm: true, mono: true, a: 'end' });
+      }) },
+
+    { id: 'symptomalerts', name: 'Alert on symptoms, not causes', aka: 'symptom-based alerting, burn-rate alerts',
+      desc: 'Page a human only when users are affected: errors, latency, or the SLO burning too fast. Cause signals like high CPU, a restarted pod or a full-ish disk go on dashboards or become tickets, because they often fix themselves or matter only together with a symptom.',
+      use: 'any on-call rotation, especially one with alert fatigue',
+      cost: 'you may learn about a growing cause a bit later, so slow-moving risks like disk filling up still need ticket-level alerts',
+      ref: 'Rob Ewaschuk "My Philosophy on Alerting", Google SRE workbook (multi-window burn-rate alerts), Prometheus Alertmanager',
+      prompt: 'alerts that page only on user-facing symptoms: multi-window SLO burn rate (e.g. 14x over 1 h and 5 min) and error rate on key endpoints; resource alerts like CPU or disk create tickets, not pages',
+      ex: dg(b => {
+        b.zone(10, 26, 146, 152, 'pages a human', 'r');
+        b.zone(164, 26, 146, 152, 'dashboard or ticket', 'n');
+        b.tag(83, 66, 'checkout 5xx > 2%', 'r'); b.tag(83, 102, 'p99 > 1 s', 'r'); b.tag(83, 138, 'burn 14x for 1 h', 'r');
+        b.tag(237, 66, 'CPU 90%', 'n'); b.tag(237, 102, 'pod restarted', 'n'); b.tag(237, 138, 'disk 70%', 'n');
+        b.text(83, 192, 'users feel it', { sm: true, c: 'r', b: true }); b.text(237, 192, 'might matter', { sm: true, mut: true });
+      }) },
+
+    { id: 'runbooks', name: 'Dashboards and runbooks', aka: 'playbooks, service dashboards',
+      desc: 'Each alert links to a runbook that says what it means, how to confirm it and what to try first, and to a dashboard for that service with its RED metrics, recent deploys and dependency health. The person paged at 3 a.m. should not have to start from a blank page.',
+      use: 'every alert that can page someone, and every service with an on-call owner',
+      cost: 'runbooks rot as the system changes, so they need an owner and a review after each incident',
+      ref: 'Google SRE book (on-call), PagerDuty incident response docs, Grafana, Datadog, Backstage TechDocs',
+      prompt: 'every paging alert includes links to a runbook (meaning, how to confirm, first mitigation such as rollback, escalation) and a service dashboard showing RED metrics, deploy markers and dependency health',
+      ex: dg(b => {
+        const a = b.box(66, 44, 'Alert', 'r', { sub: 'HighErrorRate' });
+        const d = b.box(242, 44, 'Dashboard', 'a', { sub: 'RED + deploys' });
+        const r = b.box(66, 138, 'Runbook', 'c', { sub: 'linked' });
+        b.link(a, d, { label: 'link' }); b.link(a, r, { label: 'link' });
+        b.text(130, 116, '1. new deploy? roll back', { sm: true, a: 'start' });
+        b.text(130, 136, '2. check payments status', { sm: true, a: 'start' });
+        b.text(130, 156, '3. escalate after 15 min', { sm: true, a: 'start' });
+      }) },
+
+    { id: 'audittrail', name: 'Audit trail vs debug logs', aka: 'audit log, activity log',
+      desc: 'An audit trail records who did what to which record and when, for security, compliance and support. It is append-only, complete and kept for years. Debug logs are for engineers: verbose, sampled, short-lived and allowed to drop lines. Mixing the two makes both worse.',
+      use: 'any system with money, permissions, personal data or admin actions, and any compliance requirement like SOC 2, HIPAA or PCI',
+      cost: 'a second write path that must not lose events (often written in the same transaction), and storage kept for years',
+      ref: 'AWS CloudTrail, GitHub audit log, OWASP Logging Cheat Sheet, SOC 2 and PCI DSS logging requirements',
+      prompt: 'a separate audit trail table (actor, action, target, before/after, ip, timestamp) written in the same transaction as the change, append-only and retained for 7 years; debug logs stay separate, sampled and kept 14 days',
+      ex: dg(b => {
+        const s = b.box(160, 36, 'Service', 'a');
+        const a = b.db(78, 104, 'Audit', 'd', { w: 76 });
+        const l = b.db(242, 104, 'Debug', 'n', { w: 76 });
+        b.link(s, a, { label: 'same tx', c: 'd' }); b.link(s, l, { dash: true });
+        b.text(78, 146, 'who, what, when\nappend-only\nkept 7 years', { sm: true });
+        b.text(242, 146, 'verbose, sampled\nmay drop lines\nkept 14 days', { sm: true, mut: true });
+      }) }
+  ]
+});
+})();
+
+/* Page: Design patterns */
+
+pool.groups.push({
+  id: 'creational', title: 'Creating things', slot: 'Creation',
+  intro: "How objects and their dependencies get made and wired together. Most of this boils down to one rule: decide what to build in one place, and hand it to the code that uses it.",
+  terms: [
+    { id: 'factoryfn', name: 'Factory function', aka: 'factory method, simple factory, smart constructor',
+      desc: "A function that decides which concrete thing to build and returns it behind an interface. Callers ask for a Store and never write new RedisStore. The classic factory method does the same through an overridable method on a base class.",
+      use: "construction depends on config or input, or you want callers decoupled from concrete classes",
+      cost: "one more indirection; a factory with a growing switch becomes a dumping ground",
+      ref: "Design Patterns (Gamma, Helm, Johnson, Vlissides), Effective Java item 1 (static factory methods)",
+      prompt: "a factory function (createX(config): X) that picks the concrete implementation from config and returns it behind an interface; callers never call constructors of concrete classes directly",
+      ex: code(`
+{k|function} {f|makeStore}(c: {t|Config}): {t|Store} &#123;
+  {k|if} (c.url.{f|startsWith}({s|'redis:'}))
+    {k|return} {k|new} {t|RedisStore}(c.url)
+  {k|return} {k|new} {t|MemoryStore}()
+&#125;
+
+{c|// callers only know the interface}
+{h|const store = makeStore(config)}
+{k|await} store.{f|set}({s|'k'}, {n|1})`, 'store.ts') },
+
+    { id: 'abstractfactory', name: 'Abstract factory', aka: 'kit, family factory',
+      desc: "An interface with one creation method per related product, such as button() and dialog(). Each implementation builds a matching family, so code that takes a kit can never mix a web button with a terminal dialog.",
+      use: "you have families of objects that must stay consistent: UI themes, cloud providers, database dialects",
+      cost: "adding a new kind of product means touching every factory; heavy for one or two products",
+      ref: "Design Patterns (GoF), Java AWT Toolkit, Kysely dialects",
+      prompt: "an abstract factory interface that creates a matching family of objects (one method per product), chosen once at startup and passed in, so families can never be mixed",
+      ex: code(`
+{k|interface} {t|UiKit} &#123;
+  {f|button}(label: {t|string}): {t|Button}
+  {f|dialog}(title: {t|string}): {t|Dialog}
+&#125;
+
+{k|const} kit = tty ? tuiKit : webKit
+
+{k|function} {f|confirm}(kit: {t|UiKit}) &#123;
+  {h|kit.dialog('Sure?')} {c|// same family}
+&#125;`, 'ui-kit.ts') },
+
+    { id: 'builder', name: 'Builder', aka: 'fluent builder, options object',
+      desc: "Builds a complex object step by step through chained calls, then validates everything in one build() call that returns a finished, often immutable, value. In TypeScript a typed options object with defaults covers most cases with less code.",
+      use: "objects with many optional parts, or construction that must be validated as a whole",
+      cost: "a parallel class to maintain; easy to forget build-time validation and end up with a half-built object",
+      ref: "Effective Java item 2, Rust std::process::Command, OkHttp Request.Builder, Knex query builder",
+      prompt: "a builder for objects with more than ~4 optional fields: chained setters, a build() that validates required fields and returns an immutable value; use a typed options object with defaults where that is enough",
+      ex: code(`
+{k|const} req = {t|Request}.{f|builder}()
+  .{f|url}({s|'/orders'})
+  .{f|method}({s|'POST'})
+  .{f|header}({s|'Idempotency-Key'}, key)
+  .{f|timeout}({n|5_000})
+  {h|.build()} {c|// validates, returns frozen}
+
+{c|// often enough in TS:}
+{f|request}(&#123; url, method: {s|'POST'} &#125;)`, 'request.ts') },
+
+    { id: 'depinjection', name: 'Dependency injection', aka: 'DI, constructor injection, composition root, inversion of control',
+      desc: "Classes receive what they need through their constructor instead of creating or importing it. All the real objects are created and wired in one place at startup, the composition root. Tests pass fakes through the same constructor.",
+      use: "almost always for anything that touches I/O, time, randomness or config",
+      cost: "wiring code to write and keep tidy; DI containers add magic, reflection and runtime errors that plain constructors avoid",
+      ref: "Mark Seemann (Dependency Injection Principles, Practices, and Patterns), Spring, .NET Microsoft.Extensions.DependencyInjection, NestJS",
+      prompt: "constructor injection with plain constructors and no DI container: every dependency (repos, clock, HTTP clients, config) is passed in, and everything is created and wired once in a single composition root (main.ts)",
+      ex: code(`
+{k|class} {t|OrderService} &#123;
+  {k|constructor}(
+    {k|private} repo: {t|OrderRepo},
+    {k|private} clock: {t|Clock},
+  ) &#123;&#125;
+&#125;
+{c|// composition root: main.ts}
+{k|const} db = {f|connect}(env.DATABASE_URL)
+{h|const orders = new OrderService(}
+{h|  new PgOrderRepo(db), systemClock)}`, 'main.ts') },
+
+    { id: 'singleton', name: 'Singleton', aka: 'single instance, global instance',
+      desc: "A class that guarantees one instance and hands it out through a global accessor. The useful part is having one shared pool or client. The harmful part is the global access, which hides dependencies and makes tests share state. Prefer creating one instance at startup and passing it in.",
+      use: "a resource that should exist once per process: connection pool, HTTP client, metrics registry",
+      cost: "as a global it hides coupling, leaks state between tests and fixes init order implicitly",
+      ref: "Design Patterns (GoF), Misko Hevery (Singletons are Pathological Liars)",
+      prompt: "shared resources (db pool, HTTP client, logger, config) created exactly once in the composition root at startup and passed to whoever needs them; no getInstance() and no module-level instances that read env on import",
+      ex: code(`
+{c|// hidden global: hard to test or reset}
+{r|export const db = new Pool(env.URL)}
+
+{c|// one instance, made once at startup}
+{k|const} pool = {k|new} {t|Pool}(config.db)
+{k|const} app = {f|buildApp}(&#123; pool, log &#125;)
+{h|app.listen(config.port)}`, 'main.ts') },
+
+    { id: 'objectpool', name: 'Object pool', aka: 'connection pool, resource pool',
+      desc: "Keeps a set of expensive objects, such as database connections or threads, ready for reuse. Callers check one out, use it and give it back. The pool caps the total, queues callers when empty and closes idle objects.",
+      use: "objects that are slow to create or limited in number: DB connections, threads, browser instances",
+      cost: "a leaked checkout drains the pool and hangs the app; pool size is one more knob that is easy to get wrong",
+      ref: "node-postgres Pool, HikariCP, PgBouncer, Go sync.Pool",
+      prompt: "a bounded pool for expensive resources (max size set from the downstream limit, idle timeout, acquire timeout); always release in finally or a using/defer block, and expose pool wait time as a metric",
+      ex: code(`
+{k|const} pool = {k|new} {t|Pool}(&#123;
+  max: {n|20}, idleTimeoutMillis: {n|30_000},
+&#125;)
+{k|const} c = {k|await} pool.{f|connect}()
+{k|try} &#123;
+  {k|await} c.{f|query}({s|'select 1'})
+&#125; {k|finally} &#123;
+  {h|c.release()} {c|// back to the pool}
+&#125;`, 'db.ts') },
+  ]
+});
+
+pool.groups.push({
+  id: 'structural', title: 'Fitting things together', slot: 'Structure',
+  intro: "Ways to wrap, combine and adapt objects so pieces with different shapes can work together. Most of these are one object standing in front of another.",
+  terms: [
+    { id: 'adapterpattern', name: 'Adapter', aka: 'wrapper, anti-corruption layer (at service scale)',
+      desc: "A small class that implements your interface by translating calls to someone else's API. Your code talks to Payments; the adapter talks to the Stripe SDK and converts its types into yours, so vendor types never leak inward.",
+      use: "wrapping a third-party SDK, a legacy module or another team's API",
+      cost: "a thin layer to keep in sync with the vendor; a leaky adapter that returns vendor types gives you the cost and none of the benefit",
+      ref: "Design Patterns (GoF), Domain-Driven Design (Evans) anti-corruption layer, hexagonal architecture",
+      prompt: "wrap each third-party SDK in an adapter that implements an interface we own; translate vendor types and errors into our domain types at the adapter, and never import the SDK outside it",
+      ex: code(`
+{k|interface} {t|Payments} &#123;
+  {f|charge}(c: {t|Cents}): {t|Promise}<{t|Receipt}>
+&#125;
+{k|class} {t|StripePay} {k|implements} {t|Payments} &#123;
+  {k|async} {f|charge}(c: {t|Cents}) &#123;
+    {k|const} pi = {k|await} sdk.paymentIntents
+      .{f|create}(&#123; amount: c, currency &#125;)
+    {h|return toReceipt(pi)} {c|// our type}
+  &#125;
+&#125;`, 'stripe-pay.ts') },
+
+    { id: 'decorator', name: 'Decorator', aka: 'wrapper',
+      desc: "An object that implements the same interface as the one it wraps and adds behavior before or after delegating, such as caching, logging, retries or metrics. Decorators stack, so each concern stays in its own small piece.",
+      use: "adding cross-cutting behavior to an interface without touching its implementations",
+      cost: "deep stacks are hard to debug and order matters (cache outside or inside retry?)",
+      ref: "Design Patterns (GoF), Java I/O streams (BufferedInputStream), Python functools.cache",
+      prompt: "cross-cutting concerns (caching, logging, metrics, retries) as decorators that implement the same interface as the wrapped object, composed in the composition root in an explicit order",
+      ex: code(`
+{k|const} {f|cached} = (repo: {t|Users}): {t|Users} => (&#123;
+  {f|byId}: {f|memo}(repo.byId, &#123; ttl: {n|60} &#125;),
+&#125;)
+{k|const} {f|logged} = (repo: {t|Users}): {t|Users} => (&#123;
+  {k|async} {f|byId}(id) &#123;
+    log.{f|debug}(&#123; id &#125;, {s|'users.byId'})
+    {k|return} repo.{f|byId}(id)
+  &#125;,
+&#125;)
+{h|const users = logged(cached(pgUsers))}`, 'users.ts') },
+
+    { id: 'facade', name: 'Facade', aka: 'service layer, simplified interface',
+      desc: "One simple entry point in front of several subsystems. Callers call checkout(cart); the facade coordinates pricing, inventory, payments and email in the right order. The subsystems stay usable directly when someone needs more control.",
+      use: "a common workflow spans several modules and callers keep repeating the same sequence",
+      cost: "it can grow into a god object that knows everything; keep it to orchestration, no business rules",
+      ref: "Design Patterns (GoF), Patterns of Enterprise Application Architecture (Fowler) service layer",
+      prompt: "a facade function per use case (checkout, refund) that orchestrates the subsystems in order; it holds no business rules itself and the subsystems stay independently testable",
+      ex: code(`
+{c|// one call over four subsystems}
+{k|export async function} {f|checkout}(cart) &#123;
+  {k|const} total = pricing.{f|quote}(cart)
+  {k|await} inventory.{f|reserve}(cart.items)
+  {k|const} p = {k|await} payments.{f|charge}(total)
+  {k|await} mailer.{f|receipt}(cart.user, p)
+  {k|return} p.id
+&#125;
+{c|// callers see one function}
+{h|await checkout(cart)}`, 'checkout.ts') },
+
+    { id: 'proxypattern', name: 'Proxy', aka: 'lazy proxy, remote proxy, protection proxy, stub',
+      desc: "A stand-in with the same interface as the real object that controls access to it. A lazy proxy creates the real thing on first use, a remote proxy forwards calls over the network, and a protection proxy checks permissions first.",
+      use: "deferring expensive setup, hiding a network hop behind a local interface, or enforcing access rules in one place",
+      cost: "a remote proxy makes slow, failing network calls look like cheap local ones; callers stop planning for latency",
+      ref: "Design Patterns (GoF), JavaScript Proxy, gRPC client stubs, Hibernate lazy loading",
+      prompt: "a proxy that implements the same interface as the real object to add lazy initialization or permission checks; remote proxies must expose timeouts and errors in their signatures",
+      ex: code(`
+{k|class} {t|DocsProxy} {k|implements} {t|Docs} &#123;
+  {k|private} real?: {t|Docs}
+  {k|constructor}({k|private} user: {t|User}) &#123;&#125;
+  {f|read}(id: {t|string}) &#123;
+    {k|if} (!{k|this}.user.{f|can}({s|'read'}, id))
+      {k|throw} {k|new} {t|Forbidden}()   {c|// protect}
+    {h|this.real ??= openDocs()}  {c|// lazy}
+    {k|return} {k|this}.real.{f|read}(id)
+  &#125;
+&#125;`, 'docs-proxy.ts') },
+
+    { id: 'composite', name: 'Composite', aka: 'tree, part-whole hierarchy',
+      desc: "Leaves and containers share one interface, so code treats a single item and a whole tree the same way. A folder's size() is the sum of its children's size(), whether they are files or more folders.",
+      use: "data that is naturally a tree: file systems, UI component trees, org charts, nested rules",
+      cost: "the shared interface can get awkward when leaves and containers really differ (what does add() mean on a file?)",
+      ref: "Design Patterns (GoF), the DOM, React component trees, Figma layers",
+      prompt: "a composite tree where leaves and containers implement one interface (size(), render()), containers delegate to their children recursively, and callers never check which kind they hold",
+      ex: dg(b => {
+        const root = b.box(160, 45, 'docs/', 'a', { sub: 'size() = 14' });
+        const a = b.box(82, 105, 'a.txt', 'b', { sub: '4' });
+        const img = b.box(220, 105, 'img/', 'a', { sub: 'size() = 10' });
+        const x = b.box(172, 165, 'x.png', 'b', { sub: '6' });
+        const y = b.box(268, 165, 'y.png', 'b', { sub: '4' });
+        b.link(root, a); b.link(root, img); b.link(img, x); b.link(img, y);
+        b.text(20, 155, 'container', { sm: true, c: 'a', b: true, a: 'start' });
+        b.text(20, 170, 'leaf', { sm: true, c: 'b', b: true, a: 'start' });
+      }) },
+
+    { id: 'bridge', name: 'Bridge', aka: 'handle/body',
+      desc: "Splits one class hierarchy into two that vary separately: what you do (Alert, Digest) and how it is carried out (Email, Sms). The abstraction holds a reference to an implementation, so two of each gives four combinations from four classes.",
+      use: "two independent dimensions of variation would otherwise multiply into a class per combination",
+      cost: "more upfront structure than a single hierarchy; overkill when only one axis actually varies",
+      ref: "Design Patterns (GoF), JDBC drivers, SLF4J",
+      prompt: "a bridge: separate the abstraction (notification type) from the implementation (delivery channel) behind an interface, and compose them at runtime instead of subclassing each combination",
+      ex: code(`
+{c|// two axes that vary independently}
+{k|interface} {t|Channel} &#123; {f|send}(m: {t|Msg}): {t|void} &#125;
+{k|class} {t|Email} {k|implements} {t|Channel} &#123; ... &#125;
+{k|class} {t|Sms} {k|implements} {t|Channel} &#123; ... &#125;
+{k|abstract class} {t|Notice} &#123;
+  {k|constructor}({k|protected} ch: {t|Channel}) &#123;&#125;
+&#125;
+{k|class} {t|Alert} {k|extends} {t|Notice} &#123; ... &#125;
+{k|class} {t|Digest} {k|extends} {t|Notice} &#123; ... &#125;
+{h|new Alert(new Sms())}  {c|// 2+2, not 2×2}`, 'notify.ts') },
+
+    { id: 'flyweight', name: 'Flyweight', aka: 'interning, shared instances',
+      desc: "Shares one immutable object for every use of the same value, and passes the parts that differ (position, color) in from outside. A text editor keeps one glyph per character, not one per letter on screen.",
+      use: "huge numbers of near-identical objects eating memory: glyphs, map tiles, particles, game sprites",
+      cost: "shared objects must be immutable, and callers must carry the extrinsic state around themselves",
+      ref: "Design Patterns (GoF), Java String.intern and Integer.valueOf cache, Python small-int cache",
+      prompt: "flyweights for repeated immutable data: a cache keyed by value that returns one shared frozen instance, with per-use state (position, style) passed in as arguments",
+      ex: code(`
+{c|// shared, immutable intrinsic state}
+{k|const} glyphs = {k|new} {t|Map}<{t|string}, {t|Glyph}>()
+{k|function} {f|glyph}(ch: {t|string}): {t|Glyph} &#123;
+  {k|let} g = glyphs.{f|get}(ch)
+  {k|if} (!g) glyphs.{f|set}(ch, g = {f|load}(ch))
+  {k|return} g
+&#125;
+{c|// extrinsic state passed per use}
+{k|for} ({k|const} c {k|of} chars)
+  {h|draw(glyph(c.ch), c.x, c.y)}`, 'glyphs.ts') },
+  ]
+});
+
+pool.groups.push({
+  id: 'behavioral', title: 'Behavior and flow', slot: 'Behavior',
+  intro: "Patterns for who decides what, and how control and events move between objects. In modern code many of these are a function, a map of functions or a tagged union.",
+  terms: [
+    { id: 'strategy', name: 'Strategy', aka: 'policy, pluggable algorithm',
+      desc: "Pulls an algorithm out behind an interface so callers can swap it at runtime. In TypeScript a strategy is often just a function type. The caller picks one; the code that uses it never branches on which.",
+      use: "several interchangeable ways to do one thing: pricing rules, retry backoff, sorting, compression",
+      cost: "one more interface; with only two options that never change, an if is clearer",
+      ref: "Design Patterns (GoF), Passport.js strategies, Array.prototype.sort comparator",
+      prompt: "the strategy pattern as a function type (e.g. type Backoff = (attempt: number) => number) passed in by the caller, so variants are added without editing the code that uses them",
+      ex: code(`
+{k|type} {t|Backoff} = (n: {t|number}) => {t|number}
+
+{k|const} fixed: {t|Backoff} = () => {n|1000}
+{k|const} expo: {t|Backoff} = n =>
+  {t|Math}.{f|min}({n|10_000}, {n|100} * {n|2} ** n)
+
+{k|function} {f|retry}(fn, wait: {t|Backoff}) &#123;...&#125;
+
+{h|retry(fetchUser, expo)}`, 'retry.ts') },
+
+    { id: 'observer', name: 'Observer', aka: 'event emitter, pub/sub (in-process), listener, signals',
+      desc: "A subject keeps a list of listeners and notifies each when something happens. The subject knows only the event, not who reacts, so email, analytics and stock updates can be added without touching the order code.",
+      use: "several independent reactions to one event inside one process; UI state that many views watch",
+      cost: "control flow gets hard to follow, listener errors and order are easy to mishandle, and forgotten unsubscribes leak memory",
+      ref: "Design Patterns (GoF), Node EventEmitter, DOM addEventListener, RxJS, TC39 Signals proposal",
+      prompt: "an in-process typed event emitter (event name to payload type map); listeners run isolated so one failing listener is logged and does not break the others, and every subscribe returns an unsubscribe function",
+      ex: dg(b => {
+        const s = b.box(70, 100, 'Order', 'a', { sub: "emit('paid')" });
+        const e = b.box(248, 45, 'Email', 'b', { sub: "on('paid')" });
+        const an = b.box(248, 100, 'Analytics', 'c', { sub: "on('paid')" });
+        const st = b.box(248, 155, 'Stock', 'd', { sub: "on('paid')" });
+        b.link(s, e, { c: 'b' }); b.link(s, an, { c: 'c', flow: true }); b.link(s, st, { c: 'd' });
+        b.dot(160, 100, 'a', 4, { pulse: true });
+        b.text(70, 150, 'knows the event,\nnot the listeners', { sm: true, mut: true });
+      }) },
+
+    { id: 'commandpattern', name: 'Command', aka: 'action, operation object, undo stack',
+      desc: "Wraps a request as an object with run() and undo(). Commands can be queued, logged, retried or reversed, and an undo stack is just an array of the commands that ran.",
+      use: "undo/redo, macro recording, job queues, or anywhere actions need to be stored and replayed",
+      cost: "a class or closure per action; undo is only as correct as each command's inverse",
+      ref: "Design Patterns (GoF), VS Code commands, ProseMirror transactions, Redux actions",
+      prompt: "user actions as command objects with run() and undo() that capture the state they need; an undo stack and a redo stack, cleared on any new command",
+      ex: code(`
+{k|type} {t|Cmd} = &#123; {f|run}(): {t|void}; {f|undo}(): {t|void} &#125;
+{k|function} {f|rename}(s: {t|Shape}, to: {t|string}) &#123;
+  {k|const} from = s.name
+  {k|return} &#123; {f|run}: () => s.name = to,
+           {f|undo}: () => s.name = from &#125;
+&#125;
+{k|const} done: {t|Cmd}[] = []
+{k|function} {f|exec}(c: {t|Cmd}) &#123;
+  c.{f|run}(); done.{f|push}(c) &#125;
+{h|function undo() &#123; done.pop()?.undo() &#125;}`, 'commands.ts') },
+
+    { id: 'statemachine', name: 'State machine', aka: 'finite state machine, FSM, state pattern, statechart',
+      desc: "The thing is always in exactly one named state, and only listed events move it between states. Anything not in the table is ignored or rejected. Statecharts add nesting, parallel states and guards for bigger flows.",
+      use: "anything with a lifecycle: orders, uploads, checkout flows, connection handling, multi-step UI",
+      cost: "upfront modeling and more ceremony than a couple of booleans; libraries like XState have a learning curve",
+      ref: "David Harel (statecharts, 1987), XState, Robot, Spring Statemachine, Design Patterns (GoF) state pattern",
+      prompt: "model the lifecycle as an explicit state machine: a union of named states, a transition table of (state, event) to next state, and invalid transitions rejected; use XState if it needs nesting, parallel states or timers",
+      ex: dg(b => {
+        b.dot(10, 90, 'n', 4);
+        const idle = b.box(48, 90, 'idle', 'n');
+        const load = b.box(150, 90, 'loading', 'a');
+        const ok = b.box(266, 38, 'success', 'g');
+        const bad = b.box(266, 142, 'failure', 'r');
+        b.line([[15, 90], [22, 90]]);
+        b.link(idle, load, { label: 'FETCH', flow: true });
+        b.link(load, ok, { label: 'RESOLVE', c: 'g' });
+        b.link(load, bad, { label: 'REJECT', c: 'r' });
+        b.line([[233, 152], [150, 152], [150, 107]], { label: 'RETRY', dash: true, lx: 18 });
+        b.text(150, 184, 'only listed events move it', { sm: true, mut: true });
+      }) },
+
+    { id: 'chainofresp', name: 'Chain of responsibility', aka: 'middleware pipeline, interceptors, handler chain',
+      desc: "A request passes through a list of handlers. Each one can act on it, pass it on with next(), or stop and answer early. Web middleware is the everyday form: auth, rate limiting and parsing each live in their own step.",
+      use: "request processing with separable concerns that run in a fixed order",
+      cost: "order dependencies are implicit, and a step that forgets next() or swallows errors is hard to spot",
+      ref: "Design Patterns (GoF), Express and Koa middleware, ASP.NET Core middleware, Hono, gRPC interceptors",
+      prompt: "a middleware pipeline where each step is (ctx, next) => Promise, ordered explicitly in one place: request id, logging, auth, rate limit, body parsing, then the handler; steps may return early with a proper status",
+      ex: dg(b => {
+        const u = b.user(22, 82);
+        const au = b.box(78, 80, 'auth', 'a');
+        const li = b.box(138, 80, 'limit', 'a');
+        const pa = b.box(198, 80, 'parse', 'a');
+        const h = b.box(270, 80, 'handler', 'g');
+        b.link(u, au, { flow: true }); b.link(au, li, { flow: true }); b.link(li, pa, { flow: true }); b.link(pa, h, { flow: true });
+        b.line([[270, 63], [270, 36], [22, 36], [22, 64]], { dash: true, label: 'response' });
+        const t1 = b.tag(78, 145, '401', 'r'), t2 = b.tag(138, 145, '429', 'r');
+        b.link(au, t1, { c: 'r' }); b.link(li, t2, { c: 'r' });
+        b.text(230, 140, 'next() or\nreturn early', { sm: true, mut: true });
+      }) },
+
+    { id: 'templatemethod', name: 'Template method', aka: 'hook methods, skeleton algorithm',
+      desc: "A base class fixes the steps of an algorithm and subclasses fill in some of them. It works, but it ties variation to inheritance. Passing the varying steps in as functions (or React hooks, in UI code) gets the same reuse with less coupling.",
+      use: "a fixed sequence with a few varying steps; prefer the function-parameter version in new code",
+      cost: "inheritance couples subclasses to base-class internals, and deep hierarchies get fragile",
+      ref: "Design Patterns (GoF), JUnit setUp/tearDown, React hooks replacing lifecycle methods",
+      prompt: "fixed workflows as a plain function that takes its varying steps as function parameters, rather than an abstract base class with overridable hook methods",
+      ex: code(`
+{k|abstract class} {t|Importer} &#123;
+  {f|run}() &#123; {f|save}({k|this}.{f|parse}({f|read}())) &#125;
+  {k|abstract} {f|parse}(raw: {t|string}): {t|Row}[]
+&#125;
+{k|class} {t|Csv} {k|extends} {t|Importer} &#123; ... &#125;
+
+{c|// same skeleton, steps passed in}
+{k|const} {f|runImport} = (parse: {t|Parser}) =>
+  {f|save}({f|parse}({f|read}()))
+{h|runImport(parseCsv)}`, 'import.ts') },
+
+    { id: 'visitor', name: 'Visitor', aka: 'double dispatch',
+      desc: "Adds new operations over a fixed set of node types without editing the nodes. Each node has accept(visitor), and each visitor has one method per node type. In TypeScript a tagged union with an exhaustive switch usually does the same job more simply.",
+      use: "many operations over a stable tree: compilers, AST tools, document exporters",
+      cost: "adding a node type means updating every visitor; lots of boilerplate in languages without pattern matching",
+      ref: "Design Patterns (GoF), Babel and ESLint AST visitors, TypeScript compiler API, Roslyn",
+      prompt: "operations over the AST as visitors (one method per node type) or, in TypeScript, a tagged union with an exhaustive switch and a never check so adding a node type fails to compile until every operation handles it",
+      ex: code(`
+{k|interface} {t|Visitor}<R> &#123;
+  {f|num}(n: {t|Num}): R; {f|add}(a: {t|Add}): R &#125;
+{k|class} {t|Add} {k|implements} {t|Expr} &#123;
+  {f|accept}<R>(v: {t|Visitor}<R>): R &#123;
+    {k|return} v.{f|add}({k|this}) &#125; &#125;
+{c|// new operation = new visitor}
+{k|const} ev: {t|Visitor}<{t|number}> = &#123;
+  {f|num}: n => n.value,
+  {h|add: a => run(a.l) + run(a.r) &#125;}
+{k|const} {f|run} = (e: {t|Expr}) => e.{f|accept}(ev)`, 'eval.ts') },
+
+    { id: 'iteratorgen', name: 'Iterator and generator', aka: 'cursor, lazy sequence, async iterator',
+      desc: "An iterator hands out items one at a time on request, hiding how they are stored or fetched. Generators write iterators as plain functions with yield. An async generator can walk a paginated API while the caller just loops and can stop early.",
+      use: "large or paginated data, streams, or sequences you want to process lazily",
+      cost: "lazy evaluation hides when work and I/O actually happen; a stateful iterator can only be consumed once",
+      ref: "Design Patterns (GoF), JavaScript for await...of, Python generators, Rust Iterator, Stripe and AWS SDK auto-pagination",
+      prompt: "paginated or streamed data exposed as an async generator so callers use for await and can break early; no loading everything into memory",
+      ex: code(`
+{k|async function}* {f|pages}(url: {t|string}) &#123;
+  {k|let} next: {t|string} | {k|null} = url
+  {k|while} (next) &#123;
+    {k|const} res = {k|await} {f|getJson}(next)
+    {k|yield}* res.items
+    next = res.nextPage
+  &#125;
+&#125;
+{h|for await (const o of pages('/orders'))}
+  {k|if} ({f|done}(o)) {k|break}`, 'pages.ts') },
+
+    { id: 'mediator', name: 'Mediator', aka: 'hub, coordinator, controller',
+      desc: "Components talk only to a central mediator, never to each other. When the address changes, the form decides that shipping and the total must update. Each component stays simple and reusable, and the interaction rules live in one place.",
+      use: "a group of components with tangled many-to-many interactions, such as a complex form or dialog",
+      cost: "the mediator can turn into a god object that holds all the logic",
+      ref: "Design Patterns (GoF), MediatR (.NET), air traffic control analogy",
+      prompt: "a mediator that owns the interaction rules between sibling components; components emit events to it and receive updates from it, and never reference each other directly",
+      ex: dg(b => {
+        const m = b.box(160, 100, 'Checkout', 'd', { sub: 'mediator' });
+        const a = b.box(62, 45, 'Address', 'a'), s = b.box(258, 45, 'Shipping', 'a');
+        const p = b.box(62, 155, 'Payment', 'a'), t = b.box(258, 155, 'Total', 'a');
+        [a, s, p, t].forEach(n => b.link(n, m, { both: true }));
+        b.line([[98, 45], [220, 45]], { dash: true, c: 'r', none: true });
+        b.x(160, 45);
+      }) },
+
+    { id: 'specification', name: 'Specification', aka: 'predicate, business rule object',
+      desc: "A business rule as a small named predicate that can be combined with and, or and not. The same canInvite rule is reused in validation, filtering and queries, and some implementations can compile it to a SQL WHERE clause.",
+      use: "business rules that are reused across checks, lists and queries, or built from smaller rules",
+      cost: "an abstraction over a boolean; rules that must also run in SQL need a second representation",
+      ref: "Eric Evans and Martin Fowler (Specifications paper), Domain-Driven Design",
+      prompt: "business rules as named, composable predicates (Spec<T> = (x: T) => boolean with and/or/not helpers) defined once in the domain module and reused for validation and filtering",
+      ex: code(`
+{k|type} {t|Spec}<T> = (x: T) => {t|boolean}
+{k|const} {f|and} = <T>(...s: {t|Spec}<T>[]) =>
+  (x: T) => s.{f|every}(f => {f|f}(x))
+
+{k|const} {f|active} = (u: {t|User}) => !u.bannedAt
+{k|const} {f|paid} = (u: {t|User}) => !!u.planId
+{h|const canInvite = and(active, paid)}
+
+users.{f|filter}(canInvite)
+{k|if} (!{f|canInvite}(me)) {k|throw} {f|denied}()`, 'rules.ts') },
+
+    { id: 'memento', name: 'Memento', aka: 'snapshot',
+      desc: "Captures an object's internal state as an opaque snapshot so it can be restored later without exposing its internals. History is just a list of snapshots. With immutable state, every old value already is a memento.",
+      use: "undo, checkpoints, drafts, or rolling back a failed multi-step edit",
+      cost: "snapshots of large state eat memory; you may need diffs or a cap on history",
+      ref: "Design Patterns (GoF), Redux DevTools time travel, Immer patches",
+      prompt: "undo via snapshots: the object exposes save() returning an immutable snapshot and restore(snapshot), and history keeps a capped list of them (e.g. last 100)",
+      ex: code(`
+{k|class} {t|Editor} &#123;
+  {k|private} s = &#123; text: {s|''}, cursor: {n|0} &#125;
+  {f|save}(): {t|Snap} &#123; {k|return} &#123; ...{k|this}.s &#125; &#125;
+  {f|restore}(m: {t|Snap}) &#123; {k|this}.s = &#123; ...m &#125; &#125;
+&#125;
+{c|// history holds opaque snapshots}
+{k|const} history: {t|Snap}[] = []
+history.{f|push}(editor.{f|save}())
+editor.{f|type}({s|'hello'})
+{h|editor.restore(history.pop()!)}`, 'editor.ts') },
+
+    { id: 'interpreter', name: 'Interpreter', aka: 'small DSL, expression tree, rule engine',
+      desc: "Defines a tiny language as a tree of node types and evaluates it by walking the tree. A search box query like status:open AND label:bug parses into nodes, and one recursive function decides whether a row matches.",
+      use: "user-written filters, rules or templates that are simple and stable enough to own",
+      cost: "every DSL grows; parsing, error messages and tooling are real work, so use JSON Logic, CEL or SQL when they fit",
+      ref: "Design Patterns (GoF), Google CEL, JSON Logic, GitHub search syntax, Crafting Interpreters (Nystrom)",
+      prompt: "a small DSL as a typed AST (tagged union of node types), a parser that returns errors with positions, and a recursive evaluate function; no eval() and no string concatenation into SQL",
+      ex: code(`
+{c|// status:open AND label:bug}
+{k|type} {t|Q} =
+  | &#123; op: {s|'eq'}; f: {t|string}; v: {t|string} &#125;
+  | &#123; op: {s|'and'}; l: {t|Q}; r: {t|Q} &#125;
+{k|const} {f|test} = (q: {t|Q}, r: {t|Row}): {t|boolean} =>
+  q.op === {s|'eq'} ? r[q.f] === q.v
+  : {f|test}(q.l, r) && {f|test}(q.r, r)
+
+{k|const} q = {f|parse}(input)
+{h|rows.filter(r => test(q, r))}`, 'query.ts') },
+  ]
+});
+
+pool.groups.push({
+  id: 'modern', title: 'Modern idioms', slot: 'Code idiom',
+  intro: "Habits from typed and functional code that prevent whole classes of bugs. Most of them push mistakes from runtime to compile time or to the edge of the system.",
+  terms: [
+    { id: 'resulttype', name: 'Result type', aka: 'errors as values, Either, Result<T, E>',
+      desc: "Functions that can fail return a value that is either ok or an error, and the type says which errors are possible. Callers must handle both before they can touch the value. Exceptions stay for bugs and truly unexpected failures.",
+      use: "expected failures that callers should handle: validation, not found, payment declined",
+      cost: "more verbose at each call site in languages without ? or do-notation; mixing it with exceptions needs a clear rule",
+      ref: "Rust Result and ?, Go error returns, neverthrow, Effect, Swift Result",
+      prompt: "expected failures returned as a Result (a tagged union of { ok: true, value } | { ok: false, error }) with a typed union of error codes; throw only for programmer errors and truly unexpected failures",
+      ex: code(`
+{k|type} {t|Result}<T, E> =
+  | &#123; ok: {k|true}; value: T &#125;
+  | &#123; ok: {k|false}; error: E &#125;
+{k|function} {f|parseAge}(s: {t|string}):
+    {t|Result}<{t|number}, {s|'nan'} | {s|'range'}> &#123;
+  {k|const} n = {t|Number}(s)
+  {k|if} ({t|Number}.{f|isNaN}(n)) {k|return} {f|err}({s|'nan'})
+  {k|return} n < {n|150} ? {f|ok}(n) : {f|err}({s|'range'})
+&#125;
+{h|if (!r.ok) return show(r.error)}`, 'age.ts') },
+
+    { id: 'optiontype', name: 'Option instead of null', aka: 'Maybe, Option<T>, null object, strict null checks',
+      desc: "Absence is written into the type (Option<T>, or T | undefined with strict null checks), so the compiler makes you handle it. Where a missing thing should simply do nothing, a null object such as a no-op logger removes the checks entirely.",
+      use: "any lookup or optional field; null objects for optional collaborators like loggers and tracers",
+      cost: "a little unwrapping noise; a null object can hide a missing dependency that should have been an error",
+      ref: "Tony Hoare (null as the billion-dollar mistake), Rust Option, TypeScript strictNullChecks, Kotlin nullable types",
+      prompt: "strict null checks on; lookups return T | undefined (or Option<T>) and callers handle the missing case explicitly; optional collaborators like logger default to a no-op null object instead of null checks",
+      ex: code(`
+{c|// absence lives in the type}
+{k|function} {f|find}(id: {t|Id}): {t|User} | {k|undefined}
+
+{k|const} name = {f|find}(id)?.name ?? {s|'guest'}
+
+{c|// null object: a safe do-nothing default}
+{k|const} noopLogger: {t|Logger} = &#123;
+  {f|info}() &#123;&#125;, {f|error}() &#123;&#125;,
+&#125;
+{h|function run(log: Logger = noopLogger)}`, 'option.ts') },
+
+    { id: 'parsedontvalidate', name: "Parse, don't validate", aka: 'validate at the boundary, schema at the edge',
+      desc: "At the edge of the system, turn unknown input into a precise type in one step, failing loudly if it does not fit. Code inside then takes the parsed type and never re-checks. Validation that returns a boolean throws that knowledge away.",
+      use: "every boundary: HTTP bodies, env vars, queue messages, files, third-party responses",
+      cost: "schemas to write and keep in sync; parse errors need to become good user-facing messages",
+      ref: "Alexis King (Parse, don't validate, 2019), Zod, Valibot, Pydantic, serde",
+      prompt: "parse, don't validate: every external input (request bodies, env, messages, third-party responses) goes through a schema (Zod/Pydantic) at the boundary that returns a typed value or a 400 with field errors; inner code takes the parsed type and never re-validates",
+      ex: code(`
+{k|const} {t|Signup} = z.{f|object}(&#123;
+  email: z.{f|email}(),
+  age: z.{f|number}().{f|int}().{f|min}({n|13}),
+&#125;)
+{k|type} {t|Signup} = z.{t|infer}<{k|typeof} {t|Signup}>
+{c|// at the edge: unknown in, typed out}
+{k|const} body: {t|unknown} = {k|await} req.{f|json}()
+{h|const input = Signup.parse(body)}
+{c|// below here, no re-checking}
+{f|createAccount}(input)`, 'signup.ts') },
+
+    { id: 'illegalstates', name: 'Make illegal states unrepresentable', aka: 'discriminated unions, tagged unions, sum types',
+      desc: "Design types so invalid combinations cannot be written. Instead of loading, data and error flags that can contradict each other, use a union where each variant carries only the fields that make sense for it. The compiler then checks every case.",
+      use: "any state with modes or phases: requests, payments, form steps, connection status",
+      cost: "more types up front, and changing a variant touches every switch over it (which is the point)",
+      ref: "Yaron Minsky (Effective ML), Scott Wlaschin (Domain Modeling Made Functional), TypeScript discriminated unions",
+      prompt: "make illegal states unrepresentable: model modes as a discriminated union on a status field, each variant carrying only its own fields, and handle them with exhaustive switches that end in a never check",
+      ex: code(`
+{c|// before: flags that can contradict}
+{r|type Req = &#123; loading: boolean;}
+{r|  data?: User; error?: Error &#125;}
+
+{c|// after: one variant at a time}
+{k|type} {t|Req} =
+  | &#123; status: {s|'idle'} &#125;
+  | &#123; status: {s|'loading'} &#125;
+  | &#123; status: {s|'ok'}; data: {t|User} &#125;
+  | &#123; status: {s|'error'}; error: {t|Error} &#125;`, 'req.ts') },
+
+    { id: 'immutability', name: 'Immutability by default', aka: 'readonly, persistent data, copy-on-write',
+      desc: "Values are never changed in place. Updates build a new value and leave the old one intact, so shared references cannot surprise anyone and change detection is a reference check. Mutation is kept local and deliberate.",
+      use: "domain values, application state, anything shared between functions, threads or components",
+      cost: "allocation and copying on hot paths; deep updates get verbose without a helper like Immer",
+      ref: "Rich Hickey (Clojure), Immer, Immutable.js, Rust (immutable by default), Kotlin val and data class copy",
+      prompt: "immutability by default: readonly types and const, updates return new objects via spread or Immer, no mutating function arguments; local mutation only inside a function where it never escapes",
+      ex: code(`
+{k|type} {t|Cart} = {t|Readonly}<&#123;
+  items: {k|readonly} {t|Item}[]; coupon?: {t|string}
+&#125;>
+{k|const} {f|add} = (c: {t|Cart}, i: {t|Item}) => (&#123;
+  ...c, items: [...c.items, i],
+&#125;)
+
+{r|cart.items.push(item)} {c|// type error}
+{h|const next = add(cart, item)}
+{c|// old cart untouched, safe to share}`, 'cart.ts') },
+
+    { id: 'purecore', name: 'Pure core, effects at the edges', aka: 'functional core, imperative shell, sans-I/O',
+      desc: "Business decisions live in pure functions that take data, including the current time, and return a decision. A thin outer shell does the I/O: it loads data, calls the core and carries out what it returns. The core is tested with plain values and no mocks.",
+      use: "any logic worth unit testing, especially rules that depend on time, money or state",
+      cost: "you have to thread data through explicitly, and some workflows interleave I/O and decisions in ways that resist splitting",
+      ref: "Gary Bernhardt (Boundaries, functional core imperative shell), sans-I/O protocol libraries (h11), Elm architecture",
+      prompt: "functional core, imperative shell: business rules as pure functions that take all inputs (including now and ids) as arguments and return decisions; I/O (db, http, clock, random) only in a thin outer layer that executes those decisions",
+      ex: code(`
+{c|// core: pure, trivially testable}
+{k|function} {f|decide}(a: {t|Account}, now: {t|Date}) &#123;
+  {k|return} a.trialEnds < now
+    ? &#123; kind: {s|'lock'}, mail: {s|'trial_end'} &#125;
+    : &#123; kind: {s|'none'} &#125;
+&#125;
+{c|// shell: all I/O lives here}
+{k|const} acct = {k|await} db.{f|account}(id)
+{h|const d = decide(acct, new Date())}
+{k|if} (d.kind === {s|'lock'}) {k|await} {f|lock}(id, d)`, 'trial.ts') },
+
+    { id: 'typestate', name: 'Typestate and branded types', aka: 'phantom types, newtypes, nominal types',
+      desc: "The type itself records what state or kind of value you hold, so the compiler rejects misuse. In Rust, send() consumes an Email<Draft> and returns an Email<Sent> that has no send() at all. In TypeScript, branded types stop a UserId from being passed where an OrderId is expected.",
+      use: "protocols with a required order of steps, and IDs or units that are easy to mix up",
+      cost: "more type machinery and generics to read; brands need a constructor or parser to create them",
+      ref: "Rust typestate pattern (PhantomData), Rust newtypes, TypeScript branded types, Zod .brand()",
+      prompt: "encode states and ids in types: typestate (generic state parameter, transitions consume self) for multi-step protocols, and branded/newtype ids (UserId, OrderId) created only by a parser so they cannot be mixed up",
+      ex: code(`
+{k|struct} {t|Draft}; {k|struct} {t|Sent};
+{k|struct} {t|Email}<S> &#123;
+    to: {t|String}, state: {t|PhantomData}<S> &#125;
+
+{k|impl} {t|Email}<{t|Draft}> &#123;
+    {k|fn} {f|send}({k|self}) -> {t|Email}<{t|Sent}> &#123; ... &#125;
+&#125;
+{c|// send() consumes the draft}
+{h|let s = Email::draft(to).send();}
+{r|s.send(); // error: no method send}`, 'email.rs') },
+
+    { id: 'fncomposition', name: 'Pipeline and function composition', aka: 'pipe, compose, method chaining, |>',
+      desc: "Build a transformation from small single-purpose functions run in sequence, each feeding the next. Each step is easy to test and reorder, and the pipeline reads top to bottom in the order things happen.",
+      use: "data transformation: normalizing input, ETL steps, text processing, request enrichment",
+      cost: "debugging the middle of a pipeline is harder; heavy point-free style gets cryptic fast",
+      ref: "Unix pipes, Elixir |>, F# |>, Ramda and fp-ts pipe, Effect pipe, TC39 pipeline operator proposal",
+      prompt: "data transformations as a pipe of small named pure functions, one concern each, readable top to bottom; no clever point-free chains",
+      ex: code(`
+{k|type} {t|Fn}<T> = (x: T) => T
+{k|const} {f|pipe} = <T>(...fs: {t|Fn}<T>[]) =>
+  (x: T) => fs.{f|reduce}((v, f) => {f|f}(v), x)
+
+{k|const} {f|slugify} = {f|pipe}<{t|string}>(
+  s => s.{f|trim}().{f|toLowerCase}(),
+  s => s.{f|replace}({s|/[^a-z0-9]+/g}, {s|'-'}),
+  s => s.{f|replace}({s|/^-|-$/g}, {s|''}),
+)
+{h|slugify('Hi, World!')} {c|// 'hi-world'}`, 'slug.ts') },
+
+    { id: 'pluginregistry', name: 'Plugin registry', aka: 'extension point, registry pattern, service locator (when abused)',
+      desc: "The core defines an interface and a registry keyed by name. Plugins register themselves, and the core looks them up at runtime, so new exporters or providers ship without editing core code. The core never imports a plugin.",
+      use: "open-ended sets of formats, providers or integrations, especially ones added by other teams or third parties",
+      cost: "runtime lookup misses compile-time checks; registration order and missing plugins become runtime errors",
+      ref: "VS Code extensions, Vite and Rollup plugins, webpack tapable, Python entry points, ESLint plugins",
+      prompt: "a plugin registry: a typed plugin interface, register() at startup, lookup by id with a clear error for unknown ids; core code depends only on the interface and never imports a plugin",
+      ex: code(`
+{k|interface} {t|Exporter} &#123;
+  id: {t|string}; {f|export}(d: {t|Doc}): {t|Blob}
+&#125;
+{k|const} reg = {k|new} {t|Map}<{t|string}, {t|Exporter}>()
+{k|export const} {f|register} = (e: {t|Exporter}) =>
+  reg.{f|set}(e.id, e)
+{c|// plugins/pdf.ts}
+{f|register}(&#123; id: {s|'pdf'}, export: toPdf &#125;)
+{c|// core never imports a plugin}
+{h|reg.get(format)?.export(doc)}`, 'exporters.ts') },
+
+    { id: 'configschema', name: 'Validated config schema', aka: 'configuration as code, typed settings, fail fast config',
+      desc: "All configuration is read in one module, parsed against a schema at startup and exported as one typed object. A missing or malformed variable crashes the boot with a clear message instead of failing on the first request that needs it.",
+      use: "every service; especially ones deployed to several environments",
+      cost: "a schema to keep in sync with deploy configs; crash-on-boot needs good error output to be friendly",
+      ref: "Zod, Pydantic Settings, t3-env, envalid, The Twelve-Factor App (config)",
+      prompt: "config read only in config.ts: process.env parsed with a Zod (or Pydantic Settings) schema at startup with defaults and coercion, crashing with a list of bad keys on failure; everything else imports the typed config object, never process.env",
+      ex: code(`
+{k|const} {t|Env} = z.{f|object}(&#123;
+  DATABASE_URL: z.{f|url}(),
+  PORT: z.coerce.{f|number}().{f|default}({n|3000}),
+  LOG_LEVEL: z.{f|enum}([{s|'debug'}, {s|'info'}]),
+&#125;)
+
+{c|// fail fast at boot, typed everywhere}
+{h|const config = Env.parse(process.env)}
+{k|export default} config`, 'config.ts') },
+
+    { id: 'featurefolders', name: 'Feature folders with a public API', aka: 'vertical slices, package by feature, barrel file, index.ts',
+      desc: "Code is grouped by feature (billing, search) instead of by layer (controllers, models). Each feature folder exposes a small public API from its index file, and everything else inside is private. A lint rule stops deep imports into another feature.",
+      use: "any app past a handful of files; it keeps changes local and boundaries visible",
+      cost: "wide barrels slow builds and can hurt tree-shaking; the boundaries only hold if a linter enforces them",
+      ref: "Feature-Sliced Design, Jimmy Bogard (vertical slice architecture), eslint-plugin-boundaries, dependency-cruiser",
+      prompt: "feature folders (src/features/<name>) each exporting a small explicit public API from index.ts; other features import only from that index, deep imports are blocked by a lint rule, and barrels list named exports (no export *)",
+      ex: code(`
+features/billing/
+  {h|index.ts}          {c|// public API}
+  create.ts
+  {d|internal/tax.ts}   {c|// private}
+{c|// index.ts}
+{k|export} &#123; {f|createInvoice} &#125; {k|from} {s|'./create'}
+{k|export type} &#123; {t|Invoice} &#125; {k|from} {s|'./types'}
+{c|// elsewhere}
+{g|import &#123; createInvoice &#125; from 'billing'}
+{r|import &#123; rate &#125; from 'billing/internal'}`, 'billing/') },
+  ]
+});
+
+/* ---------- Principles & pitfalls ---------- */
+pool.groups.push({
+  id: 'principles', title: 'Principles', slot: 'Principle',
+  intro: 'The rules of thumb senior engineers reach for when they shape code and systems. Each one is a default with a known cost, so name the ones you want Claude to lean on.',
+  terms: [
+    { id: 'srp', name: 'Single responsibility', aka: 'SRP, one reason to change',
+      desc: 'A module should have one reason to change, which in practice means it serves one actor or stakeholder. Formatting, persistence and business rules change for different people at different times, so they live in different places.',
+      use: 'a class or file keeps showing up in unrelated pull requests, or tests for one behavior need setup for three others',
+      cost: 'more, smaller types and files to navigate; split too finely and one change touches many tiny pieces',
+      ref: 'Robert C. Martin, Clean Architecture; SOLID',
+      prompt: 'single responsibility: each module or class has one reason to change (one actor), so pricing rules, PDF rendering and persistence live in separate units',
+      ex: code(`
+{c|// three reasons to change in one class}
+{r|class Invoice &#123; total() toPdf() save() &#125;}
+
+{c|// one reason each}
+{k|class} {t|Invoice}     &#123; {f|total}() &#125;
+{k|class} {t|InvoicePdf}  &#123; {f|render}(i) &#125;
+{k|class} {t|InvoiceRepo} &#123; {f|save}(i) &#125;`, 'invoice.ts') },
+
+    { id: 'openclosed', name: 'Open/closed', aka: 'OCP, open for extension, closed for modification',
+      desc: 'Code should let you add new behavior without editing the code that already works. You get there by putting variation behind an interface and registering new implementations, instead of growing a switch statement.',
+      use: 'you add a new variant (export format, payment method, notification channel) every few weeks and each one means editing the same switch',
+      cost: 'an indirection you pay for before you know the axis of change; guess the wrong axis and the abstraction gets in the way',
+      ref: 'Bertrand Meyer, Object-Oriented Software Construction; SOLID',
+      prompt: 'open/closed along the axis that actually varies: new variants are added as new implementations registered in one map, without editing existing branches',
+      ex: code(`
+{k|interface} {t|Exporter} &#123; {f|run}(r: {t|Report}): {t|Bytes} &#125;
+
+{k|const} exporters = &#123;
+  csv: {f|csvExporter},
+  pdf: {f|pdfExporter},
+  {g|xlsx: xlsxExporter,}  {c|// new: one line}
+&#125;
+{k|function} {f|exportReport}(r, fmt) &#123;
+  {k|return} exporters[fmt].{f|run}(r)
+&#125;`, 'export.ts') },
+
+    { id: 'liskov', name: 'Liskov substitution', aka: 'LSP, behavioral subtyping',
+      desc: 'Any implementation of a type must work everywhere the type is expected, without callers checking which one they got. A subtype that throws on an inherited method, or weakens a guarantee, breaks every caller that trusted the contract.',
+      use: 'you see instanceof checks or "not supported" exceptions in implementations of a shared interface',
+      cost: 'forces you to model capabilities honestly, which often means more, narrower interfaces',
+      ref: 'Barbara Liskov & Jeannette Wing (1994); SOLID',
+      prompt: 'Liskov substitution: every implementation honors the full interface contract (no "not supported" throws, no stricter preconditions); if a variant cannot, split the interface',
+      ex: code(`
+{k|interface} {t|Cache} &#123; {f|set}(k, v): {t|void} &#125;
+
+{k|class} {t|RedisCache} {k|implements} {t|Cache} &#123;...&#125;
+
+{k|class} {t|ReadOnlyCache} {k|implements} {t|Cache} &#123;
+  {f|set}() &#123; {r|throw Error('read-only')} &#125;
+&#125;
+{c|// every caller of Cache now needs a try}
+{g|// fix: split into CacheReader/Writer}`, 'cache.ts') },
+
+    { id: 'isp', name: 'Interface segregation', aka: 'ISP, role interfaces',
+      desc: 'Clients should depend only on the methods they use. Instead of one fat interface, give each kind of caller a small role interface; one class can still implement several.',
+      use: 'a change to an admin-only method forces checkout code to recompile, or test fakes must stub twenty methods to use one',
+      cost: 'more interface names to keep track of; overdone, every method gets its own type',
+      ref: 'Robert C. Martin; SOLID',
+      prompt: 'interface segregation: each caller depends on a small role interface with only the methods it uses; one class may implement several roles',
+      ex: dg(b => {
+        const co = b.box(56, 60, 'Checkout', 'a'), ad = b.box(56, 145, 'Admin', 'b');
+        const pr = b.box(160, 60, 'Pricing', 'a', { sub: '1 method' }), ca = b.box(160, 145, 'CatalogEdit', 'b', { sub: '3 methods' });
+        const ps = b.box(268, 102, 'Product\nService', 'n');
+        b.link(co, pr, { flow: true }); b.link(ad, ca);
+        b.link(ps, pr, { dash: true }); b.link(ps, ca, { dash: true });
+        b.text(268, 145, 'implements\nboth', { sm: true, mut: true });
+        b.text(160, 22, 'callers see only their role', { sm: true, mut: true });
+      }) },
+
+    { id: 'dip', name: 'Dependency inversion', aka: 'DIP, depend on abstractions',
+      desc: 'High-level policy should not depend on low-level details; both depend on an interface that the policy side owns. The domain declares the port it needs, and infrastructure implements it, so source dependencies point inward.',
+      use: 'business logic imports an SDK, ORM or HTTP client directly and you cannot test it without the network',
+      cost: 'an extra interface and wiring (a composition root or DI container) for every boundary',
+      ref: 'Robert C. Martin; hexagonal architecture (Alistair Cockburn); SOLID',
+      prompt: 'dependency inversion: the domain defines the interfaces it needs (e.g. PaymentGateway), adapters in infrastructure implement them, and wiring happens in one composition root',
+      ex: dg(b => {
+        b.zone(12, 26, 176, 152, 'domain owns', 'a'); b.zone(200, 26, 108, 152, 'infra', 'c');
+        const bi = b.box(100, 68, 'Billing', 'a');
+        const pt = b.box(100, 140, 'PaymentPort', 'a', { dash: true, sub: 'interface' });
+        const st = b.box(254, 140, 'Stripe\nAdapter', 'c');
+        b.link(bi, pt, { label: 'calls', flow: true });
+        b.link(st, pt, { dash: true, label: 'implements', ly: -14 });
+        b.text(160, 194, 'source dependencies point inward', { sm: true, mut: true });
+      }) },
+
+    { id: 'dry', name: 'DRY and the rule of three', aka: 'don\'t repeat yourself, AHA (avoid hasty abstractions), WET',
+      desc: 'DRY is about knowledge: each business rule should live in one place. The rule of three says tolerate a second copy and extract on the third, once you can see what really varies. AHA adds that two pieces of code that look alike but change for different reasons are not duplication.',
+      use: 'the same rule (tax calculation, validation, a status mapping) is copied and the copies have started to drift',
+      cost: 'extract too early and you couple unrelated callers to one helper that sprouts flags and modes',
+      ref: 'The Pragmatic Programmer (Hunt & Thomas); Martin Fowler, Refactoring; Kent C. Dodds (AHA)',
+      prompt: 'DRY for business rules, rule of three for code: allow a second copy, extract on the third, and keep look-alike code separate when it changes for different reasons',
+      ex: code(`
+{c|// 1st copy: write it}
+{c|// 2nd copy: copy it, leave a note}
+{c|// 3rd copy: now extract}
+{k|function} {f|formatMoney}(m: {t|Money}) &#123;
+  {k|return} {f|fmt}(m.amount, m.currency)
+&#125;
+
+{c|// same shape, different reasons to}
+{c|// change? keep both copies (AHA)}`, 'money.ts') },
+
+    { id: 'yagni', name: 'YAGNI', aka: 'you aren\'t gonna need it',
+      desc: 'Build what the current requirement needs and nothing for imagined future ones. Speculative options, plugin points and config flags cost effort to build, test and carry, and the future usually asks for something else.',
+      use: 'a design discussion starts with "what if later we need..." and no one has asked for it',
+      cost: 'when a need does arrive you change code then; that is cheap only if the code is simple and well tested',
+      ref: 'Extreme Programming (Kent Beck, Ron Jeffries); Martin Fowler, "Yagni"',
+      prompt: 'YAGNI: implement only what this task needs; no speculative options, plugin points, config flags or generic layers for requirements nobody has asked for',
+      ex: code(`
+{k|type} {t|NotifyOpts} = &#123;
+  to: {t|string}
+  body: {t|string}
+  {r|channel?: 'sms' | 'push' | 'fax'}
+  {r|retryPolicy?: RetryPolicy}
+  {r|templateEngine?: 'mjml' | 'hbs'}
+&#125;
+{c|// ship to + body; add the rest when}
+{c|// a real caller asks for it}`, 'notify.ts') },
+
+    { id: 'kiss', name: 'KISS', aka: 'keep it simple, simplest thing that could possibly work',
+      desc: 'Prefer the plainest design that solves the problem: fewer moving parts, fewer systems, fewer concepts for the next reader. Complexity has to earn its place with a measured need.',
+      use: 'picking between a straightforward approach and an impressive one for a problem of modest size',
+      cost: 'the simple version may need replacing if load or scope grows by an order of magnitude; plan for that rewrite, do not pre-build it',
+      ref: 'Kelly Johnson (Lockheed Skunk Works); Ward Cunningham, "the simplest thing that could possibly work"',
+      prompt: 'keep it simple: the fewest moving parts and systems that meet the requirement, plain functions over frameworks, and no new infrastructure without a measured need',
+      ex: dg(b => {
+        b.text(160, 20, 'same nightly report, two designs', { sm: true, mut: true });
+        const cr = b.box(60, 62, 'cron', 'g'), pg = b.db(160, 62, 'Postgres', 'g'), em = b.box(260, 62, 'email', 'g');
+        b.link(cr, pg, { flow: true }); b.link(pg, em, { flow: true }); b.ok(299, 62);
+        const k = b.box(50, 140, 'Kafka', 'r', { dash: true }), f = b.box(120, 140, 'Flink', 'r', { dash: true });
+        const s = b.box(190, 140, 'S3', 'r', { dash: true }), l = b.box(260, 140, 'Lambda', 'r', { dash: true });
+        b.link(k, f, { c: 'r' }); b.link(f, s, { c: 'r' }); b.link(s, l, { c: 'r' }); b.x(302, 140, 5);
+        b.text(160, 182, 'four systems to run for one SQL query', { sm: true, c: 'r' });
+      }) },
+
+    { id: 'soc', name: 'Separation of concerns', aka: 'SoC, layering',
+      desc: 'Split code so each part handles one kind of concern: transport, business rules, persistence, presentation. Each layer can then change, be tested and be understood on its own.',
+      use: 'request parsing, SQL and business rules are tangled in the same handler function',
+      cost: 'more files and hops per request; strict layering can turn simple CRUD into pass-through boilerplate',
+      ref: 'Edsger Dijkstra (1974); layered architecture; MVC',
+      prompt: 'separation of concerns: HTTP handlers only parse, authorize and map status codes; business rules live in plain domain functions with no I/O; SQL stays in the repository layer',
+      ex: dg(b => {
+        const h = b.box(120, 40, 'HTTP handler', 'a', { w: 150, sub: 'parse, auth, status' });
+        const d = b.box(120, 100, 'Domain', 'b', { w: 150, sub: 'rules, no I/O' });
+        const r = b.box(120, 160, 'Repository', 'c', { w: 150, sub: 'SQL only' });
+        const db = b.db(268, 160, 'DB', 'c');
+        b.link(h, d, { flow: true }); b.link(d, r, { flow: true }); b.link(r, db);
+        b.line([[195, 40], [268, 40], [268, 135]], { dash: true, c: 'r' }); b.x(268, 88, 5);
+        b.text(268, 30, 'SQL in handler', { sm: true, c: 'r' });
+      }) },
+
+    { id: 'cohesion', name: 'High cohesion, low coupling', aka: 'cohesion and coupling, modularity',
+      desc: 'Things that change together should live together (cohesion), and modules should know as little about each other as possible (coupling). A good module boundary has many connections inside it and few, narrow ones across it.',
+      use: 'drawing module or service boundaries, or deciding where a new piece of code belongs',
+      cost: 'finding the right boundaries takes domain knowledge; wrong early guesses are costly to move once services are split',
+      ref: 'Larry Constantine & Edward Yourdon, Structured Design; Parnas (1972), "On the Criteria To Be Used in Decomposing Systems into Modules"',
+      prompt: 'high cohesion and low coupling: group code that changes together into one module, and let modules talk only through a narrow public interface with no shared internals',
+      ex: dg(b => {
+        b.zone(14, 28, 130, 134, 'orders', 'a'); b.zone(176, 28, 130, 134, 'billing', 'b');
+        const a1 = b.circle(48, 72, 13, '', 'a'), a2 = b.circle(110, 72, 13, '', 'a'), a3 = b.circle(79, 130, 13, '', 'a');
+        const b1 = b.circle(210, 72, 13, '', 'b'), b2 = b.circle(272, 72, 13, '', 'b'), b3 = b.circle(241, 130, 13, '', 'b');
+        b.link(a1, a2, { both: true }); b.link(a2, a3, { both: true }); b.link(a3, a1, { both: true });
+        b.link(b1, b2, { both: true }); b.link(b2, b3, { both: true }); b.link(b3, b1, { both: true });
+        b.link(a2, b1, { label: 'one API', flow: true, ly: -12 });
+        b.text(160, 184, 'dense inside, one narrow link across', { sm: true, mut: true });
+      }) },
+
+    { id: 'demeter', name: 'Law of Demeter', aka: 'principle of least knowledge, don\'t talk to strangers, tell don\'t ask',
+      desc: 'A method should only call methods on itself, its parameters, objects it creates and its direct fields. Reaching through a chain like a.b.c.d couples your code to the internal structure of every object along the way.',
+      use: 'you see long property chains, or a change to one class\'s fields breaks code three modules away',
+      cost: 'more small delegating methods on the objects you ask; applied mechanically it bloats interfaces',
+      ref: 'Ian Holland, Northeastern University (1987); The Pragmatic Programmer',
+      prompt: 'law of Demeter: no chains through other objects\' internals (order.customer.address.city); ask the direct collaborator for what you need and let it delegate',
+      ex: code(`
+{c|// reaches through three objects}
+{r|const city = order.customer.address.city}
+
+{c|// ask the neighbor, not its neighbors}
+{g|const city = order.shippingCity()}
+
+{k|class} {t|Order} &#123;
+  {f|shippingCity}() &#123;
+    {k|return} {k|this}.shipTo.city &#125;
+&#125;`, 'order.ts') },
+
+    { id: 'composition', name: 'Composition over inheritance', aka: 'favor composition, has-a over is-a',
+      desc: 'Build behavior by combining small objects or functions you pass in, instead of extending base classes. Inheritance locks variation into one tree; composition lets you mix capabilities at runtime without a subclass per combination.',
+      use: 'a class hierarchy is growing a subclass for every combination of features, or base-class changes keep breaking subclasses',
+      cost: 'more explicit wiring and a few more parameters; you lose the convenience of inheriting defaults',
+      ref: 'Design Patterns (Gamma, Helm, Johnson, Vlissides), 1994; Go and Rust have no class inheritance',
+      prompt: 'composition over inheritance: pass collaborators in (strategies, policies, small functions) instead of extending base classes; inheritance at most one level, for true is-a relationships',
+      ex: code(`
+{r|class AdminUser extends User &#123;&#125;}
+{r|class AuditedAdminUser extends AdminUser}
+{c|// ...one subclass per combination}
+
+{k|class} {t|User} &#123;
+  {k|constructor}(
+    {k|private} roles: {t|Role}[],
+    {k|private} audit: {t|AuditLog} = noAudit,
+  ) &#123;&#125;
+&#125;`, 'user.ts') },
+
+    { id: 'conway', name: 'Conway\'s law', aka: 'inverse Conway maneuver, sociotechnical architecture',
+      desc: 'Systems end up mirroring the communication structure of the teams that build them. The inverse Conway maneuver uses that on purpose: shape teams and their ownership around the architecture you want, and the system follows.',
+      use: 'planning service boundaries, a reorg, or wondering why one service needs three teams to change it',
+      cost: 'architecture changes become org changes, which are slower and political; ignoring it means boundaries drift to match whoever talks to whom',
+      ref: 'Melvin Conway (1968); Team Topologies (Skelton & Pais); Accelerate (Forsgren, Humble, Kim)',
+      prompt: 'Conway-aware boundaries: one owning team per service or module, boundaries drawn where team boundaries are (or should be), and no component that needs two teams to change',
+      ex: dg(b => {
+        b.text(50, 16, 'teams', { sm: true, mut: true }); b.text(250, 16, 'services', { sm: true, mut: true });
+        const t1 = b.user(50, 46, 'Team A', 'a'), t2 = b.user(50, 102, 'Team B', 'b'), t3 = b.user(50, 158, 'Team C', 'c');
+        const s1 = b.box(250, 50, 'Checkout', 'a'), s2 = b.box(250, 106, 'Search', 'b'), s3 = b.box(250, 162, 'Payments', 'c');
+        b.link(t1, s1, { c: 'a', label: 'owns' }); b.link(t2, s2, { c: 'b' }); b.link(t3, s3, { c: 'c' });
+      }) },
+
+    { id: 'boringtech', name: 'Choose boring technology', aka: 'innovation tokens',
+      desc: 'Every team gets a small number of innovation tokens to spend on new, unproven technology. Spend them where they give you an edge, and use well-understood tools (Postgres, Redis, your main language) for everything else, because their failure modes are known.',
+      use: 'picking a database, queue, framework or language for a product, especially with a small team',
+      cost: 'you may miss a tool that genuinely fits better; boring stacks still need to be revisited every few years',
+      ref: 'Dan McKinley, "Choose Boring Technology" (2015)',
+      prompt: 'choose boring technology: build on the stack we already run (Postgres, Redis, our main language and framework); any new datastore, language or infrastructure needs a written reason and spends one of a few innovation tokens',
+      ex: dg(b => {
+        b.text(85, 20, 'proven stack', { sm: true, mut: true }); b.text(240, 20, 'innovation tokens', { sm: true, mut: true });
+        b.db(85, 62, 'Postgres', 'g'); b.box(85, 114, 'Redis', 'g'); b.box(85, 162, 'Django', 'g');
+        b.dot(205, 58, 'd', 12); b.circle(240, 58, 12, '', 'n', { dash: true }); b.circle(275, 58, 12, '', 'n', { dash: true });
+        const v = b.box(240, 140, 'vector\nsearch', 'd');
+        b.line([[205, 74], [205, 140], [200, 140]], { none: true, c: 'd' });
+        b.text(240, 92, '1 spent, 2 left', { sm: true, c: 'd' });
+      }) },
+
+    { id: 'twelvefactor', name: 'The twelve-factor app', aka: '12-factor',
+      desc: 'A checklist for apps that run well on cloud platforms: config in environment variables, stateless processes, backing services attached by URL, logs written to stdout, and strict build, release and run stages. Most of it is now the default for containers and PaaS.',
+      use: 'building any service that will run in containers, on Kubernetes or on a PaaS like Heroku, Fly or Render',
+      cost: 'env-var config gets unwieldy at scale and secrets need a proper store; some factors (like port binding) are dated advice',
+      ref: '12factor.net (Adam Wiggins, Heroku, 2011)',
+      prompt: 'twelve-factor: config from environment variables, stateless processes that can be killed any time, backing services addressed by URL, logs as JSON to stdout, and the same build artifact promoted across environments',
+      ex: dg(b => {
+        b.box(168, 92, '', 'n', { w: 92, h: 52 }); b.box(164, 96, '', 'n', { w: 92, h: 52 });
+        const app = b.box(160, 100, 'App', 'a', { w: 92, h: 52, sub: 'stateless x3' });
+        const env = b.tag(42, 100, 'ENV', 'c'); b.link(env, app, { label: 'config' });
+        const log = b.tag(160, 30, 'stdout', 'n'); b.link(app, log, { label: 'logs', lx: 18 });
+        const pg = b.db(270, 60, 'Postgres', 'b'), q = b.queue(270, 145, 'queue', 'd', { w: 60 });
+        b.link(app, pg, { dash: true, label: 'URL' }); b.link(app, q, { dash: true, label: 'URL' });
+        b.text(160, 186, 'build -> release -> run', { sm: true, mono: true, mut: true });
+      }) },
+
+    { id: 'designforfailure', name: 'Design for failure', aka: 'everything fails all the time, graceful degradation',
+      desc: 'Assume every network call, disk and dependency will fail or slow down, and decide up front what the system does when it does. Timeouts, fallbacks and degraded modes are part of the design, not error handling added later.',
+      use: 'any code that calls another service, a third-party API or shared infrastructure',
+      cost: 'more code paths to build and test; fallbacks can hide outages unless they are monitored',
+      ref: 'Werner Vogels ("everything fails all the time"); Netflix Chaos Monkey; Michael Nygard, Release It!',
+      prompt: 'design for failure: every outbound call has a timeout and a defined fallback (cached value, default, or a clear degraded response), and non-critical features degrade instead of failing the request',
+      ex: dg(b => {
+        const u = b.user(30, 100, 'user'), api = b.box(110, 100, 'API', 'a');
+        const rc = b.box(245, 52, 'Recs', 'c'), ca = b.db(245, 150, 'cache', 'g');
+        b.link(u, api, { flow: true }); b.link(api, rc, { dash: true, c: 'r', label: 'timeout 300ms' });
+        b.x(286, 52, 5); b.link(api, ca, { c: 'g', label: 'fallback' }); b.ok(286, 150);
+        b.text(160, 190, 'the page still renders', { sm: true, c: 'g' });
+      }) },
+
+    { id: 'leastprivilege', name: 'Principle of least privilege', aka: 'least privilege, minimal permissions',
+      desc: 'Every user, service and credential gets only the permissions it needs for its job, for only as long as it needs them. When something is compromised or buggy, the blast radius is limited to that narrow scope.',
+      use: 'creating IAM roles, database users, API tokens, CI credentials or service accounts',
+      cost: 'more roles to define and maintain, and friction when someone legitimately needs a new permission',
+      ref: 'Jerome Saltzer & Michael Schroeder (1975); AWS IAM policies; OWASP',
+      prompt: 'least privilege: each service gets its own credentials scoped to the exact resources and actions it uses (read-only where it only reads), with no shared admin keys and short-lived tokens where possible',
+      ex: dg(b => {
+        const s = b.box(70, 92, 'Report\njob', 'a'); b.tag(70, 142, 'role: reports-ro', 'a');
+        const r = b.db(240, 55, 'reports', 'g'), p = b.db(240, 150, 'payroll', 'r');
+        b.link(s, r, { c: 'g', label: 'read', flow: true }); b.ok(286, 55);
+        b.link(s, p, { c: 'r', dash: true, label: 'denied' }); b.x(286, 150, 5);
+      }) },
+
+    { id: 'deepmodules', name: 'Deep modules', aka: 'A Philosophy of Software Design, information hiding',
+      desc: 'A good module hides a lot of functionality behind a small interface. Shallow modules, with an interface nearly as complex as their implementation, add cost without hiding anything; many tiny pass-through classes are a common symptom.',
+      use: 'designing a module or class API, or reviewing code split into many small wrappers',
+      cost: 'deep modules are bigger inside and need good internal structure; picking what to hide takes thought',
+      ref: 'John Ousterhout, A Philosophy of Software Design (2018); Unix file I/O (open, read, write, close)',
+      prompt: 'deep modules: small, simple public interfaces that hide substantial complexity (defaults, retries, edge cases) inside, and no shallow pass-through wrappers',
+      ex: dg(b => {
+        b.text(85, 26, 'small interface', { sm: true, c: 'c' });
+        b.box(85, 42, '', 'c', { w: 60, h: 12, r: 2 });
+        b.box(85, 108, 'lots of\nlogic', 'a', { w: 60, h: 120, r: 2 });
+        b.text(85, 186, 'deep', { b: true, c: 'g' });
+        b.text(230, 70, 'big interface', { sm: true, c: 'c' });
+        b.box(230, 86, '', 'c', { w: 140, h: 12, r: 2 });
+        b.box(230, 108, 'little', 'r', { w: 140, h: 32, r: 2 });
+        b.text(230, 186, 'shallow', { b: true, c: 'r' });
+      }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'decisions', title: 'Making decisions', slot: 'Decision practice',
+  intro: 'Practices for deciding well and keeping decisions honest over time: write them down, match the care to the reversibility, and check them automatically.',
+  terms: [
+    { id: 'adr', name: 'Architecture decision records', aka: 'ADR, decision log, MADR',
+      desc: 'A short markdown file per significant decision: context, the decision, and its consequences, numbered and kept in the repo. Records are never edited after acceptance; a new ADR supersedes an old one, so the history stays readable.',
+      use: 'any choice a new teammate would ask "why did we do it this way?" about: datastores, frameworks, boundaries, protocols',
+      cost: 'a few minutes of writing per decision, and the discipline to actually write them',
+      ref: 'Michael Nygard, "Documenting Architecture Decisions" (2011); adr-tools; MADR',
+      prompt: 'record the decision as an ADR in docs/adr/NNNN-title.md with Status, Context, Decision and Consequences (including the downsides and when to revisit)',
+      ex: code(`
+{k|# 7. Use Postgres as the job queue}
+{d|Status:} Accepted  {d|Date:} 2026-03-02
+{k|## Context}
+~200 jobs/min; we already run Postgres
+{k|## Decision}
+SKIP LOCKED queue table, no new broker
+{k|## Consequences}
+{g|+ one less system to operate}
+{r|- revisit above ~5k jobs/min}`, 'docs/adr/0007-pg-queue.md') },
+
+    { id: 'doors', name: 'One-way and two-way doors', aka: 'reversible decisions, type 1 and type 2 decisions',
+      desc: 'Sort decisions by how costly they are to undo. Two-way doors (a library, a feature flag, a UI layout) should be made quickly by the people closest to them. One-way doors (a public API, a data model, a vendor lock-in) deserve slow, careful review.',
+      use: 'a team is either agonizing over a cheap choice or rushing an expensive one',
+      cost: 'judging reversibility is itself a judgment call; many "two-way" decisions harden once data and users pile up',
+      ref: 'Jeff Bezos, Amazon shareholder letter (2015)',
+      prompt: 'treat reversible choices as two-way doors (pick a sensible default and move on, behind a flag or interface if cheap) and flag one-way doors (public API shape, schema, vendor) for explicit review',
+      ex: dg(b => {
+        b.text(85, 18, 'two-way door', { b: true, c: 'g' }); b.text(235, 18, 'one-way door', { b: true, c: 'r' });
+        b.box(85, 80, '', 'g', { w: 56, h: 90, r: 2 }); b.dot(102, 84, 'g', 3);
+        b.box(235, 80, '', 'r', { w: 56, h: 90, r: 2 }); b.dot(252, 84, 'r', 3);
+        b.line([[45, 142], [125, 142]], { both: true, c: 'g' });
+        b.line([[195, 142], [275, 142]], { c: 'r' });
+        b.text(85, 168, 'library, flag, UI', { sm: true, mut: true }); b.text(85, 182, 'decide fast', { sm: true, b: true, c: 'g' });
+        b.text(235, 168, 'schema, public API', { sm: true, mut: true }); b.text(235, 182, 'slow down, review', { sm: true, b: true, c: 'r' });
+      }) },
+
+    { id: 'fitness', name: 'Fitness functions', aka: 'architecture tests, evolutionary architecture, ArchUnit, dependency-cruiser',
+      desc: 'Automated checks that the architecture still has the properties you chose: no forbidden imports, no cycles, latency budgets, bundle size limits. They run in CI, so a boundary violation fails the build instead of waiting for a reviewer to spot it.',
+      use: 'you have decided on module boundaries or quality targets and want them to survive the next hundred pull requests',
+      cost: 'rules need upkeep as the design evolves, and an overly strict rule set gets disabled',
+      ref: 'Building Evolutionary Architectures (Ford, Parsons, Kua); ArchUnit; dependency-cruiser; import-linter; Packwerk',
+      prompt: 'fitness functions in CI: dependency rules (dependency-cruiser, ArchUnit or import-linter) that fail the build on forbidden imports between modules and on cycles, plus a budget check for the one quality attribute that matters most',
+      ex: code(`
+{c|// runs in CI on every PR}
+forbidden: [&#123;
+  name: {s|'domain-is-pure'},
+  severity: {s|'error'},
+  from: &#123; path: {s|'^src/domain'} &#125;,
+  to: &#123; path: {s|'^src/(infra|http)'} &#125;,
+&#125;, &#123;
+  name: {s|'no-cycles'},
+  from: &#123;&#125;, to: &#123; circular: {k|true} &#125;,
+&#125;]`, '.dependency-cruiser.js') },
+
+    { id: 'c4', name: 'C4 model diagrams', aka: 'C4, context container component code',
+      desc: 'Four zoom levels for drawing software: system Context (users and external systems), Containers (apps, databases, queues), Components inside one container, and optionally Code. Each diagram has one level of detail and a legend, so boxes and arrows mean the same thing every time.',
+      use: 'explaining a system to a new teammate or reviewer, or writing architecture docs that stay readable',
+      cost: 'diagrams drift from code unless generated or kept next to it; levels 3 and 4 rarely pay for their upkeep',
+      ref: 'Simon Brown, c4model.com; Structurizr; Mermaid C4 diagrams',
+      prompt: 'describe the design with C4: a context diagram (users and external systems) and a container diagram (each deployable and datastore, with protocols on every arrow), as Mermaid or Structurizr DSL kept in the repo',
+      ex: dg(b => {
+        b.zone(10, 10, 300, 180, '1 Context: users + systems', 'n');
+        b.zone(36, 34, 248, 146, '2 Containers: apps, DBs', 'a');
+        b.zone(62, 58, 196, 112, '3 Components', 'b');
+        b.box(160, 122, '4 Code', 'c', { sub: 'optional' });
+      }) },
+
+    { id: 'qualityattrs', name: 'Quality attributes and tradeoffs', aka: 'the -ilities, ATAM, non-functional requirements, NFRs',
+      desc: 'Name the qualities that matter for this system (latency, availability, cost, simplicity, security, scalability), rank them, and score each option against them. It turns "which is better" into an explicit tradeoff; ATAM is the formal version, a ranked list is usually enough.',
+      use: 'choosing between two or more designs, or before any architecture review',
+      cost: 'takes a conversation with stakeholders to rank qualities; without numbers the scoring can become opinion',
+      ref: 'ATAM (Software Engineering Institute, CMU); ISO/IEC 25010; Software Architecture in Practice (Bass, Clements, Kazman)',
+      prompt: 'before choosing, list the top 3 quality attributes with concrete targets (e.g. p99 under 200 ms, 99.9% availability, under $500/month), score each option against them and state what we give up',
+      ex: dg(b => {
+        b.text(205, 28, 'A: sync', { sm: true, b: true }); b.text(275, 28, 'B: queue', { sm: true, b: true });
+        const rows = [['1 latency p99', 'g', 'c'], ['2 availability', 'c', 'g'], ['3 cost', 'g', 'c'], ['4 simplicity', 'g', 'r']];
+        rows.forEach(([n, a, c], i) => {
+          const y = 58 + i * 30;
+          b.text(20, y + 4, n, { a: 'start', b: i < 2 });
+          b.dot(205, y, a, 7); b.dot(275, y, c, 7);
+        });
+        b.text(160, 186, 'rank first, then score the options', { sm: true, mut: true });
+      }) },
+
+    { id: 'lrm', name: 'Last responsible moment', aka: 'defer commitment, decide late',
+      desc: 'Delay a decision until the point where not deciding would start to cost you, because by then you know more. It is not procrastination: you keep options open on purpose, and you still decide before the delay closes doors.',
+      use: 'a choice depends on facts you will learn soon (real load, a customer\'s needs, a vendor\'s roadmap)',
+      cost: 'needs code that keeps options open (interfaces, flags); leaving it too late means the default decides for you',
+      ref: 'Mary & Tom Poppendieck, Lean Software Development (2003)',
+      prompt: 'defer this choice to the last responsible moment: build behind a small interface with the simplest implementation now, and note what we would need to learn before committing',
+      ex: dg(b => {
+        b.line([[16, 110], [304, 110]], {});
+        b.text(296, 128, 'time', { sm: true, mut: true, a: 'end' });
+        b.dot(60, 110, 'c', 6); b.dot(205, 110, 'g', 7, { pulse: true }); b.dot(275, 110, 'r', 6);
+        b.text(60, 80, 'too early', { sm: true, b: true, c: 'c' }); b.text(60, 92, 'guessing', { sm: true, mut: true });
+        b.text(205, 66, 'last responsible', { sm: true, b: true, c: 'g' }); b.text(205, 78, 'moment', { sm: true, b: true, c: 'g' });
+        b.text(275, 140, 'too late', { sm: true, b: true, c: 'r' }); b.text(275, 152, 'default wins', { sm: true, mut: true });
+        b.line([[60, 160], [205, 160]], { c: 'g', dash: true });
+        b.text(132, 176, 'learn while options stay open', { sm: true, c: 'g' });
+      }) },
+
+    { id: 'walkingskeleton', name: 'Walking skeleton', aka: 'tracer bullet, steel thread',
+      desc: 'The thinnest possible version of the whole system that runs end to end: one real request through UI, API and database, built and deployed by the real pipeline. You then flesh out features on a structure that already works.',
+      use: 'starting a new system or a big new feature, especially one that crosses several components or teams',
+      cost: 'early time goes to plumbing and deployment instead of visible features',
+      ref: 'Alistair Cockburn (walking skeleton); The Pragmatic Programmer (tracer bullets); Growing Object-Oriented Software, Guided by Tests',
+      prompt: 'start with a walking skeleton: one real request flowing through UI, API and database, deployed by the real CI pipeline to a real environment, before building out features',
+      ex: dg(b => {
+        b.tag(160, 22, 'one real request, end to end', 'g');
+        const ui = b.box(55, 70, 'UI', 'a', { dash: true }), api = b.box(160, 70, 'API', 'a', { dash: true }), db = b.db(265, 70, 'DB', 'a');
+        b.link(ui, api, { flow: true }); b.link(api, db, { flow: true });
+        const ci = b.box(55, 150, 'CI', 'b', { dash: true }), dp = b.box(160, 150, 'deploy', 'b', { dash: true }), pr = b.box(265, 150, 'prod', 'b');
+        b.link(ci, dp, { flow: true }); b.link(dp, pr, { flow: true });
+        b.text(160, 112, 'thin, but every layer is real', { sm: true, mut: true });
+      }) },
+
+    { id: 'spike', name: 'Spike, then throw it away', aka: 'spike solution, prototype, timeboxed experiment',
+      desc: 'A short, timeboxed experiment to answer one question (can this library do X, how fast is Y) with throwaway code. You keep the answer and delete the code, then build the real thing properly with tests.',
+      use: 'a design depends on an unknown that a day or two of hacking can resolve',
+      cost: 'needs discipline to actually delete the spike; prototypes that ship become permanent tech debt',
+      ref: 'Extreme Programming (Kent Beck); Fred Brooks, "plan to throw one away" (The Mythical Man-Month)',
+      prompt: 'treat this as a timeboxed spike: answer the question in throwaway code on a branch, write down what we learned, and do not merge it',
+      ex: dg(b => {
+        b.line([[14, 150], [194, 150]], {}); const bi = b.box(240, 150, 'Build it', 'a', { w: 80 }); b.line([[282, 150], [308, 150]], {});
+        b.text(20, 170, 'main', { sm: true, mut: true, a: 'start' });
+        const sp = b.box(125, 66, 'Spike', 'c', { dash: true, sub: 'timebox 2 days' });
+        b.line([[44, 150], [44, 66], [74, 66]], { dash: true, c: 'c' });
+        const an = b.tag(240, 66, 'answer', 'g'); b.link(sp, an, { c: 'g' }); b.link(an, bi, { c: 'g', label: 'keep this' });
+        b.x(125, 106, 5); b.text(125, 125, 'code deleted', { sm: true, c: 'r' });
+      }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'antipatterns', title: 'Pitfalls to avoid', slot: 'Avoid',
+  intro: 'Shapes that show up again and again in struggling codebases. Add the ones you want Claude to steer clear of; each card says what to do instead.',
+  terms: [
+    { id: 'ballofmud', name: 'Big ball of mud', aka: 'spaghetti architecture, haphazard structure', avoid: true,
+      desc: 'A system with no recognizable structure: any module calls any other, data is shared freely, and every change ripples unpredictably. It usually grows from many expedient fixes under deadline pressure, not from one bad decision.',
+      use: 'there are no enforced module boundaries, utils and helpers import everything, and nobody can say what owns what',
+      cost: 'pick a few modules with clear owners and public interfaces, enforce the import rules in CI, and strangle the worst areas one at a time',
+      ref: 'Brian Foote & Joseph Yoder, "Big Ball of Mud" (1997)',
+      prompt: 'a big ball of mud: modules importing each other\'s internals freely, a catch-all utils package, and no clear owner for data or behavior',
+      ex: dg(b => {
+        const n = [b.box(48, 66, 'users', 'n'), b.box(160, 30, 'orders', 'n'), b.box(265, 45, 'billing', 'n'), b.box(78, 128, 'utils', 'r'),
+          b.box(180, 100, 'email', 'n'), b.box(270, 140, 'reports', 'n'), b.box(150, 168, 'auth', 'n')];
+        [[0, 2], [1, 3], [2, 3], [3, 5], [4, 0], [5, 1], [6, 2], [3, 6], [4, 5], [0, 6], [1, 4], [2, 4]].forEach(([i, j], k) =>
+          b.link(n[i], n[j], { c: 'r', both: k % 3 === 0, bend: k % 2 ? 8 : -6 }));
+      }) },
+
+    { id: 'distmonolith', name: 'Distributed monolith', aka: 'microservices in name only', avoid: true,
+      desc: 'Services that are split into separate deployables but still change and release together, share libraries with business logic, or call each other in long synchronous chains. You pay the cost of distribution and keep the coupling of a monolith.',
+      use: 'a feature needs coordinated deploys of several services, or one slow service stalls a whole request chain',
+      cost: 'merge tightly coupled services back into a modular monolith, or decouple with async events, versioned contracts and independent deploys',
+      ref: 'Sam Newman, Building Microservices and Monolith to Microservices',
+      prompt: 'a distributed monolith: services that must deploy together, share a business-logic library or database, or call each other in long synchronous chains',
+      ex: dg(b => {
+        b.zone(14, 40, 292, 120, 'must deploy together', 'r');
+        const o = b.box(65, 84, 'Orders', 'a'), p = b.box(160, 84, 'Pricing', 'b'), s = b.box(255, 84, 'Stock', 'c');
+        b.link(o, p, { label: 'sync', flow: true }); b.link(p, s, { label: 'sync', flow: true });
+        const lib = b.tag(160, 136, 'shared-lib v4.2', 'r');
+        [o, p, s].forEach(n => b.link(lib, n, { dash: true, c: 'r', none: true }));
+        b.text(160, 180, 'p99 = sum of every hop', { sm: true, c: 'r' });
+      }) },
+
+    { id: 'godobject', name: 'God object', aka: 'god class, blob, manager class', avoid: true,
+      desc: 'One class or module that knows and does too much: thousands of lines, dozens of dependencies, and a name like Manager, Helper or Service. Every feature touches it, so it becomes a merge-conflict magnet and impossible to test in isolation.',
+      use: 'a "core" class keeps absorbing new features because it already has access to everything',
+      cost: 'split by responsibility into focused classes, each with its own small set of dependencies; move behavior next to the data it uses',
+      ref: 'AntiPatterns (Brown, Malveau, McCormick, Mowbray, 1998); Arthur Riel, Object-Oriented Design Heuristics',
+      prompt: 'a god object: one Manager, Helper or Service class that owns many unrelated responsibilities and is imported by most of the codebase',
+      ex: dg(b => {
+        const c = b.box(160, 100, 'AppManager', 'r', { sub: '4,200 lines' });
+        [[45, 100, 'auth'], [275, 100, 'email'], [160, 28, 'pdf'], [160, 172, 'cache'], [82, 50, 'orders'], [248, 46, 'users'], [72, 154, 'billing'], [248, 154, 'cron']]
+          .forEach(([x, y, l]) => b.link(c, b.box(x, y, l, 'n'), { c: 'r' }));
+      }) },
+
+    { id: 'anemic', name: 'Anemic domain model', aka: 'data bags plus service classes', avoid: true,
+      desc: 'Domain objects that are only fields with getters and setters, while all the rules live in service classes. Nothing stops callers from putting an object into an invalid state, and the same rule ends up re-implemented in several services.',
+      use: 'a domain with real business rules is modeled as ORM entities plus a layer of XxxService classes',
+      cost: 'move rules onto the entities: methods like order.cancel() that check invariants and change state, with fields not settable from outside',
+      ref: 'Martin Fowler, "AnemicDomainModel" (2003); Eric Evans, Domain-Driven Design',
+      prompt: 'an anemic domain model: entities that are only public fields while all rules live in service classes, so any caller can set status or totals directly',
+      ex: code(`
+
+
+{k|class} {t|Order} &#123; status; items; total &#125;
+{k|class} {t|OrderService} &#123;
+  {f|cancel}(o: {t|Order}) &#123;
+    {r|if (o.status === 'shipped') throw}
+    {r|o.status = 'cancelled'}
+    {r|o.total = 0}
+  &#125;
+&#125;
+{c|// data only: anyone can set status}`, 'order.ts') },
+
+    { id: 'shareddbint', name: 'Shared database integration', aka: 'integration database, shared schema', avoid: true,
+      desc: 'Several services read and write the same tables directly. The schema becomes a public API nobody owns: a column rename breaks unknown consumers, and invariants can be bypassed by any service that writes.',
+      use: 'a new service needs data that another service owns and querying its tables is the fastest path',
+      cost: 'one owner per table; others get the data through the owner\'s API, events, or a read replica or view built for them',
+      ref: 'Martin Fowler, "IntegrationDatabase"; Sam Newman, Building Microservices',
+      prompt: 'shared database integration: more than one service reading or writing the same tables directly instead of going through the owning service\'s API or events',
+      ex: dg(b => {
+        const o = b.box(60, 56, 'Orders', 'a'), bi = b.box(160, 56, 'Billing', 'b'), r = b.box(260, 56, 'Reports', 'c');
+        const db = b.db(160, 148, 'shared DB', 'r');
+        b.link(o, db, { c: 'r', both: true }); b.link(bi, db, { c: 'r', both: true }); b.link(r, db, { c: 'r' });
+        b.tag(258, 124, 'RENAME COLUMN', 'r'); b.x(218, 100, 5);
+        b.text(160, 190, 'whose table is it?', { sm: true, c: 'r' });
+      }) },
+
+    { id: 'chatty', name: 'Chatty services', aka: 'N+1 over the network, chatty I/O', avoid: true,
+      desc: 'Code that makes one remote call per item in a loop, so a page of 50 orders turns into 100 sequential network round trips. Each call is fast on its own; together they dominate latency and load.',
+      use: 'an ORM, SDK or service client hides that each property access or method call goes over the network',
+      cost: 'batch endpoints (getCustomers(ids)), joins or a DataLoader-style batcher, and parallelize what must stay separate',
+      ref: 'Microsoft Azure Architecture Center, "Chatty I/O antipattern"; DataLoader (GraphQL)',
+      prompt: 'chatty service calls: one network or database round trip per item inside a loop, where a batch call, join or DataLoader-style batcher would do',
+      ex: code(`
+
+
+{k|const} orders = {k|await} api.{f|getOrders}(uid)
+{k|for} ({k|const} o {k|of} orders) &#123;
+  {r|o.cust = await api.getCustomer(o.cid)}
+  {r|o.items = await api.getItems(o.id)}
+&#125;
+{c|// 50 orders: 101 serial round trips}
+
+{g|const custs = await api.getCustomers(}
+{g|  orders.map(o => o.cid))  // 1 call}`, 'orders.ts') },
+
+    { id: 'dualwrite', name: 'Dual writes', aka: 'write to DB and broker without an outbox', avoid: true,
+      desc: 'A service writes to its database and then publishes an event to a broker as two separate steps. If the process crashes or the publish fails between them, the database and every downstream consumer disagree, and nothing notices.',
+      use: 'code does db.save() then producer.send() in the same request handler',
+      cost: 'transactional outbox: write the event to an outbox table in the same transaction, and a relay (or CDC like Debezium) publishes it',
+      ref: 'Chris Richardson, microservices.io "Transactional outbox"; Debezium',
+      prompt: 'dual writes: saving to the database and publishing to a broker as two separate steps with no outbox, so a crash between them loses or invents events',
+      ex: dg(b => {
+        const s = b.box(70, 100, 'Service', 'a', { sub: 'save + publish' });
+        const d = b.db(230, 50, 'DB', 'b'), q = b.queue(230, 145, 'broker', 'd');
+        b.link(s, d, { label: '1. COMMIT', flow: true }); b.ok(272, 50);
+        b.link(s, q, { label: '2. publish', dash: true, c: 'r', lx: -6, ly: 14 }); b.x(282, 145, 5);
+        b.text(160, 190, 'crash between 1 and 2: event lost', { sm: true, c: 'r' });
+      }) },
+
+    { id: 'goldenhammer', name: 'Golden hammer', aka: 'law of the instrument, if all you have is a hammer', avoid: true,
+      desc: 'Using one familiar tool for every problem because the team knows it, even where it fits badly: Kafka as a database, Redis as the system of record, or a microservice for every function.',
+      use: 'the team has invested heavily in one tool and new problems get mapped onto it by default',
+      cost: 'start each design from the requirements, then pick the simplest tool that fits; it is fine if that is the familiar one, as long as it was chosen',
+      ref: 'Abraham Maslow (1966); AntiPatterns (Brown et al., 1998)',
+      prompt: 'a golden hammer: forcing one familiar tool (Kafka, Redis, a framework) onto problems it fits poorly instead of choosing per requirement',
+      ex: dg(b => {
+        b.text(160, 20, 'one tool, every job', { sm: true, mut: true });
+        const k = b.box(160, 100, 'Kafka', 'r', { sub: 'for everything' });
+        [[50, 52, 'cache'], [270, 52, 'RPC'], [50, 150, 'config'], [270, 150, 'source\nof truth'], [160, 172, 'job queue']]
+          .forEach(([x, y, l]) => b.link(k, b.box(x, y, l, 'n', { dash: true }), { c: 'r' }));
+      }) },
+
+    { id: 'prematureabstraction', name: 'Premature abstraction', aka: 'speculative generality, astronaut architecture', avoid: true,
+      desc: 'Interfaces, factories, base classes and plugin systems built before there is a second case to justify them. The abstraction encodes a guess, readers must step through layers to find the one real implementation, and the real second case often does not fit.',
+      use: 'code is written "to be flexible later" or a pattern is applied because it is the textbook answer',
+      cost: 'write the concrete version first; extract an interface when the second real implementation arrives and you can see what varies',
+      ref: 'Martin Fowler, Refactoring ("Speculative Generality" smell); Joel Spolsky, "Architecture Astronauts"',
+      prompt: 'premature abstraction: interfaces, factories, base classes or plugin points with only one implementation, added for flexibility nobody has asked for',
+      ex: code(`
+
+
+{r|interface IPaymentProvider &#123; ... &#125;}
+{r|abstract class BaseProvider ...}
+{r|class ProviderFactory &#123; create(t) &#125;}
+{r|class ProviderRegistry ...}
+{k|class} {t|StripeProvider} {k|extends} {t|BaseProvider}
+{c|// one provider, four layers, since 2023}
+
+{g|// call Stripe from one module; extract}
+{g|// an interface at provider number two}`, 'payments.ts') },
+
+    { id: 'prematureopt', name: 'Premature optimization', aka: 'optimizing without measuring', avoid: true,
+      desc: 'Making code faster or leaner before measuring where time actually goes. It adds complexity (caches, bit tricks, manual pooling) in places that rarely matter, while the real bottleneck, often a missing index or an N+1, goes unnoticed.',
+      use: 'someone says "this might be slow" without a profile, benchmark or production metric to back it',
+      cost: 'write clear code first, set a performance budget, measure with a profiler or tracing, and optimize only the hot path you found',
+      ref: 'Donald Knuth, "Structured Programming with go to Statements" (1974)',
+      prompt: 'premature optimization: caches, custom data structures or micro-optimizations added without a profile or benchmark showing they are needed',
+      ex: code(`
+
+
+{c|// "it might be slow": custom cache,}
+{c|// manual pooling, bit-packed flags}
+{r|const flags = packBits(user.settings)}
+{r|settingsCache.set(user.id, flags)}
+
+{c|// the profile said 92% of the time}
+{c|// was one missing index:}
+{g|CREATE INDEX ON orders (user_id);}`, 'settings.ts') },
+
+    { id: 'leaky', name: 'Leaky abstraction', aka: 'law of leaky abstractions', avoid: true,
+      desc: 'An abstraction that forces callers to know about what it was meant to hide: storage error codes, retry semantics, network latency or query plans. Callers then depend on the implementation anyway, and swapping it breaks them.',
+      use: 'a repository or client wrapper passes through vendor exceptions, error codes or types from the layer underneath',
+      cost: 'translate at the boundary: map vendor errors to domain errors (EmailTaken, NotFound) and keep vendor types out of the interface; document the leaks you cannot hide, like latency',
+      ref: 'Joel Spolsky, "The Law of Leaky Abstractions" (2002)',
+      prompt: 'leaky abstractions: interfaces that pass vendor exceptions, error codes or types (Postgres 23505, AWS SDK errors) through to their callers',
+      ex: code(`
+
+
+{k|interface} {t|UserRepo} &#123;
+  {f|create}(u: {t|NewUser}): {t|Promise}<{t|User}>
+&#125;
+{k|try} &#123; {k|await} repo.{f|create}(u) &#125;
+{k|catch} (e) &#123;
+  {r|if (e.code === '23505') // pg unique}
+    {k|return} {f|res}({n|409})
+&#125;
+{g|// fix: repo throws EmailTaken}`, 'users.ts') },
+
+    { id: 'cycles', name: 'Cyclic dependencies', aka: 'circular imports, dependency cycles', avoid: true,
+      desc: 'Module A imports B, B imports C, and C imports A. None of them can be built, tested, understood or extracted alone, and in some languages the cycle causes half-initialized imports at runtime.',
+      use: 'two modules each need a little of the other and the quick fix is another import',
+      cost: 'break the cycle: move the shared piece into its own module, invert one edge with an interface, or communicate through an event; then forbid cycles in CI',
+      ref: 'Robert C. Martin, Acyclic Dependencies Principle; madge; dependency-cruiser; ArchUnit',
+      prompt: 'cyclic dependencies between modules or packages, including indirect cycles through a third module',
+      ex: dg(b => {
+        const o = b.box(160, 40, 'orders', 'n'), bi = b.box(255, 150, 'billing', 'n'), u = b.box(65, 150, 'users', 'n');
+        b.link(o, bi, { c: 'r', bend: -10, flow: true }); b.link(bi, u, { c: 'r', bend: -10, flow: true }); b.link(u, o, { c: 'r', bend: -10, flow: true });
+        b.text(160, 110, 'cycle', { b: true, c: 'r' });
+        b.text(160, 190, 'none can build or test alone', { sm: true, c: 'r' });
+      }) },
+
+    { id: 'primitiveobsession', name: 'Primitive obsession', aka: 'stringly-typed code', avoid: true,
+      desc: 'Using raw strings, numbers and booleans for domain concepts like IDs, money, emails and states. The compiler cannot tell an account ID from an order ID or cents from dollars, so swapped arguments and invalid values slip through.',
+      use: 'function signatures read (string, string, number, string) and validation is repeated wherever the value is used',
+      cost: 'small value types or branded types (AccountId, Money, Email) parsed once at the edge, and enums or unions instead of free-form strings',
+      ref: 'Martin Fowler, Refactoring ("Primitive Obsession" smell); "Parse, don\'t validate" (Alexis King)',
+      prompt: 'primitive obsession: raw strings and numbers for IDs, money, emails and statuses where branded or value types would catch mixups at compile time',
+      ex: code(`
+
+
+{c|// before: every argument is a primitive}
+{r|transfer(to, from, 100, 'usd')}
+{c|// swapped arguments still compile}
+
+{c|// after: types carry the meaning}
+{k|type} {t|AccountId} = {t|Brand}<{t|string}, {s|'Acct'}>
+{k|function} {f|transfer}(from: {t|AccountId},
+  to: {t|AccountId}, amt: {t|Money}) &#123;...&#125;`, 'transfer.ts') },
+
+    { id: 'temporalcoupling', name: 'Temporal coupling', aka: 'hidden call-order dependency', avoid: true,
+      desc: 'An API that only works if methods are called in a particular order (setX, then init, then send), with nothing in the types to enforce it. Callers find out at runtime, usually in production, when an early return skips a step.',
+      use: 'objects have init(), connect() or configure() methods that must run before anything else works',
+      cost: 'make the wrong order impossible: a factory or builder that returns a ready object, required constructor arguments, or a type per state',
+      ref: 'Robert C. Martin, Clean Code; Mark Seemann, "Design smell: Temporal Coupling"',
+      prompt: 'temporal coupling: objects that need setup methods (init, connect, configure) called in a specific order before they work, with nothing in the types enforcing it',
+      ex: code(`
+
+
+{k|const} m = {k|new} {t|Mailer}()
+{r|m.setTransport(smtp)}  {c|// must be 1st}
+{r|m.init()}              {c|// then this}
+m.{f|send}(msg)           {c|// else throws}
+
+{c|// fix: the wrong order cannot compile}
+{k|const} m = {k|await} {t|Mailer}.{f|connect}(smtp)
+m.{f|send}(msg)`, 'mailer.ts') },
+
+    { id: 'resumedriven', name: 'Resume-driven development', aka: 'microservices envy, hype-driven development, CV-driven development', avoid: true,
+      desc: 'Choosing technology because it is exciting or looks good on a resume rather than because the problem needs it. A small internal app ends up on Kubernetes with a service mesh, a dozen microservices and a streaming platform, run by three people.',
+      use: 'the architecture copies what large tech companies blog about, at a fraction of their scale',
+      cost: 'size the architecture to the team and load you have: a monolith on a managed platform until a measured need says otherwise',
+      ref: 'Fritzsch et al., "Résumé-Driven Development" (ICSE 2021); Dan McKinley, "Choose Boring Technology"',
+      prompt: 'resume-driven architecture: microservices, Kubernetes, service meshes or streaming platforms for a small team and modest load that one well-structured app would serve',
+      ex: dg(b => {
+        const u = b.user(32, 92, '40 users'); b.text(32, 136, 'per day', { sm: true, mut: true });
+        b.zone(66, 40, 246, 150, 'Kubernetes + Istio', 'r');
+        const gw = b.box(110, 72, 'gw', 'n');
+        [[172, 72, 'auth'], [252, 72, 'users'], [110, 116, 'notify'], [182, 116, 'search'], [258, 116, 'admin']].forEach(([x, y, l]) => b.box(x, y, l, 'n'));
+        b.queue(124, 158, 'Kafka', 'r', { w: 70 }); b.db(240, 162, 'Cassandra', 'r');
+        b.link(u, gw, { flow: true });
+      }) },
+
+    { id: 'globalstate', name: 'Magic and hidden global state', aka: 'singletons, ambient context, monkey patching, action at a distance', avoid: true,
+      desc: 'Behavior driven by things a reader cannot see from the call site: mutable globals, singletons, monkey-patched modules, import-order side effects, or framework magic that wires things by name. Tests interfere with each other and bugs appear far from their cause.',
+      use: 'a value is reachable from anywhere "for convenience", or a decorator or auto-wiring hides where a dependency comes from',
+      cost: 'pass dependencies explicitly (constructor or function parameters) from one composition root, and keep module imports free of side effects',
+      ref: 'Miško Hevery, "Singletons are Pathological Liars"; Mark Seemann, Dependency Injection Principles, Practices, and Patterns',
+      prompt: 'hidden global state and magic: mutable globals, singletons, monkey patching, import-time side effects or name-based auto-wiring that make dependencies invisible at the call site',
+      ex: code(`
+
+
+{c|// somewhere in a module init}
+{r|globalThis.db = connect(process.env.DB)}
+{c|// far away: no import, no parameter}
+{k|export} {k|function} {f|getUser}(id) &#123;
+  {k|return} {r|db}.{f|query}({s|'...'}, [id])
+&#125;
+{c|// tests share it; import order matters}
+
+{g|export function makeUsers(db: Db) &#123;...&#125;}`, 'users.ts') }
+  ]
+});
+
+
+/* ---------- subjects: one page each ---------- */
+const WORKBOOK = {};
+WORKBOOK.areas = [
+  { id: 'styles', title: 'Architectural styles', preview: 'hexagonal', blurb: 'How a whole system is split and deployed, from monolith to microservices, and how code is organized inside one app.', groups: ['shapes', 'codeshape'] },
+  { id: 'events', title: 'Events & messaging', preview: 'outbox', blurb: 'Queues, topics and logs, plus the event-driven patterns built on them: event sourcing, CQRS, sagas and the outbox.', groups: ['messaging', 'eventpatterns'] },
+  { id: 'data', title: 'Data', preview: 'readreplicas', blurb: 'Where data lives and who owns it, and the patterns for reading, writing, locking, caching and migrating it.', groups: ['datastore', 'dataaccess'] },
+  { id: 'apis', title: 'APIs & integration', preview: 'apigateway', blurb: 'API styles and contracts, and the gateways, proxies and boundaries that connect systems old and new.', groups: ['apistyle', 'boundaries'] },
+  { id: 'reliability', title: 'Reliability & scale', preview: 'circuitbreaker', blurb: 'Staying up when parts fail, growing when traffic does, shipping without breaking things, and seeing what production is doing.', groups: ['resilience', 'scaling', 'observe'] },
+  { id: 'patterns', title: 'Design patterns', preview: 'statemachine', blurb: 'The classic Gang of Four patterns in modern form, plus the idioms that make code safer: result types, parse don\'t validate, typestate.', groups: ['creational', 'structural', 'behavioral', 'modern'] },
+  { id: 'principles', title: 'Principles & pitfalls', preview: 'distmonolith', blurb: 'SOLID and the other rules of thumb, practices for making decisions, and the anti-patterns to name so Claude steers clear.', groups: ['principles', 'decisions', 'antipatterns'] }
+];
+WORKBOOK.recipes = [
+  { label: 'A SaaS backend', parts: [['A B2B invoicing app as a '], ['modular monolith', 'modularmonolith'], [' with '], ['vertical slices', 'verticalslice'], [' inside each module. One Postgres with a '], ['shared-schema tenancy model', 'multitenancy'], ['. Emails and PDFs run on a '], ['background job queue', 'jobqueue'], [' fed by a '], ['transactional outbox', 'outbox'], ['. Roll out with '], ['feature flags', 'featureflags'], [', log with '], ['structured logs', 'structlog'], [', and write an '], ['ADR', 'adr'], [' for each big call. No '], ['distributed monolith', 'distmonolith'], ['.']] },
+  { label: 'An event-driven order flow', parts: [['Services publish to an '], ['event log', 'eventlog'], [' keyed by order id for '], ['ordering', 'partitionkeys'], ['. Checkout is an '], ['orchestrated saga', 'sagaorch'], [' on a '], ['durable execution', 'durableexec'], [' engine with '], ['compensating steps', 'compensation'], ['. Every reader is an '], ['idempotent consumer', 'idempotentconsumer'], [' and failures land in a '], ['dead letter queue', 'deadletterqueue'], ['. The storefront reads from '], ['projections', 'projections'], ['. No '], ['dual writes', 'dualwrite'], ['.']] },
+  { label: 'A public API', parts: [['A '], ['REST API', 'apirest'], [' written '], ['contract-first', 'apicontractfirst'], [' with OpenAPI, '], ['cursor pagination', 'apipagination'], [', '], ['problem details errors', 'apiproblem'], [', '], ['rate limits', 'apiratelimit'], [' and '], ['idempotency keys', 'idempotencykey'], [' on POST. It sits behind an '], ['API gateway', 'apigateway'], [', sends signed '], ['webhooks', 'apiwebhooks'], [', and evolves with an explicit '], ['versioning policy', 'apiversioning'], ['.']] },
+  { label: 'A legacy rewrite', parts: [['Replace the old billing system with a '], ['strangler fig', 'apistrangler'], ['. New code is '], ['hexagonal', 'hexagonal'], [' and talks to the old one through an '], ['anti-corruption layer', 'apiacl'], ['; '], ['change data capture', 'cdc'], [' keeps both in sync. Start with a '], ['walking skeleton', 'walkingskeleton'], [', ship with '], ['canary releases', 'canary'], [' and '], ['expand and contract', 'expandcontract'], [' migrations. Don\'t build another '], ['big ball of mud', 'ballofmud'], ['.']] },
+  { label: 'A CLI or library', parts: [['A '], ['functional core', 'funcore'], [' with '], ['result types', 'resulttype'], [' instead of exceptions. Inputs are '], ['parsed, not validated', 'parsedontvalidate'], [', with '], ['illegal states unrepresentable', 'illegalstates'], ['. Config is a '], ['validated schema', 'configschema'], [', output formats are a '], ['strategy', 'strategy'], [', and extensions use a '], ['plugin registry', 'pluginregistry'], ['. No '], ['hidden global state', 'globalstate'], ['.']] }
+];
+WORKBOOK.xcols = ['Start with', 'When it grows', 'Usual mistake'];
+WORKBOOK.xlate = [
+  { job: 'The codebase is getting big', note: 'teams step on each other', cells: [['modularmonolith', 'packagebyfeature'], ['strategicddd', 'microservices'], ['distmonolith', 'ballofmud']] },
+  { job: 'Tell other systems a write happened', note: 'keep them in sync', cells: [['outbox', 'eventnotification'], ['cdc', 'eventlog'], ['dualwrite']] },
+  { job: 'Run slow work in the background', note: 'emails, exports, AI calls', cells: [['jobqueue', 'scheduledjobs'], ['durableexec', 'competingconsumers'], ['temporalcoupling']] },
+  { job: 'A process spans several services', note: 'pay, reserve, ship', cells: [['sagaorch'], ['durableexec', 'compensation'], ['chatty', 'distmonolith']] },
+  { job: 'Reads are slow', note: 'pages, dashboards, lists', cells: [['cacheaside', 'readreplicas'], ['matview', 'cqrs', 'searchindex'], ['prematureopt']] },
+  { job: 'A dependency is flaky', note: 'timeouts, 5xx, slow calls', cells: [['deadlines', 'retrybackoff'], ['circuitbreaker', 'bulkhead', 'fallback'], ['retries with no backoff or budget']] },
+  { job: 'Traffic keeps growing', note: 'more users, more data', cells: [['scaleup', 'stateless'], ['autoscale', 'loadshed', 'sharding'], ['resumedriven']] },
+  { job: 'Ship changes without outages', note: 'deploys and schema changes', cells: [['featureflags', 'rolling'], ['canary', 'bluegreen', 'expandcontract'], ['big-bang releases']] },
+  { job: 'Wrap a third-party or legacy system', note: 'keep its model out of yours', cells: [['apiadapter', 'apifacade'], ['apiacl', 'apistrangler'], ['leaky']] },
+  { job: 'Clients need live updates', note: 'feeds, progress, chat', cells: [['apisse', 'apilongpoll'], ['apiwebsockets', 'pubsub'], ['chatty']] },
+  { job: 'Know what production is doing', note: 'debugging and alerting', cells: [['structlog', 'correlationid'], ['tracing', 'slo', 'symptomalerts'], ['alerts on CPU instead of user pain']] },
+  { job: 'Behavior varies by customer or case', note: 'pricing, formats, rules', cells: [['strategy'], ['pluginregistry', 'specification'], ['prematureabstraction', 'godobject']] },
+  { job: 'Make a decision stick', note: 'so it survives the next hire', cells: [['adr'], ['fitness', 'c4'], ['goldenhammer']] }
+];
+WORKBOOK.stacks = ['TypeScript + Node', 'TypeScript + Next.js', 'Go', 'Python + FastAPI', 'Python + Django', 'Java + Spring Boot', 'Kotlin', 'C# + .NET', 'Rust + Axum', 'Elixir + Phoenix', 'Ruby on Rails', 'Postgres', 'Kafka', 'Temporal', 'AWS serverless', 'Kubernetes'];
+
+/* ---------- rendering ---------- */
+const G = Object.fromEntries(pool.groups.map(g => [g.id, g]));
+WORKBOOK.areas = WORKBOOK.areas.map(a => ({ ...a, groups: a.groups.map(id => G[id]).filter(Boolean) })).filter(a => a.groups.length);
+const $ = s => document.querySelector(s);
+const esc = xe;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+};
+const picks = new Set(store.get('saw-picks', []));
+let fmt = store.get('saw-fmt', 'design');
+const TERMS = {};
+WORKBOOK.areas.forEach(a => a.groups.forEach(g => g.terms.forEach(t => TERMS[t.id] = { t, g, a })));
+const totalTerms = Object.keys(TERMS).length;
+let pendingJump = null;
+
+const cardHTML = (t, g) => `
+  <article class="card${t.avoid ? ' avoid' : ''}${picks.has(t.id) ? ' picked' : ''}" id="t-${t.id}" data-search="${esc((t.name + ' ' + (t.aka || '') + ' ' + t.desc + ' ' + (t.ref || '') + ' ' + (t.use || '') + ' ' + g.title).toLowerCase())}">
+    <div class="ex" aria-hidden="true">${t.avoid ? '<span class="badge">Avoid</span>' : ''}${t.ex || ''}</div>
+    <div class="cbody">
+      <h3>${esc(t.name)}</h3>
+      ${t.aka ? `<div class="aka">Also called ${esc(t.aka)}</div>` : ''}
+      <p class="desc">${esc(t.desc)}</p>
+      ${t.use ? `<p class="ref"><b>${t.avoid ? 'Shows up when' : 'Use when'}</b>${esc(t.use)}</p>` : ''}
+      ${t.cost ? `<p class="ref cost"><b>${t.avoid ? 'Instead' : 'Costs'}</b>${esc(t.cost)}</p>` : ''}
+      ${t.ref ? `<p class="ref"><b>Think</b>${esc(t.ref)}</p>` : ''}
+      <div class="phrase">
+        <code id="p-${t.id}">${t.avoid ? 'Avoid ' : ''}${esc(t.prompt)}</code>
+        <div class="btns">
+          <button type="button" class="btn add" data-add="${t.id}" aria-pressed="${picks.has(t.id)}">${picks.has(t.id) ? 'Added' : (t.avoid ? 'Add to avoid list' : 'Add to prompt')}</button>
+          <button type="button" class="btn" data-copy="${t.id}">Copy phrase</button>
+        </div>
+      </div>
+    </div>
+  </article>`;
+const groupHTML = (g, sub) => `
+  <section class="group" id="g-${g.id}" aria-labelledby="h-${g.id}">
+    <div class="ghead">${sub ? `<div class="eyebrow">${esc(sub)}</div>` : ''}<h2 id="h-${g.id}">${esc(g.title)}</h2><p>${esc(g.intro)}</p></div>
+    <div class="cards">${g.terms.map(t => cardHTML(t, g)).join('')}</div>
+  </section>`;
+const emptyMsg = `<p class="empty" id="empty" hidden>Nothing matches that search. Try a plainer word like "queue", "cache", "retry" or "layers".</p>`;
+const chip = (id, txt) => TERMS[id] ? `<a class="chip${TERMS[id].t.avoid ? ' avoid' : ''}" href="#${TERMS[id].a.id}" data-jump="${id}"><span>${esc(txt || TERMS[id].t.name)}</span><small>${esc(TERMS[id].t.avoid ? 'Avoid' : TERMS[id].g.slot)}</small></a>` : esc(txt || '');
+const link = id => TERMS[id] ? `<a href="#${TERMS[id].a.id}" data-jump="${id}">${esc(TERMS[id].t.name)}</a>` : '';
+
+function renderHome() {
+  $('#home').hidden = false; $('#subject').hidden = true; $('#main').innerHTML = '';
+  $('#homeCount').textContent = `Workbook · ${totalTerms} patterns on ${WORKBOOK.areas.length} pages`;
+  $('#recipes').innerHTML = WORKBOOK.recipes.map(r => `<div class="rcp"><div class="eyebrow">${esc(r.label)}</div><p class="sentence">${r.parts.map(([txt, id]) => id ? chip(id, txt) : esc(txt)).join('')}</p></div>`).join('');
+  $('#xtable').innerHTML = `<thead><tr><th>The problem</th>${WORKBOOK.xcols.map((c, i) => `<th${i === WORKBOOK.xcols.length - 1 ? ' class="av"' : ''}>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
+    WORKBOOK.xlate.map(r => `<tr><th>${esc(r.job)}<small>${esc(r.note)}</small></th>${r.cells.map((c, i) => `<td${i === r.cells.length - 1 ? ' class="av"' : ''}>${c.map(x => TERMS[x] ? link(x) : `<span>${esc(x)}</span>`).join(' ')}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  $('#tiles').innerHTML = WORKBOOK.areas.map(a => `
+    <a class="tile" href="#${a.id}">
+      <div class="ex" aria-hidden="true">${TERMS[a.preview] ? TERMS[a.preview].t.ex : ''}</div>
+      <div class="tbody"><h3>${esc(a.title)}</h3><p>${esc(a.blurb)}</p>
+      <div class="tmeta">${a.groups.reduce((n, g) => n + g.terms.length, 0)} cards · ${a.groups.map(g => esc(g.title)).join(' · ')}</div></div>
+    </a>`).join('');
+  $('#results').innerHTML = WORKBOOK.areas.map(a => a.groups.map(g => groupHTML(g, a.title)).join('')).join('') + emptyMsg;
+  filter($('#qh'), $('#results'), true);
+}
+
+function renderSubject(a) {
+  $('#home').hidden = true; $('#subject').hidden = false; $('#results').innerHTML = '';
+  $('#subTitle').textContent = a.title;
+  $('#subBlurb').textContent = a.blurb;
+  const i = WORKBOOK.areas.indexOf(a), next = WORKBOOK.areas[(i + 1) % WORKBOOK.areas.length];
+  $('#nav').innerHTML = a.groups.map(g => `<a href="#g-${g.id}" data-g="${g.id}">${esc(g.title)}<span>${g.terms.length}</span></a>`).join('');
+  $('#main').innerHTML = a.groups.map(g => groupHTML(g)).join('') + emptyMsg + `<a class="next" href="#${next.id}">Next: ${esc(next.title)} →</a>`;
+  $('#q').value = '';
+  document.title = `${a.title} · Software Architecture Workbook`;
+}
+
+function route() {
+  const id = location.hash.slice(1);
+  const a = WORKBOOK.areas.find(x => x.id === id);
+  if (a) renderSubject(a);
+  else if (!id || !document.getElementById(id)) { renderHome(); document.title = 'Software Architecture Workbook'; }
+  else return;
+  if (pendingJump) { const j = pendingJump; pendingJump = null; setTimeout(() => jumpTo(j), 60); }
+  else if (a || !id) window.scrollTo(0, 0);
+}
+
+function collect() {
+  const use = [], avoid = [];
+  WORKBOOK.areas.forEach(a => a.groups.forEach(g => {
+    const ps = g.terms.filter(t => picks.has(t.id));
+    const yes = ps.filter(t => !t.avoid), no = ps.filter(t => t.avoid);
+    if (yes.length) use.push(`- ${g.slot}: ${yes.map(t => t.prompt).join('; ')}`);
+    no.forEach(t => avoid.push(`- ${t.prompt}`));
+  }));
+  return { use, avoid };
+}
+
+function compose() {
+  const subj = $('#subject-in').value.trim(), limits = $('#limits-in').value.trim(), stack = $('#stack-in').value.trim();
+  const { use, avoid } = collect(), n = [...picks].filter(id => TERMS[id]).length;
+  const lines = [];
+  if (fmt === 'guide') {
+    lines.push('## Architecture', '', `This project is ${subj || '[what it is]'}.`);
+    if (stack) lines.push(`Stack: ${stack}.`);
+    if (limits) lines.push(`Limits we design for: ${limits}.`);
+    lines.push('', '### Patterns we use');
+    lines.push(...(use.length ? use : ['- (add patterns from the workbook)']));
+    if (avoid.length) lines.push('', '### What we avoid', ...avoid);
+    lines.push('', '### When you change the code',
+      '- Follow the patterns above. Put new code where they say it goes, and keep dependencies pointing the way they point.',
+      '- If a change needs a pattern, a service or a piece of infrastructure that isn\'t listed, propose it with its cost before writing it.',
+      '- Record decisions that would be expensive to reverse as a short ADR in docs/adr/.');
+  } else {
+    lines.push(`Design and build the architecture for ${subj || '[what you are building]'}.`);
+    if (limits) lines.push(`Limits: ${limits}.`);
+    if (stack) lines.push(`Language and stack: ${stack}.`);
+    lines.push('', 'Architecture direction:');
+    lines.push(...(use.length ? use : ['- (add patterns from the workbook)']));
+    if (avoid.length) lines.push('', 'Avoid:', ...avoid);
+    lines.push('', 'Keep it as simple as these limits allow. Before writing code, sketch the components and how data flows between them. For each choice above, say in one line what it costs and what would make you change it. Ask me before adding infrastructure or a pattern that isn\'t listed.');
+  }
+  return { text: lines.join('\n'), n };
+}
+
+function renderTray() {
+  const { text, n } = compose();
+  $('#out').textContent = text;
+  const names = [...picks].filter(id => TERMS[id]).map(id => (TERMS[id].t.avoid ? 'no ' : '') + TERMS[id].t.name);
+  $('#count').innerHTML = n
+    ? `${n} pick${n > 1 ? 's' : ''}<small>${esc(names.join(' · '))}</small>`
+    : `Nothing picked yet<small>Press "Add to prompt" on any card to start</small>`;
+  document.querySelectorAll('[data-fmt]').forEach(b => b.setAttribute('aria-pressed', b.dataset.fmt === fmt));
+  $('#fmtHint').textContent = fmt === 'guide' ? 'Reusable rules to paste into CLAUDE.md or AGENTS.md.' : 'A one-off ask: design or build this system.';
+}
+
+function copyText(text, btn, fallbackEl) {
+  const done = ok => { const o = btn.textContent; btn.textContent = ok ? 'Copied' : 'Selected, press Ctrl+C'; setTimeout(() => btn.textContent = o, 1400); };
+  const select = () => { if (!fallbackEl) return; const r = document.createRange(); r.selectNodeContents(fallbackEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+  try { navigator.clipboard.writeText(text).then(() => done(true), () => { select(); done(false); }); }
+  catch (e) { select(); done(false); }
+}
+
+function jumpTo(id) {
+  const el = document.getElementById('t-' + id);
+  if (!el || el.hidden) return;
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+
+function filter(input, scope, homeMode) {
+  const q = input.value.trim().toLowerCase();
+  let any = false;
+  scope.querySelectorAll('.group').forEach(g => {
+    let vis = 0;
+    g.querySelectorAll('.card').forEach(c => { const ok = !q || c.dataset.search.includes(q); c.hidden = !ok; if (ok) vis++; });
+    g.hidden = !vis; if (vis) any = true;
+    const nav = document.querySelector(`#nav [data-g="${g.id.slice(2)}"]`); if (nav) nav.hidden = !vis;
+  });
+  const empty = scope.querySelector('#empty'); if (empty) empty.hidden = any;
+  if (homeMode) { $('#results').hidden = !q; ['#tiles', '#recipe', '#xlate'].forEach(s => $(s).hidden = !!q); }
+}
+
+document.addEventListener('click', e => {
+  const add = e.target.closest('[data-add]');
+  if (add) {
+    const id = add.dataset.add, av = TERMS[id] && TERMS[id].t.avoid;
+    picks.has(id) ? picks.delete(id) : picks.add(id);
+    store.set('saw-picks', [...picks]);
+    const on = picks.has(id);
+    add.setAttribute('aria-pressed', on); add.textContent = on ? 'Added' : (av ? 'Add to avoid list' : 'Add to prompt');
+    document.getElementById('t-' + id).classList.toggle('picked', on);
+    renderTray(); return;
+  }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { const el = document.getElementById('p-' + cp.dataset.copy); copyText(el.textContent, cp, el); return; }
+  const sk = e.target.closest('[data-stack]');
+  if (sk) { $('#stack-in').value = sk.dataset.stack; store.set('saw-stack', sk.dataset.stack); renderTray(); return; }
+  const f = e.target.closest('[data-fmt]');
+  if (f) { fmt = f.dataset.fmt; store.set('saw-fmt', fmt); renderTray(); return; }
+  const j = e.target.closest('[data-jump]');
+  if (j) {
+    e.preventDefault();
+    const target = TERMS[j.dataset.jump].a.id;
+    pendingJump = j.dataset.jump;
+    if (location.hash.slice(1) === target) route(); else location.hash = target;
+  }
+});
+
+window.addEventListener('hashchange', route);
+$('#q').addEventListener('input', () => filter($('#q'), $('#main')));
+$('#qh').addEventListener('input', () => filter($('#qh'), $('#results'), true));
+$('#toggle').addEventListener('click', () => {
+  const body = $('#trayBody'), open = body.hidden;
+  body.hidden = !open; $('#toggle').setAttribute('aria-expanded', open); $('#toggle').textContent = open ? 'Hide prompt' : 'Show prompt';
+});
+$('#copyAll').addEventListener('click', e => copyText(compose().text, e.currentTarget, $('#out')));
+$('#clear').addEventListener('click', () => {
+  picks.clear(); store.set('saw-picks', []);
+  document.querySelectorAll('.card.picked').forEach(c => c.classList.remove('picked'));
+  document.querySelectorAll('[data-add]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.textContent = TERMS[b.dataset.add] && TERMS[b.dataset.add].t.avoid ? 'Add to avoid list' : 'Add to prompt'; });
+  renderTray();
+});
+$('#stacks').innerHTML = WORKBOOK.stacks.map(s => `<button type="button" data-stack="${esc(s)}">${esc(s)}</button>`).join('');
+[['subject-in', 'saw-subject'], ['limits-in', 'saw-limits'], ['stack-in', 'saw-stack']].forEach(([id, k]) => {
+  const el = document.getElementById(id); el.value = store.get(k, '');
+  el.addEventListener('input', () => { store.set(k, el.value); renderTray(); });
+});
+
+route();
+renderTray();

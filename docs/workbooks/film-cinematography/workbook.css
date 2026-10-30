@@ -1,0 +1,95 @@
+/* Layout: a director's storyboard binder. Home page of subject tiles under a strip of film perforations, one page per subject with a sticky section index, cards whose example is a drawn frame, a storyboard strip or a floor plan of the set, and a prompt tray docked at the bottom. Screenplay Courier for labels, marquee condensed type for titles, cinema-seat red as the accent. */
+:root{
+  --bg:#F1EFEF; --panel:#FFFFFF; --ink:#1A1617; --ink2:#554B4D; --ink3:#8A7F81; --line:#E0D8D9;
+  --accent:#A8132E; --accent-soft:#F6DEE2; --tile:#151213; --strip:#151213; --hole:#F1EFEF;
+  --display:"Big Shoulders Display", "Arial Narrow", "Roboto Condensed", "Segoe UI", system-ui, sans-serif;
+  --script:"Courier Prime", "Courier New", Courier, monospace;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121011; --panel:#1B1819; --ink:#EFE9EA; --ink2:#B5AAAC; --ink3:#7C7173; --line:#2F292A;
+  --accent:#FF6079; --accent-soft:#3E1A21; --tile:#0B090A; --strip:#000000; --hole:#3B3234;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#121011; --panel:#1B1819; --ink:#EFE9EA; --ink2:#B5AAAC; --ink3:#7C7173; --line:#2F292A;
+  --accent:#FF6079; --accent-soft:#3E1A21; --tile:#0B090A; --strip:#000000; --hole:#3B3234;
+  color-scheme:dark;
+}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 120px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:.005em}
+
+header.top{padding-block:34px 24px;display:grid;gap:14px;max-width:780px}
+.eyebrow{font:700 12.5px/1 var(--script);text-transform:uppercase;letter-spacing:.12em;color:var(--ink2)}
+header.top h1{font-size:clamp(44px,8vw,84px);font-weight:800;line-height:.92;text-transform:uppercase;letter-spacing:.01em}
+header.top h1 em{font-style:normal;color:var(--accent)}
+.perfs{height:18px;margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)));background:var(--strip);position:relative}
+.perfs::before{content:"";position:absolute;inset:5px 0;background:repeating-linear-gradient(90deg,transparent 0 8px,var(--hole) 8px 18px,transparent 18px 26px)}
+header.top p{margin:0;color:var(--ink2);font-size:17px;max-width:64ch}
+.steps b{font:500 12px var(--mono);color:var(--accent)}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px clamp(16px,3vw,28px);display:grid;gap:14px;margin-bottom:28px}
+.panel h2{font-size:30px;font-weight:800;line-height:1}
+.panel .lead{margin:0;color:var(--ink2);max-width:72ch}
+.formula{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:500 12.5px var(--mono);color:var(--ink2)}
+.formula span{border:1px solid var(--line);border-radius:6px;padding:3px 8px;background:var(--bg)}
+.formula i{font-style:normal;color:var(--ink3)}
+.sentence{font-size:clamp(16px,2vw,20px);line-height:2.3;margin:0}
+.chip small{font:500 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+
+.xt{border-collapse:collapse;width:100%;min-width:820px;font-size:14px}
+.xt th,.xt td{text-align:left;vertical-align:top;padding:10px 10px;border-top:1px solid var(--line)}
+.xt tbody th{font-weight:600;width:14%}
+.xt td a{display:inline-block;text-decoration:none;color:var(--ink);background:var(--accent-soft);border-radius:6px;padding:2px 7px;margin:0 2px 4px 0;font-weight:500;font-size:13.5px}
+
+.layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start}
+.index{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:grid;gap:12px}
+.index nav{display:grid;gap:2px}
+.index nav a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink2);padding:6px 10px;border-radius:7px;font-size:14px}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);gap:16px}
+  .index{top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:10px;z-index:5;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+  .index nav{display:flex;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .index nav a{white-space:nowrap;background:var(--panel);border:1px solid var(--line);padding:5px 10px}
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+
+.ghead{display:grid;gap:4px;margin-bottom:16px;max-width:72ch}
+.ghead h2{font-size:34px;font-weight:800;line-height:1}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;scroll-margin-top:100px;transition:box-shadow .3s}
+.ex{aspect-ratio:16/10;max-width:100%;background:var(--tile);position:relative;overflow:hidden}
+.ex>svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ex .tag{position:absolute;font:700 11px/1 var(--script);letter-spacing:.04em;background:rgba(12,10,8,.62);color:#F4EFE8;padding:4px 6px;border-radius:4px;pointer-events:none;white-space:nowrap}
+.ex .tag.tl{top:8px;left:8px}.ex .tag.tr{top:8px;right:8px}.ex .tag.bl{bottom:8px;left:8px}.ex .tag.br{bottom:8px;right:8px}
+.cbody h3{font-size:23px;font-weight:700;line-height:1.05}
+.ref b{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-right:4px}
+.ref.spot b{color:var(--accent)}
+.phrase code{display:block;font:13px/1.45 var(--mono);background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.foot{border-top:1px solid var(--line);margin-top:12px;padding-block:20px;color:var(--ink3);font-size:13px;max-width:72ch}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px;margin-bottom:32px}
+/* seven pages leave one tile alone on the last row: let it span the row as a wide card */
+.tile:last-child:nth-child(odd){grid-column:1/-1}
+@media (min-width:700px){.tile:last-child:nth-child(odd){display:grid;grid-template-columns:calc((100% - 16px) / 2) minmax(0,1fr);align-items:center}.tile:last-child:nth-child(odd) .tbody{padding:20px 28px}}
+@media (min-width:1100px){.tile:last-child:nth-child(odd){grid-template-columns:calc((100% - 32px) / 3) minmax(0,1fr)}}
+.tbody h3{font-size:28px;font-weight:800;line-height:1}
+.subhead{padding-block:28px 20px;display:grid;gap:8px;max-width:780px}
+.subhead h1{font-size:clamp(38px,6vw,64px);font-weight:800;line-height:.95;text-transform:uppercase}
+@media (max-width:900px){.subhead{padding-block:20px 8px}}
+
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(20,12,4,.08);padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:10}
+.tray-bar .count small{display:block;font-weight:400;color:var(--ink2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tray-body{display:grid;gap:10px;max-height:62vh;overflow:auto}
+.tray-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.tray-body label{font-size:13px;color:var(--ink2);display:block;margin-bottom:3px}
+.stacks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.stacks button{font:12.5px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:3px 9px;cursor:pointer}
+.stacks button:hover{border-color:var(--accent);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{font:600 12.5px var(--body);border:0;background:var(--panel);color:var(--ink2);padding:6px 11px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink)}
+.tray-body pre{margin:0;max-height:34vh;overflow:auto;background:var(--bg);border-radius:9px;padding:12px;font:13px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+@media (prefers-reduced-motion: reduce){.tile{transition:none}}

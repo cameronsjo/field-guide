@@ -1,0 +1,1557 @@
+const pool = { groups: [] };
+/* ======================================================
+   SWATCH KIT. Every example is an SVG on a 320 x 200 stage
+   (16:10, same as the card). pic(k => markup) collects defs
+   (gradients, filters, clips) with unique ids per drawing.
+   Textures come from feTurbulence: k.noise() maps noise to
+   a colored layer, k.bump() lights it as relief, k.warp()
+   pushes shapes around with it.
+   ====================================================== */
+let _u = 0;
+const U = p => `${p}${++_u}`;
+// '#RRGGBB' -> ['r', 'g', 'b'] as 0..1 strings for color matrices
+const hx = h => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map(c => c + c).join(''); return [0, 2, 4].map(i => (parseInt(h.slice(i, i + 2), 16) / 255).toFixed(3)); };
+const STAGE = 'x="-20" y="-20" width="360" height="240"';
+function pic(fn, vb = '0 0 320 200', after = '') {
+  const defs = [];
+  const k = {
+    id: U,
+    def(s) { defs.push(s); return ''; },
+    // linear gradient; dir 'v' (top to bottom), 'h' (left to right) or explicit "x1 y1 x2 y2"; u = userSpaceOnUse
+    lg(stops, dir = 'v', u = false) {
+      const id = U('lg'); const [x1, y1, x2, y2] = dir === 'v' ? [0, 0, 0, 1] : dir === 'h' ? [0, 0, 1, 0] : dir.split(' ').map(Number);
+      defs.push(`<linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"${u ? ' gradientUnits="userSpaceOnUse"' : ''}>${stops.map(([o, c, a = 1]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join('')}</linearGradient>`);
+      return `url(#${id})`;
+    },
+    rg(stops, cx = .5, cy = .5, r = .5, fx = cx, fy = cy, u = false) {
+      const id = U('rg');
+      defs.push(`<radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}" fx="${fx}" fy="${fy}"${u ? ' gradientUnits="userSpaceOnUse"' : ''}>${stops.map(([o, c, a = 1]) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${a}"/>`).join('')}</radialGradient>`);
+      return `url(#${id})`;
+    },
+    // blur filter attribute; sd may be "x y" for directional blur
+    blur(sd) { const id = U('bl'); defs.push(`<filter id="${id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${sd}"/></filter>`); return `filter="url(#${id})"`; },
+    filter(prims, region = 'x="0" y="0" width="100%" height="100%"') { const id = U('fx'); defs.push(`<filter id="${id}" ${region} color-interpolation-filters="sRGB">${prims}</filter>`); return `filter="url(#${id})"`; },
+    clip(shapes) { const id = U('cp'); defs.push(`<clipPath id="${id}">${shapes}</clipPath>`); return `clip-path="url(#${id})"`; },
+    mask(inner) { const id = U('mk'); defs.push(`<mask id="${id}" maskUnits="userSpaceOnUse" ${STAGE}>${inner}</mask>`); return `mask="url(#${id})"`; },
+    pattern(w, h, inner, x2 = '') { const id = U('pt'); defs.push(`<pattern id="${id}" width="${w}" height="${h}" patternUnits="userSpaceOnUse" ${x2}>${inner}</pattern>`); return `url(#${id})`; },
+    /* Noise as a colored layer over the whole stage.
+       f: baseFrequency ("x y" stretches it: low x + high y = horizontal streaks)
+       a: alpha transfer table over the noise value (0..1, mid is ~.5)
+       t: transfer type (table | discrete), lin: [slope, intercept] instead of a table
+       c: layer color, op: opacity, blend: mix-blend-mode */
+    noise(o = {}) {
+      const { f = .05, oct = 3, seed = 1, type = 'fractalNoise', c = '#000', a = '0 1', t = 'table', lin, op = 1, blend, ch = 0 } = o;
+      const [r, g, b] = hx(c); const pick = ['1 0 0 0 0', '0 1 0 0 0', '0 0 1 0 0', '0 0 0 1 0'][ch];
+      const fa = lin ? `<feFuncA type="linear" slope="${lin[0]}" intercept="${lin[1]}"/>` : `<feFuncA type="${t}" tableValues="${a}"/>`;
+      const id = U('nz');
+      defs.push(`<filter id="${id}" filterUnits="userSpaceOnUse" ${STAGE} color-interpolation-filters="sRGB"><feTurbulence type="${type}" baseFrequency="${f}" numOctaves="${oct}" seed="${seed}" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 ${r} 0 0 0 0 ${g} 0 0 0 0 ${b} ${pick}"/><feComponentTransfer>${fa}</feComponentTransfer></filter>`);
+      return `<rect ${STAGE} filter="url(#${id})" opacity="${op}"${blend ? ` style="mix-blend-mode:${blend}"` : ''}/>`;
+    },
+    /* Noise lit as relief (paper tooth, plaster, leather, hammered metal).
+       s: surfaceScale (height), az/el: light azimuth/elevation in degrees.
+       Flat ground comes out mid-grey so overlay/soft-light keeps the base color. */
+    bump(o = {}) {
+      const { f = .05, oct = 3, seed = 1, type = 'fractalNoise', s = 3, az = 225, el = 40, op = .8, blend = 'overlay', spec = 0 } = o;
+      const kd = (.5 / Math.sin(el * Math.PI / 180)).toFixed(3);
+      const id = U('bp');
+      const sp = spec ? `<feSpecularLighting in="n" surfaceScale="${s}" specularConstant="${spec}" specularExponent="${o.exp || 20}" lighting-color="#fff" result="sp"><feDistantLight azimuth="${az}" elevation="${el}"/></feSpecularLighting><feComposite in="sp" in2="d" operator="arithmetic" k2="1" k3="1"/>` : '';
+      defs.push(`<filter id="${id}" filterUnits="userSpaceOnUse" ${STAGE} color-interpolation-filters="sRGB"><feTurbulence type="${type}" baseFrequency="${f}" numOctaves="${oct}" seed="${seed}" stitchTiles="stitch" result="n"/><feDiffuseLighting in="n" surfaceScale="${s}" diffuseConstant="${kd}" lighting-color="#fff" result="d"><feDistantLight azimuth="${az}" elevation="${el}"/></feDiffuseLighting>${sp}</filter>`);
+      return `<rect ${STAGE} filter="url(#${id})" opacity="${op}" style="mix-blend-mode:${blend}"/>`;
+    },
+    // light the alpha of the drawn shapes as relief: wrap a group to emboss it (letterpress, embossing, raised glaze)
+    relief(o = {}) {
+      const { s = 3, az = 225, el = 45, blur = 1.2 } = o;
+      const kd = (.5 / Math.sin(el * Math.PI / 180)).toFixed(3);
+      return this.filter(`<feGaussianBlur in="SourceAlpha" stdDeviation="${blur}" result="h"/><feDiffuseLighting in="h" surfaceScale="${s}" diffuseConstant="${kd}" lighting-color="#fff" result="d"><feDistantLight azimuth="${az}" elevation="${el}"/></feDiffuseLighting>`, `filterUnits="userSpaceOnUse" ${STAGE}`);
+    },
+    // filter attribute that pushes a group's pixels around with noise (rough edges, marbling, hand-cut lines)
+    warp(scale = 6, f = .04, oct = 2, seed = 1, type = 'fractalNoise') {
+      return this.filter(`<feTurbulence type="${type}" baseFrequency="${f}" numOctaves="${oct}" seed="${seed}" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="${scale}" xChannelSelector="R" yChannelSelector="G"/>`, `filterUnits="userSpaceOnUse" ${STAGE}`);
+    },
+    // film-style grain across the whole stage
+    grain(op = .25, freq = .9) { const id = U('gn'); defs.push(`<filter id="${id}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>`); return `<rect ${STAGE} filter="url(#${id})" opacity="${op}" style="mix-blend-mode:overlay"/>`; },
+    vignette(op = .5, inner = .45) { return `<rect x="0" y="0" width="320" height="200" fill="${this.rg([[inner, '#000', 0], [1, '#000', op]], .5, .5, .7)}"/>`; },
+    // a low light raking across from the left: brightens one side, darkens the other
+    rake(op = .35, dir = 'h') { return R(-20, -20, 360, 240, this.lg([[0, '#fff', op * .7], [.5, '#fff', 0], [.5, '#000', 0], [1, '#000', op]], dir)); }
+  };
+  return `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"><g>${fn(k)}</g><defs>${defs.join('')}</defs></svg>${after}`;
+}
+const tag = (t, pos = 'tl') => `<span class="tag ${pos}">${t}</span>`;
+const R = (x, y, w, h, f, x2 = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" ${x2}/>`;
+const C = (x, y, r, f, x2 = '') => `<circle cx="${x}" cy="${y}" r="${r}" fill="${f}" ${x2}/>`;
+const E = (x, y, rx, ry, f, x2 = '') => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${f}" ${x2}/>`;
+const Pth = (d, f, x2 = '') => `<path d="${d}" fill="${f}" ${x2}/>`;
+const T = (x, y, txt, o = {}) => `<text x="${x}" y="${y}" font-family='${o.ff || 'Fraunces, Georgia, serif'}' font-size="${o.fs || 40}" font-weight="${o.fw || 700}" fill="${o.c || '#111'}" text-anchor="${o.anchor || 'middle'}"${o.ls ? ` letter-spacing="${o.ls}"` : ''} ${o.x2 || ''}>${txt}</text>`;
+const BG = c => R(-20, -20, 360, 240, c);
+// seeded random so drawings are stable between renders
+const rnd = s => () => (s = (s * 16807) % 2147483647) / 2147483647;
+// straight parallel lines over the stage at an angle (hatching, ribs, stripes)
+const lines = (step, ang = 0, c = '#000', w = 1, x2 = '') => { let g = ''; for (let y = -220; y < 420; y += step) g += `M-220 ${y.toFixed(1)}H540`; return `<path d="${g}" stroke="${c}" stroke-width="${w}" fill="none" transform="rotate(${ang} 160 100)" ${x2}/>`; };
+// halftone dots: v(x, y) gives ink 0..1 at a stage point; step = screen pitch, ang = screen angle
+function dots(v, step = 6, ang = 45, c = '#000', max = .62, x2 = '') {
+  const a = ang * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a); let g = '';
+  for (let i = -40; i < 40; i++) for (let j = -40; j < 40; j++) {
+    const u = i * step, w = j * step, x = 160 + u * ca - w * sa, y = 100 + u * sa + w * ca;
+    if (x < -8 || x > 328 || y < -8 || y > 208) continue;
+    const d = Math.max(0, Math.min(1, v(x, y))); if (d < .02) continue;
+    g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(step * max * Math.sqrt(d)).toFixed(2)}"/>`;
+  }
+  return `<g fill="${c}" ${x2}>${g}</g>`;
+}
+
+/* ---------- shared scenes ---------- */
+// a material sphere on a studio sweep. tex(k) paints the surface over the whole stage.
+// o.gloss: 0 (chalk) .. 1 (mirror), o.spec: highlight color, o.env: true adds a sharp window reflection
+function ball(k, tex, o = {}) {
+  const { bg = ['#D9D6CF', '#A8A49B'], floor = '#8C887F', gloss = .3, spec = '#fff', env = false, cx = 160, cy = 92, r = 66, shade = .55, rim = .25, rimc = '#fff' } = o;
+  let g = R(-20, -20, 360, 240, k.lg([[0, bg[0]], [1, bg[1]]])) + R(-20, 150, 360, 70, floor, 'opacity=".35"');
+  g += E(cx + 8, cy + r + 4, r * .95, 9, '#000', `opacity=".45" ${k.blur(7)}`);
+  const cl = k.clip(`<circle cx="${cx}" cy="${cy}" r="${r}"/>`);
+  g += `<g ${cl}>${tex(k)}`;
+  g += C(cx, cy, r, k.rg([[0, '#000', 0], [.55, '#000', shade * .25], [1, '#000', shade]], .36, .3, .78));
+  g += C(cx, cy, r, k.rg([[.7, rimc, 0], [1, rimc, rim]], .5, .5, .5));
+  if (env) g += `<g opacity="${.25 + gloss * .6}">${Pth(`M${cx - r} ${cy + 8} Q${cx} ${cy + 22} ${cx + r} ${cy + 8} L${cx + r} ${cy + r} L${cx - r} ${cy + r}Z`, '#000', 'opacity=".35"')}${R(cx - 40, cy - 52, 26, 30, spec, `rx="5" ${gloss > .7 ? '' : k.blur((1 - gloss) * 6)}`)}${R(cx - 10, cy - 52, 10, 30, spec, `rx="3" opacity=".7" ${gloss > .7 ? '' : k.blur((1 - gloss) * 6)}`)}</g>`;
+  const hs = 6 + (1 - gloss) * 30, hb = 1 + (1 - gloss) * 14;
+  g += E(cx - r * .38, cy - r * .42, hs, hs * .7, spec, `opacity="${(.15 + gloss * .8).toFixed(2)}" ${k.blur(hb)}`);
+  return g + '</g>';
+}
+// a flat swatch with soft raking light and edge falloff, so a texture reads as a lit surface
+const swatch = (k, inner, rake = .3) => inner + k.rake(rake, '0 0 1 1') + k.vignette(.35, .55);
+// paper ground: base color, fibers, tooth
+const paper = (k, c = '#F1EADB', o = {}) => BG(c) + k.noise({ f: o.ff || '.9 .9', oct: 2, seed: o.seed || 3, c: o.fleck || '#6B5B40', a: '0 0 0 0 0 0 0 .35 .7', op: o.fop ?? .35 }) + k.bump({ f: o.tf || .35, oct: 3, s: o.ts || 1.6, seed: (o.seed || 3) + 1, op: o.top ?? .6 });
+
+/* ---------- wood ---------- */
+// grain lines from stretched noise. f "x y": low x + high y gives long horizontal grain
+function woodTex(k, o = {}) {
+  const { base = '#B98A55', dark = '#6E4626', light = '#D9B486', f = '.004 .08', seed = 2, op = .6, rep = 6, pores = .3, warp = 0 } = o;
+  const a = []; for (let i = 0; i < rep; i++) a.push(0, 0, .1, .9); a.push(0);
+  const inner = k.noise({ f, oct: 3, seed, c: light, lin: [1.8, -.5], op: .55 }) + k.noise({ f, oct: 4, seed: seed + 7, c: dark, a: a.join(' '), op }) + (pores ? k.noise({ f: '.03 .9', oct: 2, seed: seed + 3, c: dark, a: '0 0 0 0 0 0 0 .6 1', op: pores }) : '');
+  return BG(base) + (warp ? `<g ${k.warp(warp, .012, 2, seed)}>${inner}</g>` : inner);
+}
+const plank = (k, x, y, w, h, o) => `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="0 0 320 200" preserveAspectRatio="none" overflow="hidden">${woodTex(k, o)}</svg>`;
+
+pool.groups.push({
+  id: 'wood', title: 'Wood', slot: 'Material',
+  intro: 'Name the species and the cut. Oak, walnut and birch each have a color and a grain pattern people recognize, and "end grain" or "plywood edge" says how the board was turned to face you.',
+  terms: [
+    { id: 'oak', name: 'White oak', aka: 'rift-sawn oak, quarter-sawn oak, European oak',
+      desc: 'A pale, honey-to-straw wood with long, straight grain. Rift-sawn boards show tight parallel lines; quarter-sawn ones add silvery ray flecks. The default of modern Scandinavian and Japandi interiors.',
+      spot: 'light beige with fine straight lines running the length of the board and small open pores',
+      ref: 'Scandinavian flooring, Muji furniture, Aesop shop fit-outs, Japandi kitchens',
+      prompt: 'rift-sawn white oak with tight straight grain, pale natural finish',
+      ex: pic(k => swatch(k, woodTex(k, { base: '#CDAE84', dark: '#8A6A44', light: '#E6CFA8', f: '.002 .11', seed: 4, op: .45, rep: 9, pores: .35 }) + lines(40, 0, '#6E5232', .6, 'opacity=".25"'))) },
+    { id: 'walnut', name: 'Walnut', aka: 'American black walnut, figured walnut',
+      desc: 'A rich chocolate wood with purple-grey undertones and gently wavy grain. It reads as warm, expensive and mid-century.',
+      spot: 'deep brown with lighter caramel streaks and soft cathedral arches in the grain',
+      ref: 'Eames lounge chair shells, Herman Miller, hi-fi cabinets, luxury watch boxes',
+      prompt: 'American black walnut with flowing grain and a warm oiled finish',
+      ex: pic(k => swatch(k, woodTex(k, { base: '#4E3222', dark: '#21140C', light: '#8A5E3E', f: '.003 .05', seed: 9, op: .7, rep: 5, pores: .4, warp: 18 }))) },
+    { id: 'burl', name: 'Burl wood', aka: 'burr, burl veneer, root wood',
+      desc: 'Wood cut from a knotty growth on the trunk, so the grain swirls in every direction and is dotted with small dark eyes. Almost always used as a thin veneer, polished to a high gloss.',
+      spot: 'marbled swirls with clusters of dark pinpoint knots, no straight grain anywhere',
+      ref: 'Rolls-Royce and Jaguar dashboards, 1970s side tables, Art Deco cabinets, cigar humidors',
+      prompt: 'highly figured burl wood veneer with swirling grain and dark knot eyes, high-gloss finish',
+      ex: pic(k => { const r = rnd(7); let eyes = ''; for (let i = 0; i < 60; i++) { const x = r() * 330 - 5, y = r() * 210 - 5, s = 1 + r() * 2.2; eyes += E(x, y, s, s * .8, '#2A1608', `opacity="${.5 + r() * .5}"`); }
+        return swatch(k, BG('#A8683A') + k.noise({ f: .02, oct: 5, seed: 3, type: 'turbulence', c: '#E2A86E', a: '0 .8 .2 .7 .1 .6 0 .4 0', op: .7 }) + k.noise({ f: .03, oct: 4, seed: 8, type: 'turbulence', c: '#4A2512', a: '.9 0 .6 0 .5 0 .3 0', op: .55 }) + `<g ${k.blur(.5)}>${eyes}</g>`) + E(110, 50, 70, 20, '#fff', `opacity=".16" ${k.blur(14)}`); }) },
+    { id: 'endgrain', name: 'End grain', aka: 'butcher block, end-grain block, parquet de bout',
+      desc: 'Wood cut across the trunk so you see growth rings instead of long grain, usually glued up as a checkerboard of small blocks. It reads as craft, kitchens and workshops.',
+      spot: 'a grid of small squares, each showing arcs of growth rings, often in two alternating woods',
+      ref: 'butcher-block chopping boards, John Boos, workshop floors, end-grain parquet in old factories',
+      prompt: 'end-grain butcher block of alternating maple and walnut squares, growth rings visible on each block',
+      ex: pic(k => { const r = rnd(5); let g = ''; const s = 58;
+        for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) {
+          const x = i * s - 14, y = j * s - 18, wal = (i + j) % 2, c = wal ? ['#5A3A24', '#2E1C10'] : ['#E2C9A0', '#B8935F'];
+          const cx = x + (r() > .5 ? -s * .6 : s * 1.6), cy = y + r() * s * 1.4 - s * .2; let rings = '';
+          for (let q = 8; q < 160; q += 4 + r() * 3) rings += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${q.toFixed(1)}" fill="none" stroke="${c[1]}" stroke-width="${(.6 + r() * 1.2).toFixed(2)}" opacity=".55"/>`;
+          g += `<g ${k.clip(`<rect x="${x}" y="${y}" width="${s - 1}" height="${s - 1}"/>`)}>${R(x, y, s, s, c[0])}${rings}</g>`;
+        }
+        return swatch(k, BG('#3A2A1C') + g + k.noise({ f: .8, oct: 2, seed: 2, c: '#000', a: '0 0 0 0 0 .4 .7', op: .25 }) + k.bump({ f: .6, s: 1, op: .4 })); }) },
+    { id: 'plywood', name: 'Plywood edge', aka: 'birch ply, Baltic birch, exposed ply',
+      desc: 'Thin sheets of wood glued in layers, with the striped edge left on show. It says honest, affordable, maker-built: studios, shop fittings and flat-pack furniture.',
+      spot: 'a pale face with soft grain above an edge of many thin alternating light and dark stripes',
+      ref: 'Vitra and Muji shelving, co-working spaces, skate ramps, designer pop-up shops',
+      prompt: 'Baltic birch plywood with the layered striped edge exposed, clear matte finish',
+      ex: pic(k => { let st = ''; for (let i = 0; i < 11; i++) st += R(-20, 112 + i * 8, 360, 8, i % 2 ? '#E8D3AE' : '#C9A877') + R(-20, 112 + i * 8 + 6.6, 360, 1.4, '#7A5E3A', 'opacity=".7"');
+        return plank(k, -20, -20, 360, 132, { base: '#E4CDA4', dark: '#B59266', light: '#F3E2C2', f: '.003 .03', seed: 11, op: .5, rep: 4, pores: .15, warp: 14 }) + R(-20, 108, 360, 4, '#8F7148') + st + k.noise({ f: '.02 .6', oct: 2, seed: 4, c: '#5C4325', a: '0 0 0 0 .4 .8', op: .3 }) + R(-20, 112, 360, 88, '#000', 'opacity=".08"') + k.vignette(.3, .6); }) },
+    { id: 'reclaimed', name: 'Reclaimed barn wood', aka: 'weathered wood, driftwood grey, salvaged timber',
+      desc: 'Old boards silvered by sun and rain, with open cracks, nail holes and saw marks. It reads as rustic, coastal or farmhouse, and it signals a story.',
+      spot: 'planks in mismatched greys and browns, raised grain, dark nail holes and splits along the boards',
+      ref: 'farmhouse restaurants, coastal cabins, Restoration Hardware, distillery tasting rooms',
+      prompt: 'reclaimed weathered barn wood planks, silver-grey and brown, raised grain, nail holes and cracks',
+      ex: pic(k => { const r = rnd(12); const cs = [['#8C857A', '#4E4840', '#B7AFA2'], ['#6F6050', '#3A2E24', '#9C8B76'], ['#9A9286', '#5A544B', '#C4BCAF'], ['#7A6C5C', '#3F342A', '#A89784']]; let g = '';
+        for (let i = 0; i < 5; i++) { const y = -10 + i * 44, c = cs[i % 4]; g += plank(k, -20, y, 360, 43, { base: c[0], dark: c[1], light: c[2], f: '.003 .06', seed: 20 + i, op: .75, rep: 7, pores: .5 }) + R(-20, y + 42, 360, 2.2, '#1E1A16');
+          for (let n = 0; n < 2; n++) g += C(20 + r() * 280, y + 21, 2, '#1A1612') + C(20 + r() * 280, y + 9 + r() * 24, 1.4, '#1A1612', 'opacity=".8"');
+          g += Pth(`M${r() * 200} ${y + 12 + r() * 20} q30 1 60 -1 t50 1`, 'none', 'stroke="#1E1A16" stroke-width="1.2" opacity=".7"'); }
+        return swatch(k, g + k.bump({ f: '.01 .3', oct: 3, s: 3, op: .7, seed: 6 }), .2); }) },
+    { id: 'bamboo', name: 'Bamboo', aka: 'bamboo cane, moso bamboo',
+      desc: 'Hollow grass stalks with swollen rings, called nodes, every so often. As poles it reads as tropical or Japanese; pressed into boards it reads as eco-friendly.',
+      spot: 'vertical green-gold cylinders with raised joint rings at intervals',
+      ref: 'Japanese garden fences, Balinese resorts, tiki bars, eco product packaging',
+      prompt: 'natural bamboo poles in honey and green tones, with pronounced nodes',
+      ex: pic(k => { const r = rnd(4); let g = BG('#2C2A1C');
+        for (let i = 0; i < 9; i++) { const x = -18 + i * 39, w = 34 + r() * 6, c = ['#C9A85A', '#B3A04E', '#D2B56E', '#9C9445'][i % 4];
+          g += R(x, -20, w, 240, k.lg([[0, '#3E3418'], [.25, c], [.55, '#F0DFA6'], [.8, c], [1, '#3E3418']], 'h'));
+          for (let n = 0; n < 3; n++) { const y = -10 + r() * 30 + n * 80; g += R(x - 1, y, w + 2, 5, k.lg([[0, '#4A3C1A'], [.5, '#E6D08E'], [1, '#4A3C1A']], 'h'), 'rx="2"') + R(x, y + 5, w, 2, '#2A220E', 'opacity=".5"'); } }
+        return g + k.noise({ f: '.5 .02', oct: 2, seed: 3, c: '#3A3014', a: '0 0 0 .3 .6', op: .35 }) + k.vignette(.35); }) },
+    { id: 'cork', name: 'Cork', aka: 'agglomerated cork, cork board',
+      desc: 'The bark of the cork oak, ground into granules and pressed. Warm, soft, speckled and a little retro. It reads as sustainable, quiet and tactile.',
+      spot: 'a tan surface of tiny packed granules in light and dark brown, with a slightly spongy look',
+      ref: 'pin boards, 1970s cork walls, Jasper Morrison cork stools, yoga blocks, wine stoppers',
+      prompt: 'agglomerated cork with coarse speckled granules in warm tan and brown',
+      ex: pic(k => swatch(k, BG('#B6834E') + k.noise({ f: .22, oct: 2, seed: 2, c: '#E2B47E', a: '0 0 0 0 0 1 1', t: 'discrete', op: .6 }) + k.noise({ f: .3, oct: 2, seed: 9, c: '#5A3418', a: '0 0 0 0 0 1 1', t: 'discrete', op: .55 }) + k.noise({ f: .5, oct: 2, seed: 5, c: '#2E180A', a: '0 0 0 0 0 0 0 1', t: 'discrete', op: .6 }) + k.bump({ f: .25, s: 2.5, op: .7, seed: 3 }))) },
+    { id: 'rattan', name: 'Rattan cane webbing', aka: 'Vienna straw, cane weave, wicker',
+      desc: 'Thin strips of rattan woven into an open eight-sided mesh, stretched over a frame. It reads as 1970s, Riviera and breezy.',
+      spot: 'an open honey-colored mesh of crossing strands with small octagonal holes',
+      ref: 'Marcel Breuer Cesca chairs, Gubi and Sika furniture, headboards and cabinet doors in boutique hotels',
+      prompt: 'woven rattan cane webbing in honey tones, open octagonal mesh',
+      ex: pic(k => { const st = (d, a) => `<path d="${d}" stroke="#7A5428" stroke-width="3.6" fill="none" transform="rotate(${a} 160 100)"/><path d="${d}" stroke="#DDB878" stroke-width="2.4" fill="none" transform="rotate(${a} 160 100)"/>`;
+        let d = ''; for (let y = -240; y < 440; y += 13) d += `M-240 ${y}H560`;
+        return BG('#1E1810') + st(d, 0) + st(d, 90) + st(d.replace(/(\d)H560/g, '$1H560'), 45) + st(d, -45) + k.noise({ f: '.02 .5', oct: 2, seed: 2, c: '#5A3A14', a: '0 0 .3 .6', op: .4 }) + k.vignette(.45); }) }
+  ]
+});
+
+/* ---------- stone ---------- */
+// veins as one contour line of fractal noise. Perlin noise sits exactly at .5 on its lattice, so the contour is kept off .5 to avoid a grid of dots
+const veins = (k, c, o = {}) => { const n = 60, at = Math.round((o.at || .43) * n), w = o.w || 1, a = [];
+  for (let i = 0; i <= n; i++) { const d = Math.abs(i - at); a.push(d < w ? 1 : d < w + 1 ? .4 : 0); }
+  const lay = k.noise({ f: o.f || '.0035 .011', oct: o.oct || 5, seed: o.seed || 3, c, a: a.join(' '), op: o.op ?? .8 });
+  return `<g transform="rotate(${o.rot ?? -32} 160 100)"><g ${k.blur(o.blur ?? .5)}>${lay}</g></g>`; };
+pool.groups.push({
+  id: 'stone', title: 'Stone & mineral', slot: 'Material',
+  intro: 'Stones are named by quarry and look, and the names are specific: Carrara is soft grey, Calacatta is bold gold-veined white, Nero Marquina is black. Saying which one saves a lot of describing.',
+  terms: [
+    { id: 'carrara', name: 'Carrara marble', aka: 'bianco Carrara, white marble',
+      desc: 'White to pale grey Italian marble with soft, feathery grey veining spread evenly across the slab. Classic, clean and widely used, so it reads as nice rather than flashy.',
+      spot: 'a cool grey-white background with fine, cloudy, low-contrast grey veins',
+      ref: 'bathroom vanities, Parisian café tables, kitchen islands, classical sculpture',
+      prompt: 'Carrara marble with soft feathery grey veining on a cool white ground',
+      ex: pic(k => swatch(k, BG('#E8E8E5') + k.noise({ f: .006, oct: 4, seed: 6, c: '#B9BCBF', lin: [2, -.8], op: .6 }) + veins(k, '#8E9297', { seed: 4, op: .55, blur: 1 }) + veins(k, '#A3A7AB', { f: '.008 .02', seed: 9, op: .45, at: .58, rot: -20 }) + k.bump({ f: .9, s: .5, op: .2 }), .15)) },
+    { id: 'calacatta', name: 'Calacatta marble', aka: 'Calacatta Oro, Calacatta gold',
+      desc: 'A brighter white marble with thick, dramatic veins in grey and gold. Rarer than Carrara and much more expensive, so it signals luxury.',
+      spot: 'bright white with bold, river-like veins, often warm grey edged with gold',
+      ref: 'luxury hotel bathrooms, high-end kitchen backsplashes, fashion boutique counters',
+      prompt: 'Calacatta gold marble, bright white with bold dramatic grey and gold veining, polished',
+      ex: pic(k => swatch(k, BG('#F4F2EE') + k.noise({ f: .005, oct: 3, seed: 2, c: '#DCD6CC', lin: [2, -.9], op: .5 }) + veins(k, '#B59A6A', { f: '.0025 .007', seed: 12, op: .6, w: 3, blur: 2 }) + veins(k, '#6E6A66', { f: '.0025 .007', seed: 12, op: .9 }) + veins(k, '#9A958E', { f: '.008 .02', seed: 5, op: .35, at: .6, rot: -50 }) + E(100, 40, 90, 22, '#fff', `opacity=".35" ${k.blur(18)}`), .12)) },
+    { id: 'nero', name: 'Nero Marquina', aka: 'black marble, Nero Marquina marble',
+      desc: 'A deep black Spanish marble with sharp white veins. It reads as moody, dramatic and Art Deco.',
+      spot: 'near-black with crisp, bright white lightning-like veins',
+      ref: 'Art Deco hotel lobbies, cocktail bars, luxury watch displays, Tom Ford stores',
+      prompt: 'Nero Marquina black marble with crisp white veining, polished to a mirror sheen',
+      ex: pic(k => swatch(k, BG('#121212') + k.noise({ f: .008, oct: 3, seed: 5, c: '#2A2A2C', lin: [2.2, -.9], op: .7 }) + veins(k, '#F2F2F0', { f: '.003 .009', seed: 21, op: .95, rot: 28 }) + veins(k, '#BDBDBD', { f: '.008 .02', seed: 3, op: .4, at: .6, rot: 50 }) + E(110, 46, 80, 18, '#fff', `opacity=".12" ${k.blur(14)}`), .1)) },
+    { id: 'travertine', name: 'Travertine', aka: 'travertino, Roman travertine',
+      desc: 'A warm beige limestone layered in soft bands and full of small holes from trapped gas. Filled and honed it looks soft and creamy; unfilled it looks ancient.',
+      spot: 'creamy beige with horizontal bands and lots of small pits and voids running with the bands',
+      ref: 'the Colosseum, Mies van der Rohe\'s Barcelona Pavilion, 1970s coffee tables, Aesop stores',
+      prompt: 'honed travertine in warm cream and beige, horizontal banding with small natural pits',
+      ex: pic(k => swatch(k, BG('#D9C6A5') + k.noise({ f: '.002 .05', oct: 4, seed: 3, c: '#EDE0C6', lin: [2.2, -.7], op: .7 }) + k.noise({ f: '.003 .07', oct: 4, seed: 8, c: '#B49970', lin: [2.6, -1.3], op: .6 }) + k.noise({ f: '.04 .2', oct: 2, seed: 4, c: '#7A6444', a: '0 0 0 0 0 0 0 0 .8 1', t: 'discrete', op: .7 }) + k.noise({ f: '.04 .2', oct: 2, seed: 4, c: '#F5ECDA', a: '0 0 0 0 0 0 0 .8 0', t: 'discrete', op: .5 }), .2)) },
+    { id: 'terrazzo', name: 'Terrazzo', aka: 'Venetian terrazzo, chip terrazzo',
+      desc: 'Chips of marble, glass or stone set in cement or resin and ground smooth. Small grey chips feel civic and 1960s; big bright chips feel playful and current.',
+      spot: 'a flat ground scattered with angular chips of several colors and sizes',
+      ref: 'airport and school floors, Memphis Group design, café counters, Venice palazzos',
+      prompt: 'terrazzo with large angular chips of terracotta, sage, black and white on a cream ground, polished',
+      ex: pic(k => { const r = rnd(31); const cols = ['#C4643C', '#8FA383', '#1E1E1E', '#FFFFFF', '#D9A15B', '#A9B4BF', '#E38B7A']; let g = '';
+        for (let i = 0; i < 140; i++) { const x = r() * 340 - 10, y = r() * 220 - 10, s = 2 + Math.pow(r(), 2.2) * 15, n = 4 + Math.floor(r() * 3), a0 = r() * 6; let d = '';
+          for (let q = 0; q < n; q++) { const a = a0 + q / n * 6.283 + r() * .6, rr = s * (.6 + r() * .5); d += `${q ? 'L' : 'M'}${(x + Math.cos(a) * rr).toFixed(1)} ${(y + Math.sin(a) * rr).toFixed(1)}`; }
+          g += Pth(d + 'Z', cols[Math.floor(r() * cols.length)], `opacity="${(.8 + r() * .2).toFixed(2)}"`); }
+        return swatch(k, BG('#ECE4D6') + k.noise({ f: .9, oct: 2, seed: 2, c: '#9C9180', a: '0 0 0 0 0 .6 1', op: .35 }) + g, .15); }) },
+    { id: 'granite', name: 'Granite', aka: 'speckled granite, salt-and-pepper granite',
+      desc: 'A hard, crystalline stone with an even speckle of black, white, grey and sometimes pink grains. It reads as durable, civic and a little 1990s kitchen.',
+      spot: 'an even, dense speckle of crystals with no veins or bands',
+      ref: 'kitchen worktops, war memorials, bank steps, Aberdeen\'s "Granite City"',
+      prompt: 'polished salt-and-pepper granite with dense black, white and grey crystals',
+      ex: pic(k => swatch(k, BG('#8E8C88') + k.noise({ f: .35, oct: 2, seed: 2, c: '#E9E6E0', a: '0 0 0 0 0 1 1', t: 'discrete', op: .9 }) + k.noise({ f: .4, oct: 2, seed: 7, c: '#111', a: '0 0 0 0 0 1 1', t: 'discrete', op: .9 }) + k.noise({ f: .5, oct: 1, seed: 13, c: '#B98E80', a: '0 0 0 0 0 0 1', t: 'discrete', op: .7 }) + E(100, 40, 90, 20, '#fff', `opacity=".2" ${k.blur(16)}`), .15)) },
+    { id: 'slate', name: 'Slate', aka: 'riven slate, cleft slate',
+      desc: 'A dark blue-grey stone that splits into thin sheets with a rippled, layered face. It reads as slate roofs, Welsh quarries and serious restaurants.',
+      spot: 'charcoal or blue-grey with a matte, uneven surface of shallow ridges and flakes',
+      ref: 'roof tiles, cheese boards, Welsh and Vermont quarries, spa floors',
+      prompt: 'riven blue-grey slate with a natural cleft surface and matte finish',
+      ex: pic(k => swatch(k, BG('#40484E') + k.noise({ f: '.004 .02', oct: 3, seed: 5, c: '#5B656B', lin: [2, -.6], op: .6 }) + k.noise({ f: '.01 .05', oct: 3, seed: 11, c: '#7A6A52', lin: [3, -1.8], op: .35 }) + k.bump({ f: '.008 .03', oct: 5, s: 6, op: .9, seed: 4, az: 200, el: 30 }), .25)) },
+    { id: 'onyx', name: 'Backlit onyx', aka: 'honey onyx, translucent stone',
+      desc: 'A banded, semi-translucent stone that glows when lit from behind. It is the move for showpiece bars and walls where the stone itself is the lamp.',
+      spot: 'glowing amber or green bands with a bright, hot center and soft cloudy layers',
+      ref: 'Mies van der Rohe\'s Barcelona Pavilion onyx wall, hotel bars, luxury bathroom feature walls',
+      prompt: 'backlit honey onyx glowing amber, translucent wavy bands',
+      ex: pic(k => BG('#5A2E08') + R(-20, -20, 360, 240, k.rg([[0, '#FFE6A8'], [.45, '#E89A38'], [1, '#6A3408']], .45, .45, .7)) + `<g ${k.warp(30, .01, 3, 5)}>${k.noise({ f: '.002 .03', oct: 4, seed: 2, c: '#FFF1C8', a: '0 .6 0 .5 0 .7 0 .4 0', op: .55 })}${k.noise({ f: '.003 .05', oct: 3, seed: 7, c: '#7A3A0C', a: '0 0 .7 0 0 .6 0 0 .5 0', op: .5 })}</g>` + k.noise({ f: .02, oct: 3, seed: 3, c: '#FFFFFF', lin: [1.5, -.6], op: .3 })) },
+    { id: 'strata', name: 'Sandstone & rammed earth', aka: 'stratified stone, layered earth, pisé',
+      desc: 'Stone or packed earth laid down in visible horizontal layers of ochre, rust and sand. It reads as desert, geological time and slow architecture.',
+      spot: 'wavy horizontal bands of warm earth colors, each with a slightly different grain',
+      ref: 'Antelope Canyon, Petra, rammed-earth wineries in Australia and California, desert modern homes',
+      prompt: 'rammed earth wall with horizontal strata in ochre, rust and sand tones',
+      ex: pic(k => { const r = rnd(9); const cs = ['#C98A55', '#E0B985', '#B5683C', '#D9A574', '#A4583A', '#E7C79A', '#BF7A4A']; let g = '', y = -20;
+        while (y < 220) { const h = 8 + r() * 26; g += R(-30, y, 380, h + 2, cs[Math.floor(r() * cs.length)]); y += h; }
+        return swatch(k, `<g ${k.warp(12, '.008 .008', 1, 4)}>${g}</g>` + k.noise({ f: .6, oct: 2, seed: 3, c: '#5A3418', a: '0 0 0 0 .4 .8', op: .35 }) + k.bump({ f: '.02 .2', s: 3, op: .7, seed: 8 }), .25); }) }
+  ]
+});
+
+/* ---------- fiber ---------- */
+const weave = (k, base, warp, weft, o = {}) => BG(base) + k.noise({ f: `${o.fx || .9} ${o.fy || .012}`, oct: 2, seed: o.seed || 2, c: warp, a: '0 0 0 .5 .9 1', op: o.op ?? .55 }) + k.noise({ f: `${o.fy || .012} ${o.fx || .9}`, oct: 2, seed: (o.seed || 2) + 5, c: weft, a: '0 0 0 .5 .9 1', op: o.op ?? .55 }) + k.bump({ f: o.bf || .6, oct: 2, s: o.bs || 1.6, op: .6, seed: 4 });
+pool.groups.push({
+  id: 'fiber', title: 'Textiles & fibers', slot: 'Material',
+  intro: 'Cloth is described by fiber and by construction: what it is made of and how it was woven, knitted or pressed. Velvet, bouclé and felt are as different as glass and stone.',
+  terms: [
+    { id: 'linen', name: 'Linen', aka: 'washed linen, flax',
+      desc: 'A crisp, slightly irregular plain weave from flax, with visible slubs and soft rumples. It reads as natural, summery and relaxed.',
+      spot: 'an oatmeal or white weave where you can see individual threads, uneven thickness and creases',
+      ref: 'Japandi bedding, Aesop and Le Labo packaging, summer shirts, restaurant napkins',
+      prompt: 'stonewashed natural linen in oatmeal, visible slubby weave and soft creases',
+      ex: pic(k => swatch(k, weave(k, '#D8CDB9', '#A99A80', '#EEE6D6', { fx: .7, fy: .02 }) + k.noise({ f: '.003 .02', oct: 3, seed: 9, c: '#8E8068', lin: [2.2, -1], op: .35 }) + k.bump({ f: '.006 .02', oct: 3, s: 5, op: .6, seed: 11 }))) },
+    { id: 'denim', name: 'Raw denim', aka: 'selvedge denim, indigo twill',
+      desc: 'A sturdy cotton twill dyed indigo, with diagonal ribs and a slightly mottled color that fades with wear. It reads as workwear, Americana and Japanese heritage brands.',
+      spot: 'deep blue fabric with fine diagonal lines and white flecks showing through',
+      ref: 'Levi\'s 501, Japanese selvedge brands, workwear aprons, chore jackets',
+      prompt: 'raw indigo selvedge denim with a visible diagonal twill and slight fading',
+      ex: pic(k => swatch(k, BG('#1F2F52') + lines(3.2, -62, '#7F95BE', 1.1, 'opacity=".45"') + k.noise({ f: '.9 .03', oct: 2, seed: 3, c: '#C9D3E6', a: '0 0 0 0 0 .5 1', op: .45 }) + k.noise({ f: .01, oct: 3, seed: 8, c: '#4D6290', lin: [2.4, -1], op: .5 }) + k.bump({ f: .7, s: 1.2, op: .5 }))) },
+    { id: 'felt', name: 'Wool felt', aka: 'merino felt, pressed wool',
+      desc: 'Wool fibers matted together without weaving, so the surface is soft, fuzzy and even, with no grain at all. It reads as cozy, crafty and acoustic.',
+      spot: 'a thick, matte fabric with a fuzzy surface and no visible threads or weave',
+      ref: 'Hay and Muuto acoustic panels, felt letter boards, laptop sleeves, Christmas ornaments',
+      prompt: 'thick mustard merino wool felt with a soft fuzzy matte surface',
+      ex: pic(k => swatch(k, BG('#C8922E') + k.noise({ f: .5, oct: 4, seed: 2, c: '#F0C468', lin: [1.6, -.6], op: .5 }) + k.noise({ f: .7, oct: 3, seed: 6, c: '#7A520E', lin: [1.6, -.7], op: .45 }) + k.bump({ f: .2, oct: 4, s: 1.4, op: .5, seed: 5 }), .25)) },
+    { id: 'boucle', name: 'Bouclé', aka: 'boucle, teddy fabric, curly wool',
+      desc: 'Fabric woven from looped yarn, so the surface is a mass of tiny nubbly curls. Cream bouclé is the signature of current soft-modern furniture.',
+      spot: 'an off-white surface of small knotty loops, like a sheep\'s fleece close up',
+      ref: 'Knoll Womb chair reissues, Pierre Jeanneret-style lounge chairs, Instagram-era sofas',
+      prompt: 'cream wool bouclé upholstery with a dense nubbly looped texture',
+      ex: pic(k => { const r = rnd(3); let lp = '';
+        for (let i = 0; i < 420; i++) lp += `<circle cx="${(r() * 340 - 10).toFixed(1)}" cy="${(r() * 220 - 10).toFixed(1)}" r="${(2 + r() * 3).toFixed(1)}" fill="none" stroke="${r() > .5 ? '#FFFDF7' : '#B9AE98'}" stroke-width="${(1 + r() * 1.4).toFixed(1)}" opacity=".8"/>`;
+        return swatch(k, BG('#E6DECF') + k.bump({ f: .09, oct: 3, type: 'turbulence', s: 4, op: .8, seed: 7 }) + `<g ${k.blur(.4)}>${lp}</g>` + k.bump({ f: .3, oct: 2, s: 2, op: .5, seed: 2 }), .3); }) },
+    { id: 'velvet', name: 'Velvet', aka: 'cotton velvet, crushed velvet, velour',
+      desc: 'A dense, short pile that soaks up light and then catches it at the edges and folds. Deep jewel colors make it read as plush, theatrical and a little decadent.',
+      spot: 'saturated color that goes dark facing you and glows lighter where the fabric turns away',
+      ref: 'theatre seats, 1970s sofas, Gucci interiors, smoking jackets',
+      prompt: 'deep emerald cotton velvet with a soft pile sheen catching light at the folds',
+      ex: pic(k => ball(k, kk => BG('#0F5A42') + kk.noise({ f: .02, oct: 3, seed: 4, c: '#2C8A68', lin: [2, -.8], op: .5 }) + kk.noise({ f: .8, oct: 2, seed: 2, c: '#05261B', lin: [1.2, -.3], op: .4 }), { bg: ['#2A2622', '#16130F'], floor: '#000', gloss: 0, spec: '#7EE0B8', rim: .55, rimc: '#5FD3A4', shade: .85 })) },
+    { id: 'leather', name: 'Full-grain leather', aka: 'saddle leather, vegetable-tanned leather',
+      desc: 'Hide with its natural surface left on: fine pores, small creases and color that deepens with use. Contrast stitching makes it read as handmade goods.',
+      spot: 'a warm brown surface with tiny pores, faint wrinkles and often a line of stitching near the edge',
+      ref: 'Hermès saddle-stitched goods, Filson bags, Chesterfield sofas, watch straps',
+      prompt: 'vegetable-tanned cognac full-grain leather with visible pores, faint creases and cream saddle stitching',
+      ex: pic(k => swatch(k, BG('#8A4724') + k.noise({ f: .015, oct: 4, seed: 6, c: '#5A2810', lin: [2.4, -1.1], op: .55 }) + k.noise({ f: .02, oct: 3, seed: 2, c: '#C27A44', lin: [2, -1], op: .4 }) + k.bump({ f: .12, oct: 4, type: 'turbulence', s: 2.2, op: .75, seed: 3 }) + R(-20, 150, 360, 70, '#000', 'opacity=".12"') + Pth('M-20 150 H340', 'none', 'stroke="#3A1806" stroke-width="1.4" opacity=".6"') + Pth('M-10 170 H340', 'none', 'stroke="#F2E2C4" stroke-width="2.6" stroke-dasharray="7 5" stroke-linecap="round"') + Pth('M-10 171.5 H340', 'none', 'stroke="#000" stroke-width="1" stroke-dasharray="7 5" opacity=".3"'))) },
+    { id: 'suede', name: 'Suede', aka: 'nubuck, brushed leather',
+      desc: 'Leather sanded to a soft nap, so it looks velvety and matte and shows finger marks where the nap is brushed the other way.',
+      spot: 'a soft, matte, slightly fuzzy surface with lighter and darker patches where it has been brushed',
+      ref: 'desert boots, Gucci loafers, 1970s jackets, Bang & Olufsen headphone pads',
+      prompt: 'sand-colored suede with a soft brushed nap and gentle tonal shifts',
+      ex: pic(k => swatch(k, BG('#B3865E') + k.noise({ f: '.004 .01', oct: 3, seed: 3, c: '#D2A97F', lin: [2.5, -1.1], op: .6 }) + k.noise({ f: '.006 .012', oct: 3, seed: 9, c: '#7E5634', lin: [2.5, -1.3], op: .5 }) + k.noise({ f: 1.1, oct: 2, seed: 2, c: '#E8CBA8', a: '0 0 0 .4 .8', op: .3 }) + Pth('M40 210 Q90 60 210 -10', 'none', `stroke="#D9B48C" stroke-width="30" opacity=".35" ${k.blur(8)}`) + Pth('M120 220 Q170 110 300 60', 'none', `stroke="#8A6040" stroke-width="20" opacity=".25" ${k.blur(8)}`), .2)) },
+    { id: 'canvas', name: 'Cotton canvas', aka: 'duck canvas, waxed canvas, natural canvas',
+      desc: 'A heavy plain weave with a coarse, even grid of threads. Natural canvas reads as tote bags and artist stretchers; waxed canvas reads as outdoor heritage.',
+      spot: 'a coarse, regular checkerboard of thick cotton threads in an off-white or khaki',
+      ref: 'tote bags, Barbour jackets, artist canvases, Converse sneakers',
+      prompt: 'heavyweight natural cotton duck canvas with a coarse even weave',
+      ex: pic(k => swatch(k, BG('#E2D8C2') + R(-20, -20, 360, 240, k.pattern(5, 5, R(0, 0, 2.5, 2.5, '#BFB194') + R(2.5, 2.5, 2.5, 2.5, '#BFB194') + R(0, 2.5, 2.5, 2.5, '#F1EADA') + R(2.5, 0, 2.5, 2.5, '#F1EADA')), 'opacity=".75"') + k.noise({ f: '.8 .05', oct: 2, seed: 4, c: '#9A8A68', a: '0 0 0 .4 .8', op: .4 }) + k.bump({ f: .45, s: 1.6, op: .6 }) + k.noise({ f: .01, oct: 3, seed: 7, c: '#B2A27E', lin: [2, -.9], op: .35 }))) },
+    { id: 'knit', name: 'Chunky knit', aka: 'cable knit, Aran knit, hand knit',
+      desc: 'Thick yarn looped into rows of V-shaped stitches, sometimes twisted into rope-like cables. It reads as winter, comfort and handmade.',
+      spot: 'columns of plump V-shaped stitches in soft wool, with fuzz around the edges',
+      ref: 'Aran fisherman sweaters, chunky throws, Christmas jumpers, Patagonia beanies',
+      prompt: 'chunky cream wool cable knit with plump V stitches and soft fuzz',
+      ex: pic(k => { let g = ''; for (let i = -1; i < 15; i++) for (let j = -1; j < 14; j++) { const x = i * 24, y = j * 16;
+          g += E(x + 5, y + 8, 5.2, 9.5, '#EFE7D6', `transform="rotate(-28 ${x + 5} ${y + 8})"`) + E(x + 15, y + 8, 5.2, 9.5, '#E3D8C2', `transform="rotate(28 ${x + 15} ${y + 8})"`); }
+        return BG('#857A66') + `<g ${k.relief({ s: 4, blur: 2.2, el: 50 })} style="mix-blend-mode:normal">${g}</g>` + `<g style="mix-blend-mode:multiply">${g.replace(/#EFE7D6|#E3D8C2/g, '#EDE4D0')}</g>` + k.noise({ f: .9, oct: 3, seed: 2, c: '#FFFFFF', a: '0 0 0 0 .3 .6', op: .35 }) + k.vignette(.4); }) },
+    { id: 'herringbone', name: 'Herringbone tweed', aka: 'Harris Tweed, broken twill, fishbone',
+      desc: 'A wool twill woven in zigzag columns, often flecked with other colors. It reads as British country, academia and tailoring.',
+      spot: 'vertical columns of slanted stripes that alternate direction, like fish bones, with colored flecks',
+      ref: 'Harris Tweed jackets, flat caps, Sherlock Holmes, herringbone parquet floors',
+      prompt: 'grey-brown herringbone wool tweed with colorful flecks',
+      ex: pic(k => { const p = k.pattern(24, 6, R(0, 0, 24, 6, '#6E6458') + Pth('M0 6 L6 0 H9 L3 6Z M6 6 L12 0 H12 V3 L9 6Z', '#B2A795') + Pth('M12 0 L18 6 H15 L12 3Z M15 0 L21 6 H24 L18 0Z', '#B2A795'));
+        return swatch(k, R(-20, -20, 360, 240, p) + k.noise({ f: .8, oct: 2, seed: 3, c: '#C2492C', a: '0 0 0 0 0 0 0 1', t: 'discrete', op: .7 }) + k.noise({ f: .8, oct: 2, seed: 9, c: '#3E7C9A', a: '0 0 0 0 0 0 0 1', t: 'discrete', op: .6 }) + k.noise({ f: '.9 .2', oct: 2, seed: 5, c: '#2E2820', a: '0 0 .4 .8', op: .4 }) + k.bump({ f: .5, s: 1.5, op: .6 })); }) }
+  ]
+});
+
+/* ---------- concrete, plaster & clay ---------- */
+// a grid of tiles with grout; fn(x, y, s, i, j, r) paints one tile
+function bl_tiles(k, w, h, gap, grout, fn, o = {}) {
+  const r = rnd(o.seed || 5); let g = BG(grout);
+  for (let j = -1; j * h < 220; j++) for (let i = -1; i * w < 340; i++) {
+    const x = i * w + (o.bond && j % 2 ? w / 2 : 0) - 10, y = j * h - 10;
+    g += fn(x + gap / 2, y + gap / 2, w - gap, h - gap, i, j, r);
+  }
+  return g;
+}
+// a jittered grid of points joined into an irregular net of thin cracks (crazed glaze)
+function bl_craze(c, step, seed, w = .8, op = .6) {
+  const r = rnd(seed), P = [];
+  for (let j = 0; j < 220 / step + 2; j++) { P.push([]); for (let i = 0; i < 340 / step + 2; i++) P[j].push([i * step - 10 + (r() - .5) * step * .8, j * step - 10 + (r() - .5) * step * .8]); }
+  const seg = (a, b) => { const mx = (a[0] + b[0]) / 2 + (r() - .5) * step * .25, my = (a[1] + b[1]) / 2 + (r() - .5) * step * .25; return `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${mx.toFixed(1)} ${my.toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}`; };
+  let d = '';
+  for (let j = 0; j < P.length; j++) for (let i = 0; i < P[j].length; i++) {
+    if (i + 1 < P[j].length && r() > .15) d += seg(P[j][i], P[j][i + 1]);
+    if (j + 1 < P.length && r() > .15) d += seg(P[j][i], P[j + 1][i]);
+  }
+  return `<path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" opacity="${op}" stroke-linejoin="round"/>`;
+}
+pool.groups.push({
+  id: 'mineral', title: 'Concrete, plaster & clay', slot: 'Material',
+  intro: 'The poured, troweled and fired surfaces of buildings. The same grey can be raw board-formed concrete or a polished floor, and the same white can be chalky limewash or waxy tadelakt, so say how it was made.',
+  terms: [
+    { id: 'boardform', name: 'Board-formed concrete', aka: 'board-marked concrete, béton brut, raw concrete',
+      desc: 'Concrete poured against timber planks, so the wood grain and board seams are printed into the wall. It is the signature of Brutalism and of architects who want concrete to look made by hand.',
+      spot: 'grey concrete in horizontal bands the width of a plank, each with faint wood grain, joint lines and small air holes',
+      ref: 'Le Corbusier, the Barbican, Tadao Ando, Louis Kahn\'s Salk Institute, Peter Zumthor',
+      prompt: 'board-formed raw concrete wall with visible timber grain imprints, plank seams and small air pockets',
+      ex: pic(k => { let g = ''; for (let i = 0; i < 6; i++) { const y = -14 + i * 38; g += plank(k, -20, y, 360, 37, { base: '#9C9A95', dark: '#6E6C68', light: '#B9B7B1', f: '.003 .07', seed: 30 + i, op: .4, rep: 6, pores: .15 }) + R(-20, y + 36, 360, 1.6, '#55534F', 'opacity=".75"') + R(-20, y + 37.6, 360, 1, '#D0CEC8', 'opacity=".5"'); }
+        return swatch(k, g + k.noise({ f: .012, oct: 3, seed: 4, c: '#77756F', lin: [2.4, -1.1], op: .5 }) + k.noise({ f: .25, oct: 2, seed: 7, c: '#33322F', a: '0 0 0 0 0 0 0 0 1', t: 'discrete', op: .75 }) + k.bump({ f: .3, s: 1.6, op: .6 }), .3); }) },
+    { id: 'polished', name: 'Polished concrete', aka: 'ground concrete, burnished concrete floor',
+      desc: 'A concrete slab ground and sealed until it is smooth and softly reflective, often with small stones of aggregate showing through. It reads as galleries, lofts and calm retail.',
+      spot: 'a cloudy grey floor with tiny pebble flecks and soft, blurry reflections of windows and lights',
+      ref: 'art galleries, Apple stores, converted warehouses, modern kitchens',
+      prompt: 'polished concrete floor, mottled grey with exposed fine aggregate and soft blurred reflections',
+      ex: pic(k => swatch(k, BG('#8C8A86') + k.noise({ f: .008, oct: 4, seed: 3, c: '#B3B1AC', lin: [2.4, -1], op: .55 }) + k.noise({ f: .012, oct: 3, seed: 9, c: '#5E5C58', lin: [2.4, -1.3], op: .45 }) + k.noise({ f: .2, oct: 2, seed: 5, c: '#D9D6CF', a: '0 0 0 0 0 0 0 0 1', t: 'discrete', op: .8 }) + k.noise({ f: .24, oct: 2, seed: 11, c: '#3E3C38', a: '0 0 0 0 0 0 0 0 1', t: 'discrete', op: .7 }) + `<g ${k.blur('6 12')} opacity=".16">${R(70, 20, 40, 120, '#fff')}${R(130, 20, 40, 120, '#fff')}${R(190, 20, 40, 120, '#fff')}</g>`, .2)) },
+    { id: 'tadelakt', name: 'Tadelakt', aka: 'Moroccan lime plaster, polished plaster, Venetian plaster',
+      desc: 'Lime plaster troweled, burnished with a stone and sealed with soap until it is smooth and water-resistant, with soft cloudy tones and a waxy glow. It reads as hammams, spas and quiet luxury.',
+      spot: 'a seamless wall or basin with gentle cloudy color shifts, faint trowel arcs and a low, waxy sheen',
+      ref: 'Moroccan hammams and riads, boutique hotel bathrooms, Kelly Wearstler and Aesop interiors',
+      prompt: 'burnished tadelakt lime plaster in warm clay pink, seamless, soft cloudy tones and a waxy sheen',
+      ex: pic(k => { const r = rnd(8); let arcs = '';
+        for (let i = 0; i < 14; i++) { const x = r() * 320, y = r() * 200, s = 40 + r() * 70; arcs += Pth(`M${x - s} ${y} Q${x} ${y - s * .5} ${x + s} ${y + s * .1}`, 'none', `stroke="${r() > .5 ? '#F2DCCB' : '#B98C74'}" stroke-width="${(8 + r() * 14).toFixed(0)}" opacity=".35" stroke-linecap="round"`); }
+        return swatch(k, BG('#D3A88F') + k.noise({ f: .006, oct: 4, seed: 4, c: '#E8C7B2', lin: [2.4, -1], op: .6 }) + k.noise({ f: .01, oct: 3, seed: 12, c: '#A9765E', lin: [2.4, -1.2], op: .45 }) + `<g ${k.blur(6)}>${arcs}</g>` + E(110, 60, 120, 40, '#fff', `opacity=".22" ${k.blur(22)}`) + k.bump({ f: .5, s: .6, op: .25 }), .2); }) },
+    { id: 'limewash', name: 'Limewash', aka: 'lime paint, mineral paint, chalky wash',
+      desc: 'A thin mineral paint brushed on in overlapping strokes, so it dries into a soft, chalky cloud of lighter and darker patches. It makes plain walls look old, soft and sun-warmed.',
+      spot: 'completely matte walls with visible crisscross brush marks and a mottled, uneven tone',
+      ref: 'Mediterranean villas, Bauwerk and Kalklitir paints, Japandi bedrooms, Belgian farmhouses',
+      prompt: 'limewashed wall in warm stone white, chalky matte, soft mottled crisscross brush strokes',
+      ex: pic(k => { const r = rnd(14); let st = '';
+        for (let i = 0; i < 46; i++) { const x = r() * 360 - 20, y = r() * 220 - 10, a = (r() > .5 ? 1 : -1) * (25 + r() * 30), l = 50 + r() * 70; st += `<path d="M${x} ${y} l${l} 0" stroke="${r() > .5 ? '#EDE6DA' : '#B8AE9D'}" stroke-width="${(14 + r() * 26).toFixed(0)}" stroke-linecap="round" opacity="${(.3 + r() * .25).toFixed(2)}" transform="rotate(${a.toFixed(0)} ${x} ${y})"/>`; }
+        return swatch(k, BG('#D2C9BA') + k.noise({ f: .008, oct: 4, seed: 6, c: '#E6DFD3', lin: [2.2, -.9], op: .6 }) + `<g ${k.blur(5)}>${st}</g>` + k.noise({ f: .9, oct: 2, seed: 2, c: '#8C8270', a: '0 0 0 0 0 .5 1', op: .25 }) + k.bump({ f: .4, s: 1, op: .35 }), .15); }) },
+    { id: 'stucco', name: 'Stucco', aka: 'knockdown plaster, render, roughcast',
+      desc: 'A thick cement or lime render applied with a rough, blotchy texture. White stucco reads as Mediterranean and Spanish Colonial; sand-colored stucco reads as the American Southwest.',
+      spot: 'a white or sand wall covered in flattened splotches and small craters that catch raking light',
+      ref: 'Santorini, Spanish Revival homes in Los Angeles, Santa Fe adobe-style buildings, Luis Barragán',
+      prompt: 'rough white knockdown stucco wall, raking sunlight picking out the texture',
+      ex: pic(k => swatch(k, BG('#ECE6DA') + k.noise({ f: .05, oct: 3, seed: 3, c: '#FFFFFF', a: '0 0 0 0 0 1 1', t: 'discrete', op: .5 }) + k.bump({ f: .045, oct: 4, s: 7, op: .95, seed: 6, az: 200, el: 25 }) + k.bump({ f: .3, s: 1.5, op: .5, seed: 2 }), .35)) },
+    { id: 'terracotta', name: 'Terracotta tile', aka: 'Saltillo tile, cotto, quarry tile',
+      desc: 'Unglazed fired clay in warm orange and rust, each tile a slightly different shade. It reads as Tuscan farmhouses, Mexican haciendas and sunny kitchens.',
+      spot: 'square or hexagonal clay tiles in mixed oranges and pinks, matte and slightly powdery, with pale grout lines',
+      ref: 'Tuscan villas, Saltillo floors in Mexico, Provençal kitchens, flowerpots',
+      prompt: 'unglazed terracotta floor tiles in mixed rust and orange tones, matte, with pale grout',
+      ex: pic(k => swatch(k, bl_tiles(k, 68, 68, 4, '#CFC2AE', (x, y, w, h, i, j, r) => R(x, y, w, h, ['#B8592F', '#C76C3B', '#A64B28', '#CC7A45', '#B5603A'][Math.floor(r() * 5)], 'rx="2"'), { seed: 8 }) + k.noise({ f: .02, oct: 3, seed: 5, c: '#7A3216', lin: [2.4, -1.2], op: .45 }) + k.noise({ f: .8, oct: 2, seed: 4, c: '#E8B48A', a: '0 0 0 0 0 .6 1', op: .3 }) + k.bump({ f: .3, s: 1.8, op: .6 }), .25)) },
+    { id: 'zellige', name: 'Zellige', aka: 'Moroccan tile, handmade glazed tile',
+      desc: 'Small handmade Moroccan tiles with a thick, glassy glaze that pools unevenly, so every tile is a slightly different shade and catches the light differently. It reads as warm, crafted and current.',
+      spot: 'a grid of small glossy tiles whose color varies tile to tile, with wobbly edges and bright glints',
+      ref: 'Moroccan riads, Clé tile, café counters, current bathroom and kitchen backsplashes',
+      prompt: 'handmade green zellige tiles with uneven glossy glaze, tile-to-tile color variation and wavy edges',
+      ex: pic(k => { const g = bl_tiles(k, 46, 46, 3, '#EAE4D6', (x, y, w, h, i, j, r) => {
+          const c = ['#2F6B5A', '#3C7A66', '#26584A', '#4A8873', '#337060'][Math.floor(r() * 5)], a = ((r() - .5) * 3).toFixed(1);
+          return `<g transform="rotate(${a} ${x + w / 2} ${y + h / 2})">${R(x, y, w, h, c, 'rx="2"')}${R(x, y, w, h, k.rg([[0, '#9FD3BF', .55], [1, '#9FD3BF', 0]], r(), r(), .6), 'rx="2"')}${R(x, y + h * .7, w, h * .3, '#0A2A20', 'opacity=".25" rx="2"')}${E(x + w * (.25 + r() * .3), y + h * (.2 + r() * .3), 6, 3, '#fff', `opacity=".7" ${k.blur(1.5)}`)}</g>`;
+        }, { seed: 3 });
+        return g + R(-20, -20, 360, 240, k.lg([[0, '#fff', .18], [.5, '#fff', 0], [1, '#000', .2]], '0 0 1 1')); }) },
+    { id: 'crackleglaze', name: 'Crackle glaze', aka: 'crazed glaze, celadon crackle, raku',
+      desc: 'A ceramic glaze that has cracked into a fine web of lines as it cooled, often darkened with ink or smoke so the web shows. It reads as Song dynasty celadon, raku pottery and handmade tableware.',
+      spot: 'a smooth, glossy glaze covered in an irregular net of thin dark cracks',
+      ref: 'Song dynasty Ge ware, Japanese raku tea bowls, Heath Ceramics, artisan vases',
+      prompt: 'pale celadon crackle glaze with a fine web of dark crazing lines, glossy',
+      ex: pic(k => ball(k, kk => BG('#A8C4B0') + kk.noise({ f: .015, oct: 3, seed: 4, c: '#C9DCCB', lin: [2.4, -1], op: .6 }) + kk.noise({ f: .02, oct: 3, seed: 9, c: '#7FA08A', lin: [2.4, -1.3], op: .45 }) + bl_craze('#2E3E34', 26, 5, 1, .7) + bl_craze('#4E6656', 11, 9, .5, .45), { bg: ['#E6E1D7', '#B8B1A4'], floor: '#9A9284', gloss: .75, env: true, shade: .45 })) },
+    { id: 'brick', name: 'Brick', aka: 'red brick, exposed brick, running bond',
+      desc: 'Fired clay blocks laid in staggered rows with mortar between. Old red brick reads as warehouses, London and Brooklyn; painted or pale brick reads as Scandinavian or Dutch.',
+      spot: 'staggered rows of rectangular blocks in mixed reds and browns, with recessed grey mortar lines',
+      ref: 'converted warehouses, Victorian terraces, Dutch modernism, Brooklyn lofts',
+      prompt: 'exposed reclaimed red brick wall in running bond, mixed tones, recessed lime mortar',
+      ex: pic(k => swatch(k, bl_tiles(k, 64, 22, 3.5, '#B9AE9C', (x, y, w, h, i, j, r) => R(x, y, w, h, ['#8E3A26', '#A2472E', '#7A3022', '#B05A3C', '#6A2C20', '#9A4A34'][Math.floor(r() * 6)], 'rx="1.5"') + R(x, y, w, h, '#2A120A', `opacity="${(r() * .25).toFixed(2)}"`), { seed: 11, bond: 1 }) + k.noise({ f: .06, oct: 3, seed: 3, c: '#3A1A10', lin: [2.4, -1.2], op: .4 }) + k.noise({ f: .5, oct: 2, seed: 8, c: '#D9A080', a: '0 0 0 0 0 .5 1', op: .3 }) + k.bump({ f: .25, s: 2, op: .7, seed: 4 }), .3)) }
+  ]
+});
+
+/* ---------- metals ---------- */
+// sky above, dark ground below: what a shiny sphere reflects
+const bl_env = (k, sky, ground, hz = 96) => R(-20, -20, 360, hz + 20, k.lg([[0, sky[0]], [1, sky[1]]])) + R(-20, hz, 360, 240 - hz, k.lg([[0, ground[0]], [1, ground[1]]]));
+const bl_screw = (k, x, y) => C(x, y, 6, k.lg([[0, '#F2F2F2'], [1, '#6E7276']], '0 0 1 1')) + C(x, y, 6, 'none', 'stroke="#4A4E52" stroke-width=".8"') + Pth(`M${x - 4} ${y} H${x + 4} M${x} ${y - 4} V${y + 4}`, 'none', 'stroke="#3A3E42" stroke-width="1.3"');
+pool.groups.push({
+  id: 'metal', title: 'Metals', slot: 'Material',
+  intro: 'A metal is its color plus how it was finished. Steel can be brushed, mirror-polished, blackened or left to rust, and each says something different, so name both.',
+  terms: [
+    { id: 'brushed', name: 'Brushed steel', aka: 'brushed stainless, brushed aluminum, satin metal',
+      desc: 'Metal sanded in one direction so it has fine parallel lines and a soft, streaky shine instead of a mirror. It reads as appliances, tools and precise engineering.',
+      spot: 'a silver surface with tiny straight lines all going one way and a highlight stretched along them',
+      ref: 'Braun and Dieter Rams products, Sub-Zero fridges, MacBook aluminum, elevator doors',
+      prompt: 'brushed stainless steel with fine linear grain and soft streaked highlights',
+      ex: pic(k => R(-20, -20, 360, 240, k.lg([[0, '#8A8E93'], [.28, '#D4D7DA'], [.45, '#A3A7AC'], [.72, '#E3E5E7'], [1, '#777B80']])) + k.noise({ f: '.002 .9', oct: 2, seed: 3, c: '#FFFFFF', lin: [2.2, -1], op: .55 }) + k.noise({ f: '.003 .7', oct: 2, seed: 8, c: '#3A3E42', lin: [2.2, -1.1], op: .5 }) + R(-20, 60, 360, 34, '#fff', `opacity=".3" ${k.blur('40 6')}`) + bl_screw(k, 26, 26) + bl_screw(k, 294, 26) + bl_screw(k, 26, 174) + bl_screw(k, 294, 174)) },
+    { id: 'chrome', name: 'Polished chrome', aka: 'mirror chrome, chrome plating, mirror-polished steel',
+      desc: 'A mirror-bright plated finish that reflects everything around it, with hard edges between light and dark. It reads as 1950s cars, faucets, motorcycles and Y2K.',
+      spot: 'no color of its own, only sharp reflections of sky and ground with a crisp horizon line',
+      ref: 'classic car bumpers, bathroom taps, Harley-Davidson, Jeff Koons, Y2K graphics',
+      prompt: 'mirror-polished chrome with crisp, high-contrast reflections of sky and horizon',
+      ex: pic(k => ball(k, kk => bl_env(kk, ['#5E86B8', '#E9F1FA'], ['#4A3E34', '#0E0C0A'], 98) + R(-20, 96, 360, 3, '#fff', 'opacity=".9"'), { bg: ['#E6EAEE', '#AEB5BD'], floor: '#8B939C', gloss: 1, env: true, shade: .25, rim: .1 })) },
+    { id: 'brass', name: 'Brass', aka: 'polished brass, unlacquered brass, satin brass',
+      desc: 'A warm yellow metal. Polished it reads as hotel lobbies and old ships; unlacquered it darkens and softens with handling, which is why designers love it.',
+      spot: 'a golden metal, warmer and more yellow than gold, with soft warm reflections',
+      ref: 'hotel lobby fittings, ship instruments, Art Deco lamps, deVOL and Buster + Punch hardware',
+      prompt: 'polished brass with warm golden reflections',
+      ex: pic(k => ball(k, kk => `<g ${kk.blur(4)}>` + bl_env(kk, ['#8A6420', '#FFF0B4'], ['#7A5414', '#3A2808'], 100) + R(-20, 98, 360, 4, '#FFF6D0', 'opacity=".6"') + '</g>', { bg: ['#3A3128', '#1C1712'], floor: '#000', gloss: .78, env: true, spec: '#FFF4D2', shade: .5, rim: .15 })) },
+    { id: 'copper', name: 'Copper', aka: 'polished copper, raw copper, rose metal',
+      desc: 'A pinkish orange metal that glows warm when polished and darkens to brown, then green, with age. It reads as kitchens, distilleries and warm industrial.',
+      spot: 'a salmon-orange metal with rosy reflections, sometimes with darker brown patches where it has been touched',
+      ref: 'Mauviel copper pans, whisky stills, Tom Dixon pendant lamps, Moscow mule mugs',
+      prompt: 'polished copper with rosy orange reflections and slight warm tarnish',
+      ex: pic(k => ball(k, kk => `<g ${kk.blur(4)}>` + bl_env(kk, ['#7A2E14', '#F8BE98'], ['#A04A26', '#4A1A08'], 100) + '</g>' + kk.noise({ f: .03, oct: 3, seed: 4, c: '#4A1C0A', lin: [2.6, -1.5], op: .5 }), { bg: ['#EDE3D6', '#B9AB98'], floor: '#9C8C78', gloss: .7, env: true, spec: '#FFE2CC', shade: .45, rim: .15 })) },
+    { id: 'blackened', name: 'Blackened steel', aka: 'hot-rolled steel, mill scale, waxed steel',
+      desc: 'Steel left dark and mottled from the mill or darkened with chemicals, then waxed. It has blue-grey and brown clouds in it and reads as workshops, restaurants and moody modern design.',
+      spot: 'a dark charcoal metal with cloudy blue and brown patches and a soft, low sheen',
+      ref: 'restaurant bar tops, steel-framed windows, fireplace surrounds, Japanese knife blades',
+      prompt: 'waxed blackened hot-rolled steel, dark charcoal with blue-grey mill scale mottling and a low sheen',
+      ex: pic(k => swatch(k, BG('#26282B') + k.noise({ f: .006, oct: 4, seed: 3, c: '#40536A', lin: [2.6, -1.2], op: .55 }) + k.noise({ f: .009, oct: 4, seed: 9, c: '#5A4632', lin: [2.6, -1.5], op: .45 }) + k.noise({ f: '.003 .12', oct: 3, seed: 5, c: '#8C9298', lin: [2.6, -1.6], op: .35 }) + R(-20, 50, 360, 40, '#fff', `opacity=".1" ${k.blur('40 10')}`) + k.bump({ f: .5, s: .8, op: .3 }), .25)) },
+    { id: 'corten', name: 'Corten steel', aka: 'weathering steel, COR-TEN, rusted steel panel',
+      desc: 'A steel made to rust on purpose: the rust layer protects the metal underneath and turns a rich, even orange-brown. It reads as landscape architecture, wineries and serious sculpture.',
+      spot: 'large flat panels in a deep, velvety rust brown with orange patches, no flaking',
+      ref: 'Richard Serra sculptures, the Angel of the North, garden planters, Barclays Center',
+      prompt: 'Corten weathering steel panels with a deep, even orange-brown rust patina',
+      ex: pic(k => swatch(k, BG('#7E3618') + k.noise({ f: .01, oct: 4, seed: 4, c: '#C4652C', lin: [2.6, -1.1], op: .6 }) + k.noise({ f: .02, oct: 4, seed: 10, c: '#3E160A', lin: [2.6, -1.4], op: .5 }) + k.noise({ f: .4, oct: 2, seed: 6, c: '#E08A4A', a: '0 0 0 0 0 0 .6 1', op: .35 }) + k.noise({ f: '.2 .004', oct: 2, seed: 3, c: '#4A1A08', lin: [3, -1.9], op: .35 }) + R(158, -20, 3, 240, '#2A0E04', 'opacity=".7"') + R(161, -20, 1.5, 240, '#C27040', 'opacity=".4"') + k.bump({ f: .2, s: 2, op: .6 }), .25)) },
+    { id: 'hammered', name: 'Hammered metal', aka: 'hand-hammered copper, planished, martelé',
+      desc: 'Metal shaped by hand with a hammer, leaving a surface of small overlapping dents that each catch their own highlight. It reads as handmade, artisanal and a little rustic.',
+      spot: 'a shiny surface covered in small round facets, each with a bright glint',
+      ref: 'hammered copper sinks and mugs, Moroccan trays, Georg Jensen silver, Arts and Crafts pieces',
+      prompt: 'hand-hammered copper with overlapping dimpled facets catching small highlights',
+      ex: pic(k => { const r = rnd(6); let d = ''; for (let j = -1; j < 12; j++) for (let i = -1; i < 18; i++) { const x = i * 20 + (j % 2 ? 10 : 0) + (r() - .5) * 8, y = j * 18 + (r() - .5) * 8, s = 13 + r() * 4; d += C(x, y, s, k.rg([[0, '#FFE2C4', .85], [.3, '#E89A6A', .2], [.65, '#5A2410', .25], [1, '#2A0E04', .55]], .66, .7, .7)); }
+        return swatch(k, R(-20, -20, 360, 240, k.lg([[0, '#D98A5A'], [.5, '#A9542C'], [1, '#6A2E14']], '0 0 1 1')) + `<g ${k.blur(.8)}>${d}</g>` + k.noise({ f: .02, oct: 3, seed: 7, c: '#3A1406', lin: [2.4, -1.4], op: .35 }), .2); }) },
+    { id: 'anodized', name: 'Anodized aluminum', aka: 'colored aluminum, anodised metal',
+      desc: 'Aluminum given a hard, dyed surface layer, so it keeps a metallic shimmer in saturated color. It reads as carabiners, bike parts, iPods and tech accessories.',
+      spot: 'bright colored metal, satin rather than mirror, with a fine metallic sparkle under the color',
+      ref: 'iPod mini, climbing carabiners, bike components, Dyson parts, flashlight bodies',
+      prompt: 'satin anodized aluminum in cobalt blue with a fine metallic sheen',
+      ex: pic(k => ball(k, kk => `<g ${kk.blur(4)}>` + bl_env(kk, ['#1A3E9A', '#8EB4FF'], ['#1E3C8E', '#0A1640'], 100) + '</g>' + kk.noise({ f: '.003 .9', oct: 2, seed: 3, c: '#C8D8FF', lin: [2, -1], op: .4 }), { bg: ['#DAD9D6', '#A6A49F'], floor: '#8A8882', gloss: .5, env: true, spec: '#E2EAFF', shade: .5 })) },
+    { id: 'galvanized', name: 'Galvanized steel', aka: 'zinc spangle, hot-dip galvanized, zinc',
+      desc: 'Steel dipped in molten zinc, which cools into a pattern of crystal patches called spangle. It reads as farm buckets, ducting, garden planters and utility.',
+      spot: 'a dull silver-grey surface broken into irregular patches of slightly different shine',
+      ref: 'watering cans, farm buckets, roof ducting, cattle troughs used as planters',
+      prompt: 'hot-dip galvanized steel with a crystalline zinc spangle pattern',
+      ex: pic(k => swatch(k, BG('#A3A9AE') + k.noise({ f: .03, oct: 1, seed: 3, c: '#CBD0D4', a: '0 0 0 0 1 1 0 0 0', t: 'discrete', op: .8 }) + k.noise({ f: .035, oct: 1, seed: 8, c: '#868D93', a: '0 0 0 1 0 0 1 0 0', t: 'discrete', op: .7 }) + k.noise({ f: .028, oct: 2, seed: 14, c: '#BAC0C5', a: '0 0 0 0 0 1 0 1 0', t: 'discrete', op: .6 }) + k.noise({ f: '.01 .5', oct: 2, seed: 5, c: '#ffffff', lin: [2, -1], op: .25 }) + R(-20, 40, 360, 50, '#fff', `opacity=".15" ${k.blur('40 12')}`), .25)) }
+  ]
+});
+
+/* ---------- glass, plastic & rubber ---------- */
+const bl_bars = (x2 = '') => `<g ${x2}>${[...Array(13)].map((_, i) => R(-20 + i * 30, -20, 15, 240, ['#2C3E50', '#C8553D', '#2C3E50'][i % 3])).join('')}</g>`;
+const bl_blobs = (k) => C(80, 70, 46, '#F08A3C') + C(170, 120, 52, '#3E7CC8') + C(250, 60, 38, '#E64C7A') + R(40, 140, 110, 30, '#2E9A6A', 'rx="15"') + C(290, 150, 30, '#F2C53D');
+pool.groups.push({
+  id: 'synth', title: 'Glass, plastic & rubber', slot: 'Material',
+  intro: 'Manufactured surfaces that light passes through, bounces off or soaks into. With glass and acrylic, describe what happens to the things behind them: sharp, blurred, ribbed or colored.',
+  terms: [
+    { id: 'glass', name: 'Clear glass', aka: 'optical glass, crystal, borosilicate',
+      desc: 'Transparent and smooth, so you see it mostly through what it does to the world behind it: bent, flipped and edged with dark rims and bright glints.',
+      spot: 'the background seen through the object, flipped or squeezed, with dark edges and small sharp highlights',
+      ref: 'perfume bottles, laboratory glassware, Iittala vases, crystal paperweights',
+      prompt: 'clear optical glass with sharp refraction, dark edges and crisp specular highlights',
+      ex: pic(k => { const cl = k.clip('<circle cx="160" cy="92" r="64"/>'), scene = bl_bars('opacity=".85"') + R(-20, 150, 360, 70, '#D7D0C4');
+        return BG('#EEEAE2') + scene + E(172, 160, 62, 9, '#000', `opacity=".22" ${k.blur(6)}`) + E(152, 162, 22, 4, '#FFF8E8', `opacity=".9" ${k.blur(2.5)}`) +
+          `<g ${cl}>${BG('#EEEAE2')}<g transform="translate(160 92) scale(-1.7 -1.3) translate(-160 -92)">${scene}</g>${C(160, 92, 64, k.rg([[.62, '#fff', 0], [.9, '#1A2228', .45], [1, '#0A0E12', .8]]))}${E(134, 62, 13, 8, '#fff', 'opacity=".95"')}${E(192, 128, 5, 3, '#fff', 'opacity=".8"')}</g>`; }) },
+    { id: 'frosted', name: 'Frosted glass', aka: 'acid-etched glass, sandblasted glass, satin glass',
+      desc: 'Glass etched or sandblasted to a fine matte surface, so light comes through but shapes behind it melt into soft blurs. It reads as privacy, calm and clean modern design.',
+      spot: 'a milky panel where anything behind is only a soft colored glow',
+      ref: 'bathroom partitions, Apple Store stair panels, frosted perfume bottles, iOS blur backgrounds',
+      prompt: 'frosted acid-etched glass panel, objects behind it softened into blurred glowing shapes',
+      ex: pic(k => { const cl = k.clip('<rect x="150" y="-20" width="190" height="240"/>');
+        return BG('#F2EFE9') + bl_blobs(k) + `<g ${cl}>${BG('#F2EFE9')}<g ${k.blur(9)}>${bl_blobs(k)}</g>${BG('#FFFFFF').replace('/>', ' opacity=".42"/>')}${k.noise({ f: .9, oct: 2, seed: 2, c: '#FFFFFF', a: '0 0 0 .4 .8', op: .4 })}</g>` + R(148, -20, 2, 240, '#FFFFFF') + R(150, -20, 1, 240, '#9AA0A6', 'opacity=".6"'); }) },
+    { id: 'reeded', name: 'Reeded glass', aka: 'fluted glass, ribbed glass, cathedral reeded',
+      desc: 'Glass with a row of vertical ribs, so whatever is behind it splits into narrow repeating slices. It is everywhere in current interiors, from cabinet doors to shower screens.',
+      spot: 'vertical stripes where the scene behind is chopped into thin, repeated, slightly stretched slivers',
+      ref: 'Art Deco doors, café partitions, kitchen cabinet fronts, current hotel bathrooms',
+      prompt: 'reeded fluted glass with vertical ribs fragmenting the colors behind it into slivers',
+      ex: pic(k => { let g = BG('#EDE7DB'); const w = 16;
+        for (let x = -20; x < 340; x += w) { const cx = x + w / 2; g += `<g ${k.clip(`<rect x="${x}" y="-20" width="${w}" height="240"/>`)}>${BG('#EDE7DB')}<g transform="translate(${cx} 0) scale(.35 1) translate(${-cx} 0)">${bl_blobs(k)}</g>${R(x, -20, w, 240, k.lg([[0, '#000', .22], [.35, '#fff', .35], [.6, '#fff', 0], [1, '#000', .28]], 'h'))}</g>`; }
+        return `<g ${k.blur(.6)}>${g}</g>`; }) },
+    { id: 'dichroic', name: 'Dichroic glass', aka: 'color-shift glass, rainbow film, iridescent acrylic',
+      desc: 'Glass or acrylic coated with thin metal layers, so it reflects one color and lets another through, shifting as you move. It reads as futuristic, festival and luxury retail.',
+      spot: 'clear panels that glow cyan, magenta and gold, with colored light spilling onto nearby surfaces',
+      ref: 'Olafur Eliasson installations, Chanel store windows, festival stages, Gentle Monster stores',
+      prompt: 'dichroic glass panels shifting from cyan to magenta to gold, casting colored light',
+      ex: pic(k => { const pan = (x, y, w, h, a, stops) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${k.lg(stops, '0 0 1 1')}" opacity=".8" transform="rotate(${a} ${x + w / 2} ${y + h / 2})" style="mix-blend-mode:screen" stroke="#fff" stroke-opacity=".7" stroke-width="1.2"/>`;
+        return BG('#0E1116') + E(170, 175, 140, 18, k.lg([[0, '#00D1FF'], [.5, '#FF2FB0'], [1, '#FFC23A']], 'h'), `opacity=".45" ${k.blur(10)}`) + pan(50, 20, 110, 140, -8, [[0, '#00E5FF'], [.5, '#3A6BFF'], [1, '#FF3DC8']]) + pan(130, 34, 110, 130, 6, [[0, '#FF2FB0'], [.5, '#FFB13A'], [1, '#FFF26A']]) + pan(196, 14, 90, 140, -3, [[0, '#7CFFB2'], [.5, '#00C2FF'], [1, '#B04BFF']]); }) },
+    { id: 'acrylic', name: 'Colored acrylic', aka: 'Perspex, Plexiglas, translucent acrylic',
+      desc: 'Clear plastic sheet in transparent candy colors. Where pieces overlap the colors mix, and the cut edges glow brighter than the faces. It reads as playful, 1970s and design-fair.',
+      spot: 'see-through colored shapes with bright glowing edges and mixed colors where they overlap',
+      ref: 'Kartell furniture, Memphis-era design, Sabine Marcelis, acrylic display risers',
+      prompt: 'transparent colored acrylic sheets overlapping, glowing cut edges and colored shadows',
+      ex: pic(k => { const sh = [['M40 40 h120 v110 h-120Z', '#FF4F86'], ['M150 44 a58 58 0 1 0 0.1 0Z', '#FFC21A'], ['M170 30 h110 v80 h-110Z', '#2CA8FF']];
+        return BG('#F3F1EC') + `<g ${k.blur(6)} transform="translate(14 16)" opacity=".35">${sh.map(([d, c]) => Pth(d, c)).join('')}</g>` + `<g style="isolation:isolate">${sh.map(([d, c]) => Pth(d, c, `opacity=".62" style="mix-blend-mode:multiply" stroke="${c}" stroke-width="3"`)).join('')}</g>` + sh.map(([d]) => Pth(d, 'none', 'stroke="#fff" stroke-width="1" opacity=".8"')).join(''); }) },
+    { id: 'abs', name: 'Glossy plastic', aka: 'ABS, injection-molded plastic, toy plastic',
+      desc: 'Hard, smooth, evenly colored plastic with a bright, wet-looking highlight. It reads as toys, consumer electronics and Pop design.',
+      spot: 'one flat saturated color with a crisp white highlight and no texture at all',
+      ref: 'LEGO bricks, Braun alarm clocks, Nintendo consoles, Vitra Panton chairs',
+      prompt: 'glossy injection-molded ABS plastic in tomato red, smooth with a crisp highlight',
+      ex: pic(k => ball(k, kk => BG('#D9262E') + R(-20, 120, 360, 100, '#8A0E14', 'opacity=".35"'), { bg: ['#F4EEE4', '#D9CFC0'], floor: '#C7BBA8', gloss: .88, env: true, shade: .55, rim: .12 })) },
+    { id: 'recycled', name: 'Recycled plastic', aka: 'speckled recycled plastic, Smile Plastics, marbled HDPE',
+      desc: 'Sheets pressed from shredded plastic waste, so the surface is a confetti of colored flecks and smears. It reads as sustainable, playful and current.',
+      spot: 'a pale or colored base full of irregular multicolored chips and swirls, like terrazzo made of plastic',
+      ref: 'Smile Plastics, Snøhetta furniture, Pentatonic, recycled plastic chopping boards',
+      prompt: 'recycled plastic sheet with colorful speckled and swirled flecks, satin finish',
+      ex: pic(k => swatch(k, BG('#E8E3DA') + `<g ${k.warp(22, .012, 1, 6)}>${k.noise({ f: .07, oct: 2, seed: 3, c: '#2F6FD0', a: '0 0 0 0 0 0 0 1 1 1', t: 'discrete', op: .9 })}${k.noise({ f: .07, oct: 2, seed: 9, c: '#F05A3A', a: '0 0 0 0 0 0 0 1 1 1', t: 'discrete', op: .9 })}${k.noise({ f: .09, oct: 2, seed: 15, c: '#2E9A5E', a: '0 0 0 0 0 0 0 1 1 1', t: 'discrete', op: .9 })}${k.noise({ f: .1, oct: 2, seed: 21, c: '#1A1A1A', a: '0 0 0 0 0 0 0 0 1 1', t: 'discrete', op: .9 })}${k.noise({ f: .08, oct: 2, seed: 27, c: '#F7C531', a: '0 0 0 0 0 0 0 1 1 1', t: 'discrete', op: .9 })}</g>` + E(110, 50, 110, 30, '#fff', `opacity=".25" ${k.blur(18)}`), .15)) },
+    { id: 'rubber', name: 'Rubber', aka: 'studded rubber flooring, silicone, matte rubber',
+      desc: 'A soft, matte, slightly dusty surface that soaks up light. Studded rubber flooring reads as gyms, transit and industrial; smooth silicone reads as kitchen tools and tech.',
+      spot: 'deep matte black or grey with almost no reflection, often with raised round studs',
+      ref: 'Pirelli studded flooring, gym floors, subway stairs, Muji silicone goods',
+      prompt: 'matte black studded rubber flooring with raised round dots',
+      ex: pic(k => { let st = ''; for (let j = -1; j < 8; j++) for (let i = -1; i < 12; i++) st += C(i * 30 + (j % 2 ? 15 : 0) + 8, j * 28 + 14, 9.5, '#3A3C40');
+        return swatch(k, BG('#26282B') + st + `<g ${k.relief({ s: 5, blur: 1.6, el: 40 })} style="mix-blend-mode:overlay">${st}</g>` + k.noise({ f: .9, oct: 2, seed: 3, c: '#7A7E84', a: '0 0 0 0 .4 .8', op: .25 }), .35); }) },
+    { id: 'carbon', name: 'Carbon fiber', aka: 'carbon twill, CFRP, forged carbon',
+      desc: 'Woven carbon cloth set in glossy resin, so you see a checkerboard of tiny weave blocks that flicker light and dark as you tilt it. It reads as supercars, racing bikes and high-end tech.',
+      spot: 'a black, glossy surface with a diagonal checker of small woven squares under a clear coat',
+      ref: 'Formula 1 cars, Pagani and McLaren interiors, racing bike frames, premium watch dials',
+      prompt: 'glossy 2x2 twill carbon fiber weave under a deep clear coat',
+      ex: pic(k => { const a = k.lg([[0, '#0C0D0F'], [.5, '#4A4E55'], [1, '#0C0D0F']], 'h'), b = k.lg([[0, '#0C0D0F'], [.5, '#2A2D32'], [1, '#0C0D0F']], 'v');
+        const p = k.pattern(16, 16, R(0, 0, 8, 8, a) + R(8, 8, 8, 8, a) + R(8, 0, 8, 8, b) + R(0, 8, 8, 8, b), 'patternTransform="rotate(45)"');
+        return R(-20, -20, 360, 240, p) + R(-20, -20, 360, 240, k.lg([[0, '#fff', 0], [.42, '#fff', 0], [.5, '#fff', .32], [.58, '#fff', 0], [1, '#fff', 0]], '0 0 1 1')) + k.vignette(.5); }) }
+  ]
+});
+
+/* ---------- sheen ---------- */
+// a studio sweep without a sphere, so several spheres can share one stage
+const fn_stage = (k, bg = ['#DAD7D0', '#A9A59C'], floor = '#8C887F') => R(-20, -20, 360, 240, k.lg([[0, bg[0]], [1, bg[1]]])) + R(-20, 150, 360, 70, floor, 'opacity=".35"');
+// one sphere with the same shading model as ball(), minus the backdrop
+function fn_sph(k, tex, o = {}) {
+  const { cx = 160, cy = 92, r = 66, gloss = .3, spec = '#fff', env = false, shade = .55, rim = .25, rimc = '#fff', specOp } = o;
+  let g = E(cx + r * .12, cy + r + 4, r * .95, r * .14, '#000', `opacity=".45" ${k.blur(r * .1)}`);
+  g += `<g ${k.clip(`<circle cx="${cx}" cy="${cy}" r="${r}"/>`)}>${tex(k)}`;
+  g += C(cx, cy, r, k.rg([[0, '#000', 0], [.55, '#000', shade * .25], [1, '#000', shade]], .36, .3, .78));
+  g += C(cx, cy, r, k.rg([[.7, rimc, 0], [1, rimc, rim]], .5, .5, .5));
+  const s = r / 66;
+  if (env) { const bl = gloss > .7 ? '' : k.blur((1 - gloss) * 6 * s); g += `<g opacity="${.25 + gloss * .6}">${Pth(`M${cx - r} ${cy + 8 * s} Q${cx} ${cy + 22 * s} ${cx + r} ${cy + 8 * s} L${cx + r} ${cy + r} L${cx - r} ${cy + r}Z`, '#000', 'opacity=".35"')}${R(cx - 40 * s, cy - 52 * s, 26 * s, 30 * s, spec, `rx="${5 * s}" ${bl}`)}${R(cx - 10 * s, cy - 52 * s, 10 * s, 30 * s, spec, `rx="${3 * s}" opacity=".7" ${bl}`)}</g>`; }
+  const hs = (6 + (1 - gloss) * 30) * s, hb = (1 + (1 - gloss) * 14) * s;
+  g += E(cx - r * .38, cy - r * .42, hs, hs * .7, spec, `opacity="${(specOp ?? (.15 + gloss * .8)).toFixed(2)}" ${k.blur(hb)}`);
+  return g + '</g>';
+}
+const fn_lab = (x, y, t, c = '#2A2A2A') => T(x, y, t, { ff: 'IBM Plex Mono, monospace', fs: 11, fw: 500, c, ls: .5 });
+const FN_BLUE = '#2F5683';
+const fn_solid = c => kk => BG(c);
+
+pool.groups.push({
+  id: 'sheen', title: 'Sheen', slot: 'Finish',
+  intro: 'How much a surface reflects, from chalky flat to mirror. Painters and furniture makers use a fixed ladder of names, and naming the step stops an image model from guessing gloss from the material.',
+  terms: [
+    { id: 'matte', name: 'Matte', aka: 'flat, dead flat, chalky',
+      desc: 'A surface that scatters light evenly and shows no shine at all. It reads as calm, soft and modern, and it hides small dents and fingerprints.',
+      spot: 'no highlight, just a gentle fall from light to shadow, color looks slightly deeper and dustier',
+      ref: 'chalk paint, Farrow & Ball walls, matte-black kitchen taps, ceramic stoneware',
+      prompt: 'dead-flat matte finish with no reflections, soft even shading',
+      ex: pic(k => fn_stage(k) + fn_sph(k, fn_solid(FN_BLUE), { gloss: 0, specOp: .03, rim: .04, shade: .5 }), undefined, tag('0–5% gloss')) },
+    { id: 'eggshell', name: 'Eggshell', aka: 'low sheen, low lustre',
+      desc: 'Just a hint of sheen, like the shell of an egg. It is the default finish for walls because it wipes clean without looking shiny.',
+      spot: 'a broad, faint, blurry glow where the light hits, with no sharp highlight',
+      ref: 'living room walls, hotel corridors, painted cabinetry',
+      prompt: 'eggshell finish with a faint soft sheen',
+      ex: pic(k => fn_stage(k) + fn_sph(k, fn_solid(FN_BLUE), { gloss: .28, specOp: .38, rim: .1 }), undefined, tag('10–25% gloss')) },
+    { id: 'satin', name: 'Satin', aka: 'semi-matte, silk finish',
+      desc: 'A soft, pearly sheen halfway between matte and gloss. It reads as quality without flash, and it is common on woodwork, appliances and furniture.',
+      spot: 'a clear but soft-edged highlight, reflections are blurred into a glow',
+      ref: 'painted trim and doors, satin-finish furniture, Dyson and Braun appliances',
+      prompt: 'satin finish with a soft, blurred highlight',
+      ex: pic(k => ball(k, fn_solid(FN_BLUE), { gloss: .5, env: true, rim: .15 }), undefined, tag('35–50% gloss')) },
+    { id: 'gloss', name: 'High gloss', aka: 'gloss, glossy, polished',
+      desc: 'A hard, shiny surface that shows crisp highlights and blurry reflections of the room. It reads as bold, wipe-clean and a little pop.',
+      spot: 'a small bright highlight with a defined edge and visible window reflections',
+      ref: 'gloss front doors, glazed ceramics, Smeg fridges, toy packaging',
+      prompt: 'high-gloss finish with crisp highlights and clear reflections',
+      ex: pic(k => ball(k, fn_solid(FN_BLUE), { gloss: .8, env: true, rim: .2 }), undefined, tag('70–90% gloss')) },
+    { id: 'lacquer', name: 'Piano lacquer', aka: 'piano black, mirror lacquer, urushi',
+      desc: 'Many coats of lacquer sanded and polished until the surface is a perfect mirror. In black it reads as grand pianos, luxury cars and Japanese urushi ware.',
+      spot: 'deep black with razor-sharp reflections of windows and lights, no texture at all',
+      ref: 'Steinway pianos, urushi bowls, luxury car trim, Bang & Olufsen speakers',
+      prompt: 'piano-black mirror lacquer with deep, razor-sharp reflections',
+      ex: pic(k => ball(k, fn_solid('#08090B'), { gloss: 1, env: true, rim: .3, shade: .4, bg: ['#E8E5DF', '#B9B4AA'] }), undefined, tag('mirror')) },
+    { id: 'softtouch', name: 'Soft-touch', aka: 'rubberized coating, velvet touch, peach skin',
+      desc: 'A rubbery coating that looks matte and a little velvety and feels warm in the hand. It reads as tech accessories and premium packaging.',
+      spot: 'very low, powdery sheen with no sharp highlight, slightly lighter at the edges where the coating catches light',
+      ref: 'old ThinkPads, Kindle backs, soft-touch laminated boxes, camera grips',
+      prompt: 'soft-touch rubberized matte coating with a velvety, powdery sheen',
+      ex: pic(k => fn_stage(k) + fn_sph(k, kk => BG('#2A2B2E') + kk.noise({ f: .9, oct: 2, seed: 4, c: '#5A5C60', lin: [1.4, -.4], op: .25 }), { gloss: .05, specOp: .12, spec: '#C8CCD2', rim: .32, rimc: '#9AA0A8', shade: .6 })) },
+    { id: 'pearl', name: 'Pearlescent', aka: 'mother-of-pearl, nacre, pearl white',
+      desc: 'A white or pale surface that shifts toward pink, green and violet as it turns. It reads as cosmetics, wedding stationery and special-edition cars.',
+      spot: 'a soft white with faint rainbow tints that change across the curve',
+      ref: 'nail polish, pearl-white Lexus paint, shell buttons, beauty packaging',
+      prompt: 'pearlescent white finish with soft pink and green iridescent shifts',
+      ex: pic(k => ball(k, kk => BG('#F0ECE6') + R(-20, -20, 360, 240, kk.lg([[0, '#F7D3E8', .9], [.4, '#FFFFFF', 0], [.65, '#C9EEDD', .8], [1, '#D2C6F2', .9]], '0 0 1 1')) + kk.noise({ f: .01, oct: 2, seed: 6, c: '#E6C2F0', lin: [2, -.7], op: .5 }), { gloss: .7, env: true, rim: .55, rimc: '#E2CFF4', shade: .3, bg: ['#5C5A66', '#2E2C34'], floor: '#000' })) },
+    { id: 'flake', name: 'Metallic flake', aka: 'metallic paint, candy paint, metalflake',
+      desc: 'Paint with tiny aluminium flakes suspended under a clear coat, so it sparkles in the light and glows deeper in shadow. It reads as cars, guitars and custom bikes.',
+      spot: 'a fine glitter of sparks across the color, brighter where the light hits',
+      ref: 'candy-apple red hot rods, Gretsch guitars, metallic car paint, bowling balls',
+      prompt: 'candy-apple red metallic flake paint under a glossy clear coat, fine sparkles',
+      ex: pic(k => ball(k, kk => BG('#7E0A12') + R(-20, -20, 360, 240, kk.rg([[0, '#E0303A'], [1, '#7E0A12', 0]], .35, .3, .5)) + kk.noise({ f: .9, oct: 1, seed: 3, c: '#FFC0B0', a: '0 0 0 0 0 0 0 0 0 1', t: 'discrete', op: .9 }) + kk.noise({ f: .9, oct: 1, seed: 11, c: '#FFFFFF', a: '0 0 0 0 0 0 0 0 0 0 0 1', t: 'discrete', op: .9 }), { gloss: .9, env: true, rim: .2, bg: ['#3A3634', '#1A1816'], floor: '#000' })) }
+  ]
+});
+
+/* ---------- surface treatments ---------- */
+const FN_CHROME = [[0, '#2A2E33'], [.36, '#F4F6F8'], [.5, '#6B7178'], [.53, '#2B2F34'], [.72, '#A6ADB4'], [1, '#E5E8EB']];
+pool.groups.push({
+  id: 'treat', title: 'Surface treatments', slot: 'Finish',
+  intro: 'What was done to a surface after it was made: blasted, coated, burned, oiled or gilded. These words carry a trade with them, so they also tell the image model who made the thing.',
+  terms: [
+    { id: 'sandblasted', name: 'Sandblasted', aka: 'bead-blasted, frosted metal, grit-blasted',
+      desc: 'A surface hit with fine grit until it turns an even, satin-grey frost. On metal it reads as precision hardware; on glass it makes a frosted logo.',
+      spot: 'an even, fine, sparkly-grey texture with no reflections, often next to a polished area',
+      ref: 'bead-blasted MacBook and iPhone frames, titanium watches, frosted glass shopfronts',
+      prompt: 'bead-blasted aluminium with a fine, even satin-grey frost',
+      ex: pic(k => R(-20, -20, 360, 240, k.lg(FN_CHROME)) + `<g ${k.clip('<path d="M150 -20 L340 -20 L340 220 L90 220Z"/>')}>${BG('#A7ABAF')}${R(-20, -20, 360, 240, k.lg([[0, '#C9CDD1'], [1, '#868B90']]))}${k.noise({ f: 1.1, oct: 2, seed: 3, c: '#FFFFFF', a: '0 0 0 0 0 .6 1', op: .5 })}${k.noise({ f: 1.1, oct: 2, seed: 8, c: '#3A3E44', a: '0 0 0 0 0 .5 1', op: .45 })}${k.bump({ f: .9, s: .8, op: .5 })}</g>` + Pth('M150 -20 L90 220', 'none', 'stroke="#2A2E33" stroke-width="1" opacity=".5"'), undefined, tag('polished', 'tl') + tag('blasted', 'br')) },
+    { id: 'powdercoat', name: 'Powder coat', aka: 'powder-coated steel, RAL color',
+      desc: 'Colored powder baked onto metal into a tough, slightly textured skin. It reads as outdoor furniture, bikes and industrial design, often in bold RAL colors.',
+      spot: 'a solid, even color with a faint orange-peel texture and a soft satin sheen',
+      ref: 'Fermob bistro chairs, Vitsoe shelving rails, Brompton bikes, USM Haller',
+      prompt: 'satin powder-coated steel in signal orange with a faint orange-peel texture',
+      ex: pic(k => ball(k, kk => BG('#D6502A') + kk.bump({ f: .5, s: .9, op: .55, seed: 5 }), { gloss: .45, env: true, rim: .12 }), undefined, tag('RAL 2004')) },
+    { id: 'enamel', name: 'Vitreous enamel', aka: 'porcelain enamel, enamelware, cloisonné',
+      desc: 'Powdered glass fused onto steel at high heat, giving a hard, glossy coat that chips rather than scratches. It reads as railway signs, camping mugs and old bathtubs.',
+      spot: 'thick glossy color with a slight wave, and black chips showing steel at the edges and bolt holes',
+      ref: 'London Underground roundels, Falcon enamelware, French street-name plaques',
+      prompt: 'vitreous enamel sign in cobalt blue and white, glossy with small black chips at the edges',
+      ex: pic(k => { const r = rnd(6); let ch = ''; [[38, 46], [278, 150], [150, 162], [286, 60]].forEach(([x, y]) => { let d = ''; for (let q = 0; q < 7; q++) { const a = q / 7 * 6.283, rr = 4 + r() * 5; d += `${q ? 'L' : 'M'}${(x + Math.cos(a) * rr).toFixed(1)} ${(y + Math.sin(a) * rr).toFixed(1)}`; } ch += Pth(d + 'Z', '#14110F') + C(x, y, 2, '#7A3A18', 'opacity=".8"'); });
+        return BG('#3A332D') + k.noise({ f: .04, oct: 3, c: '#5A5046', lin: [2, -.8], op: .5 }) + R(26, 30, 268, 140, '#000', `rx="14" opacity=".5" ${k.blur(5)}`) + R(26, 26, 268, 140, '#1E3F8E', 'rx="14"') + R(36, 36, 248, 120, 'none', 'rx="8" stroke="#F3EFE4" stroke-width="5"') + T(160, 115, 'PLATFORM 2', { ff: 'Bebas Neue, Impact, sans-serif', fs: 50, fw: 400, c: '#F3EFE4', x2: 'textLength="200" lengthAdjust="spacingAndGlyphs"' }) + [[42, 42], [278, 42], [42, 150], [278, 150]].map(([x, y]) => C(x, y, 3.2, '#9EA4AA') + C(x - .8, y - .8, 1.2, '#fff')).join('') + ch + Pth('M26 92 Q120 40 294 70 L294 26 L26 26Z', '#fff', `opacity=".16" ${k.blur(3)}`) + R(40, 34, 120, 5, '#fff', `rx="2" opacity=".5" ${k.blur(1.5)}`);
+      }) },
+    { id: 'shou', name: 'Shou sugi ban', aka: 'yakisugi, charred timber, burnt wood cladding',
+      desc: 'A Japanese method of charring cedar boards to preserve them. The surface cracks into a black, scaly crust with a silvery sheen, and it reads as Japanese and architectural.',
+      spot: 'deep black wood broken into small rectangular scales like alligator skin, with a blue-silver sheen',
+      ref: 'Terunobu Fujimori houses, Nakamoto Forestry cladding, modern Scandinavian cabins',
+      prompt: 'shou sugi ban charred cedar with a black alligator-scale crust and silvery sheen',
+      ex: pic(k => { const r = rnd(5); let g = '';
+        for (let y = -12; y < 214; y += 10) { let x = -30 - r() * 20; while (x < 345) { const w = 7 + r() * 16, h = 8 + r() * 2; g += R(x + 1.3, y + 1, w - 2.6, h - 1.6, '#1C1816', 'rx="3"'); x += w; } }
+        return BG('#040303') + `<g ${k.warp(5, .05, 1, 3)}>${g}</g>` + `<g ${k.warp(5, .05, 1, 3)} opacity=".55"><g ${k.relief({ s: 3, blur: 1.6, az: 230, el: 40 })} style="mix-blend-mode:overlay">${g}</g></g>` + k.noise({ f: '.004 .02', oct: 3, seed: 9, c: '#8A97A8', lin: [2.4, -1.1], op: .4, blend: 'screen' }) + k.noise({ f: '.02 .5', oct: 2, seed: 2, c: '#000', a: '0 0 .4 .8', op: .4 }) + k.vignette(.4);
+      }) },
+    { id: 'oiled', name: 'Oiled wood', aka: 'hardwax oil, Danish oil, oil finish',
+      desc: 'Wood rubbed with oil that soaks in and darkens the grain without forming a film. It reads as warm, natural and repairable, and feels like wood rather than plastic.',
+      spot: 'deeper, richer color and sharper grain than the bare wood, with a soft, low glow',
+      ref: 'Danish teak furniture, Osmo-finished floors, butcher blocks, Carl Hansen chairs',
+      prompt: 'oiled walnut with a hand-rubbed hardwax oil finish, rich grain and a soft low sheen',
+      ex: pic(k => { const o = { f: '.003 .07', seed: 14, rep: 6, warp: 12 };
+        const edge = 'M170 -20 Q160 40 172 100 Q184 160 168 220 L340 220 L340 -20Z';
+        return woodTex(k, { ...o, base: '#C6A47E', dark: '#9E7C58', light: '#DCC4A4', op: .35, pores: .15 }) + `<g ${k.clip(`<path d="${edge}"/>`)}>${woodTex(k, { ...o, base: '#8A5228', dark: '#3E200C', light: '#B87A44', op: .75, pores: .35 })}${E(250, 60, 90, 40, '#FFE6C0', `opacity=".22" ${k.blur(18)}`)}</g>` + k.vignette(.3, .6);
+      }, undefined, tag('bare', 'tl') + tag('oiled', 'tr')) },
+    { id: 'gilded', name: 'Gold leaf', aka: 'gilding, water gilding, gilt',
+      desc: 'Gold beaten thinner than paper and laid down in small squares. You can see the seams between leaves and the red clay underneath where it wears through. It reads as frames, icons and old signage.',
+      spot: 'a grid of faint square seams across bright gold, with tiny cracks showing red or black underneath',
+      ref: 'picture frames, Byzantine icons, shopfront window lettering, Gustav Klimt',
+      prompt: 'hand-laid 23-carat gold leaf with visible square seams and small breaks showing red bole',
+      ex: pic(k => { const gd = k.lg([[0, '#8C6420'], [.35, '#F6D97E'], [.55, '#D2A238'], [1, '#7A5518']], '0 0 1 1'); const r = rnd(8); let g = '';
+        for (let i = 0; i < 9; i++) for (let j = 0; j < 6; j++) g += R(-24 + i * 42 + r() * 3, -22 + j * 42 + r() * 3, 43, 43, gd, `opacity="${(.85 + r() * .15).toFixed(2)}"`) + R(-24 + i * 42, -22 + j * 42, 43, 43, 'none', 'stroke="#6E4A12" stroke-width=".7" opacity=".5"');
+        return BG('#8A2E1C') + g + R(-20, -20, 360, 240, k.lg([[0, '#FFF6D0', .5], [.5, '#fff', 0], [1, '#3A2408', .4]], '0 0 1 1')) + k.bump({ f: .06, oct: 3, type: 'turbulence', s: 1.2, op: .3, seed: 3 }) + k.noise({ f: .05, oct: 4, seed: 6, c: '#8A2E1C', a: '0 0 0 0 0 0 0 0 0 .9 1', t: 'discrete', op: .95 });
+      }) },
+    { id: 'flocked', name: 'Flocked', aka: 'flocking, flock wallpaper, velvet flock',
+      desc: 'Short fibers glued onto a pattern so it stands up like velvet against a flat ground. It reads as Victorian parlors, curry houses, and lately, maximalist interiors.',
+      spot: 'a raised, fuzzy, velvety pattern, often damask, on a smooth paper or foil ground',
+      ref: 'Victorian damask wallpaper, Indian restaurants of the 1970s, Cole & Son, flocked phone cases',
+      prompt: 'deep red velvet flock damask pattern on a cream wallpaper ground',
+      ex: pic(k => { const motif = Pth('M40 10 C54 30 58 42 40 62 C22 42 26 30 40 10Z M40 62 C48 72 52 82 40 94 C28 82 32 72 40 62Z') + C(23, 60, 6.5, '') + C(57, 60, 6.5, '') + C(0, 0, 9, '') + C(80, 0, 9, '') + C(0, 100, 9, '') + C(80, 100, 9, '') + Pth('M12 50 Q4 40 10 30 M68 50 Q76 40 70 30', 'none', 'stroke="#7A1424" stroke-width="4" stroke-linecap="round"');
+        const p = k.pattern(80, 100, `<g fill="#7A1424">${motif}</g>`, 'x="0" y="-8"');
+        return BG('#EEE4CF') + k.noise({ f: .02, oct: 3, c: '#C9B48A', lin: [2, -.8], op: .3 }) + R(2, 4, 360, 240, '#000', `opacity=".0"`) + `<g ${k.warp(3, .9, 1, 2)}>${R(-20, -20, 360, 240, p)}</g>` + `<g ${k.mask(`<g ${k.warp(3, .9, 1, 2)}>${R(-20, -20, 360, 240, p.replace(')', ')'))}</g>`)}>${k.noise({ f: .9, oct: 3, seed: 4, c: '#C2384E', lin: [1.6, -.6], op: .6 })}${k.bump({ f: .7, s: 1.5, op: .6 })}</g>` + k.vignette(.3, .6);
+      }) },
+    { id: 'knurled', name: 'Knurled', aka: 'diamond knurl, knurling, textured grip',
+      desc: 'A fine diamond pattern pressed into round metal so fingers can grip it. It reads as precision tools, camera lenses, audio dials and barbells.',
+      spot: 'a band of tiny pyramid-shaped diamonds wrapping a polished metal cylinder',
+      ref: 'Leica lens rings, Teenage Engineering knobs, Olympic barbells, flashlight bodies',
+      prompt: 'precision diamond-knurled stainless steel grip next to polished bands',
+      ex: pic(k => { const p = k.pattern(11, 11, Pth('M5.5 .6 L10.4 5.5 L.6 5.5Z', '#E4E8EC') + Pth('M.6 5.5 L10.4 5.5 L5.5 10.4Z', '#6E747C') + Pth('M5.5 0 L11 5.5 L5.5 11 L0 5.5Z', 'none', 'stroke="#2E3238" stroke-width=".9"'));
+        const shade = k.lg([[0, '#000', .75], [.28, '#fff', .2], [.42, '#fff', .45], [.6, '#000', .05], [1, '#000', .85]]);
+        return R(-20, -20, 360, 240, k.lg([[0, '#2A2C30'], [1, '#121315']])) + E(160, 160, 190, 10, '#000', `opacity=".6" ${k.blur(8)}`) + R(-20, 48, 360, 104, k.lg(FN_CHROME)) + R(70, 48, 180, 104, p) + R(-20, 48, 360, 104, shade) + R(68, 48, 2, 104, '#1A1C1F') + R(250, 48, 2, 104, '#1A1C1F');
+      }) }
+  ]
+});
+
+/* ---------- wear & aging ---------- */
+pool.groups.push({
+  id: 'wear', title: 'Wear & aging', slot: 'Wear',
+  intro: 'What time, weather and hands have done to a surface. A little wear in the right place is what makes an object look owned and real, so say where it is as well as what it is.',
+  terms: [
+    { id: 'patina', name: 'Patina', aka: 'aged brass, living finish, bronze patina',
+      desc: 'The soft darkening brass and bronze get with age, polished back to bright gold wherever hands touch it most. It reads as old, loved and expensive.',
+      spot: 'dull brown-gold with darker blotches, and a brighter, worn-smooth patch where people grab it',
+      ref: 'old pub door push plates, bronze statues with shiny noses and toes, unlacquered brass taps',
+      prompt: 'unlacquered brass with a warm, uneven patina, rubbed bright where hands touch it',
+      ex: pic(k => swatch(k, BG('#9C7834') + k.noise({ f: .012, oct: 4, seed: 4, c: '#3E2C12', lin: [2.4, -.9], op: .75 }) + k.noise({ f: .04, oct: 3, seed: 9, c: '#5A6234', lin: [2.4, -1.3], op: .35 }) + E(170, 100, 78, 52, k.rg([[0, '#F6D98A'], [.5, '#D9AE50', .8], [1, '#C9993A', 0]]), k.blur(6)) + k.noise({ f: '.9 .06', oct: 2, seed: 2, c: '#FFF2C8', a: '0 0 0 0 .4 .8', op: .18 }) + k.bump({ f: .3, s: 1.2, op: .5 }), .25)) },
+    { id: 'verdigris', name: 'Verdigris', aka: 'copper patina, green patina, aerugo',
+      desc: 'The blue-green crust copper grows outdoors over years. It reads as old rooftops, harbour towns and the Statue of Liberty.',
+      spot: 'chalky turquoise blooms over brown copper, often with green streaks running downward',
+      ref: 'the Statue of Liberty, Parisian and Copenhagen rooftops, old church domes, garden lanterns',
+      prompt: 'weathered copper covered in chalky blue-green verdigris, with streaks running down',
+      ex: pic(k => swatch(k, BG('#8A4A2A') + k.noise({ f: .02, oct: 3, seed: 3, c: '#D17E46', lin: [2.4, -1], op: .55 }) + k.noise({ f: '.06 .004', oct: 3, seed: 6, c: '#3E9A86', lin: [2.4, -.9], op: .55 }) + k.noise({ f: .018, oct: 4, seed: 8, c: '#5FB3A0', a: '0 0 0 .5 .95 1 1', op: .95 }) + k.noise({ f: .07, oct: 3, seed: 2, c: '#A8E0CC', a: '0 0 0 0 0 .7 1', op: .7 }) + k.bump({ f: .06, oct: 4, type: 'turbulence', s: 3, op: .7, seed: 5 }), .25)) },
+    { id: 'rust', name: 'Rust', aka: 'oxidized steel, corrosion, rusted metal',
+      desc: 'Iron and steel turning orange-brown and flaking as they oxidize. It reads as abandonment, shipyards, and industrial grit.',
+      spot: 'orange and dark brown blooms over grey steel, with pits, flakes and drip stains',
+      ref: 'shipwrecks, abandoned factories, old cars in fields, rust-belt photography',
+      prompt: 'heavily rusted steel with orange and brown blooms, pitting and flaking scale',
+      ex: pic(k => swatch(k, BG('#575B5F') + k.noise({ f: .014, oct: 4, seed: 4, c: '#7A3410', a: '0 0 .5 .95 1 1', op: .95 }) + k.noise({ f: .05, oct: 3, seed: 9, c: '#C8672A', a: '0 0 0 0 .6 1', op: .75 }) + k.noise({ f: '.05 .004', oct: 2, seed: 2, c: '#9A4A1A', lin: [2.2, -1], op: .4 }) + k.noise({ f: .35, oct: 2, seed: 13, c: '#24120A', a: '0 0 0 0 0 0 0 1', t: 'discrete', op: .8 }) + k.bump({ f: .05, oct: 5, type: 'turbulence', s: 3.5, op: .8, seed: 3 }), .25)) },
+    { id: 'peeling', name: 'Peeling paint', aka: 'flaking paint, chipped paint, shabby chic',
+      desc: 'Old paint lifting and curling away to show the wood or plaster underneath. It reads as neglect, coastal houses and old shutters.',
+      spot: 'islands of paint with crisp, raised edges and shadows, over bare grey wood',
+      ref: 'Cuban and Lisbon shutters, beach shacks, abandoned farmhouses, shabby-chic furniture',
+      prompt: 'flaking pale blue paint peeling off weathered grey wood, crisp curled edges',
+      ex: pic(k => { const pn = (c, op) => k.noise({ f: .022, oct: 4, seed: 7, c, a: '1 1 1 1 1 1 1 0 0 0 0', t: 'discrete', op });
+        return woodTex(k, { base: '#8A8378', dark: '#4A453E', light: '#B3ACA0', f: '.003 .06', seed: 30, op: .7, rep: 7, pores: .5 }) + `<g transform="translate(1.6 2.6)" ${k.blur(1.2)}>${pn('#000', .55)}</g>` + pn('#9CC2CC', 1) + `<g ${k.relief({ s: 2.5, blur: .8 })} style="mix-blend-mode:overlay">${pn('#000', 1)}</g>` + `<g ${k.mask(pn('#fff', 1))}>${k.bump({ f: .4, s: 1.2, op: .5 })}${k.noise({ f: .02, oct: 3, seed: 2, c: '#E9F3F2', lin: [2, -.9], op: .35 })}</g>` + k.vignette(.35, .55);
+      }) },
+    { id: 'faded', name: 'Sun-faded', aka: 'bleached, sun-bleached, UV-faded',
+      desc: 'Color washed out by years of sunlight, often with a brighter ghost where something used to cover it. It reads as summers past, old shopfronts and vintage fabric.',
+      spot: 'pale, chalky color with a sharp, richer rectangle or shadow where an object protected it',
+      ref: 'shop awnings, posters in old windows, vintage Hawaiian shirts, the ghost of a removed picture on a wall',
+      prompt: 'sun-faded red and cream stripes, bleached pale, with a vivid unfaded rectangle where a frame once hung',
+      ex: pic(k => { const p = k.pattern(36, 10, R(0, 0, 18, 10, '#C8321E') + R(18, 0, 18, 10, '#F1E2CC'));
+        return R(-20, -20, 360, 240, p) + `<g ${k.mask(BG('#fff') + R(112, 56, 96, 112, '#000', k.blur(1.2)))}>${R(-20, -20, 360, 240, k.lg([[0, '#F7EBDD', .82], [1, '#F2E2D0', .6]]))}${k.noise({ f: .02, oct: 3, seed: 5, c: '#FFF8EE', lin: [2, -.8], op: .4 })}</g>` + C(160, 46, 2, '#3A2A20') + k.bump({ f: .5, s: 1, op: .5 }) + k.vignette(.25, .6);
+      }) },
+    { id: 'crackle', name: 'Crackle', aka: 'crazing, craquelure, crackle glaze',
+      desc: 'A fine web of cracks across old paint, varnish or glaze, from the surface shrinking at a different rate from what is under it. It reads as old masters, antique china and age.',
+      spot: 'a net of hairline cracks in irregular little cells, darker where dirt has settled in',
+      ref: 'Old Master paintings, Song dynasty Ge ware, antique teacups, crackle-finish furniture',
+      prompt: 'antique craquelure, a fine web of dark hairline cracks across aged cream glaze',
+      ex: pic(k => { const r = rnd(4); const net = (st, j, w, op, c) => { const V = []; for (let i = -2; i < 340 / st + 3; i++) { V[i + 2] = []; for (let q = -2; q < 220 / st + 3; q++) V[i + 2][q + 2] = [i * st + (r() - .5) * j, q * st + (r() - .5) * j]; } let d = '';
+          for (let i = 0; i < V.length - 1; i++) for (let q = 0; q < V[i].length - 1; q++) { const a = V[i][q], b = V[i + 1][q], c2 = V[i][q + 1]; if (r() > .08) d += `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}`; if (r() > .08) d += `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${c2[0].toFixed(1)} ${c2[1].toFixed(1)}`; if (r() > .8) d += `M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${V[i + 1][q + 1][0].toFixed(1)} ${V[i + 1][q + 1][1].toFixed(1)}`; }
+          return `<path d="${d}" stroke="${c}" stroke-width="${w}" fill="none" opacity="${op}"/>`; };
+        return BG('#E6D9BC') + k.noise({ f: .01, oct: 3, seed: 3, c: '#B89A62', lin: [2, -.8], op: .45 }) + `<g ${k.warp(4, .05, 1, 2)}>${`<g ${k.blur(1.4)}>${net(20, 13, 2.6, .25, '#6A5028')}</g>`}${net(20, 13, .9, .75, '#4A3818')}${net(8, 6, .5, .35, '#6A5028')}</g>` + E(110, 50, 80, 26, '#fff', `opacity=".35" ${k.blur(14)}`) + k.vignette(.3, .6);
+      }) },
+    { id: 'edgewear', name: 'Edge wear', aka: 'worn edges, chipped edges, battle-worn',
+      desc: 'Paint rubbed away on the corners and edges first, showing bare metal or wood underneath. It is the detail 3D artists add to make a prop look used.',
+      spot: 'clean paint on flat faces, with bright scuffs and chips concentrated along every edge and corner',
+      ref: 'army ammo cans, old Zippo lighters, vintage toolboxes, well-used game props',
+      prompt: 'olive-green painted steel with worn edges and corners chipped back to bright bare metal',
+      ex: pic(k => { const box = 'x="40" y="30" width="240" height="140" rx="16"';
+        return BG('#5E5A54') + k.noise({ f: .03, oct: 3, c: '#3E3A34', lin: [2, -.8], op: .5 }) + R(44, 38, 240, 140, '#000', `rx="16" opacity=".5" ${k.blur(6)}`) + `<rect ${box} fill="${k.lg([[0, '#4A6A48'], [1, '#2C4430']])}"/>` + `<g ${k.clip(`<rect ${box}/>`)}>${k.noise({ f: .015, oct: 3, seed: 4, c: '#1E2E20', lin: [2, -.8], op: .4 })}<g ${k.mask(`<rect ${box} fill="none" stroke="#fff" stroke-width="26" ${k.blur(4)}/>`)}>${k.noise({ f: .07, oct: 3, seed: 6, c: '#C4C8CC', a: '0 0 0 0 0 0 1 1 1 1', t: 'discrete' })}</g>${Pth('M90 80 L150 72 M120 120 L200 108 M210 70 L250 92', 'none', 'stroke="#C4C8CC" stroke-width=".7" opacity=".6"')}${R(40, 30, 240, 4, '#fff', 'opacity=".25"')}</g>` + `<rect ${box} fill="none" stroke="#1A2418" stroke-width="1"/>`;
+      }) },
+    { id: 'kintsugi', name: 'Kintsugi', aka: 'golden joinery, kintsukuroi, gold repair',
+      desc: 'The Japanese craft of mending broken pottery with lacquer and gold, so the cracks become the most beautiful part. It reads as wabi-sabi, resilience and care.',
+      spot: 'dark or earthy ceramic with bright gold lines running through it like rivers, sometimes a gold-filled missing chip',
+      ref: 'Japanese tea bowls, wabi-sabi interiors, book covers about grief and recovery',
+      prompt: 'kintsugi repaired stoneware bowl, dark glaze crossed by branching seams of bright gold',
+      ex: pic(k => { const r = rnd(11); let d = '';
+        const walk = (x, y, a, n) => { let p = `M${x.toFixed(1)} ${y.toFixed(1)}`; for (let i = 0; i < n; i++) { a += (r() - .5) * .9; x += Math.cos(a) * 9; y += Math.sin(a) * 9; p += `L${x.toFixed(1)} ${y.toFixed(1)}`; if (r() > .86) d += walk(x, y, a + (r() > .5 ? .9 : -.9), Math.floor(n / 3)); } return p; };
+        d += walk(78, 40, .7, 14) + walk(250, 50, 2.5, 12) + walk(160, 190, -1.6, 11);
+        const gold = k.lg([[0, '#B98A28'], [.5, '#FFE48A'], [1, '#B98A28']], '0 0 1 1', false);
+        return BG('#D9D2C6') + k.noise({ f: .02, oct: 3, c: '#B9B0A2', lin: [2, -.8], op: .4 }) + C(166, 106, 92, '#000', `opacity=".35" ${k.blur(8)}`) + C(160, 100, 92, k.rg([[0, '#3C4A52'], [.7, '#26303A'], [1, '#4E5C64']])) + C(160, 100, 64, k.rg([[0, '#2E3A44'], [1, '#1C242C']])) + `<g ${k.clip('<circle cx="160" cy="100" r="92"/>')}>${k.noise({ f: .05, oct: 3, seed: 3, c: '#6A7A84', lin: [2, -1], op: .3 })}${Pth('M238 128 L252 118 L258 138 L246 150Z', gold)}<path d="${d}" stroke="#7A5A18" stroke-width="3.6" fill="none" stroke-linejoin="round"/><path d="${d}" stroke="${gold}" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="${d}" stroke="#FFF4C4" stroke-width=".7" fill="none" opacity=".8"/>${E(120, 50, 40, 14, '#fff', `opacity=".25" ${k.blur(8)}`)}</g>`;
+      }) }
+  ]
+});
+
+/* ---------- print processes ---------- */
+// one flat ink layer: draw(c) gives the shapes, ink fills them through a mask so coverage can be grainy.
+// dx/dy shift the whole plate (misregistration), speck knocks paper-colored holes into the ink
+function pr_ink(k, draw, ink, o = {}) {
+  const sp = o.speck ? k.noise({ f: o.sf || .8, oct: 2, seed: o.seed || 1, c: '#000', a: o.sa || '0 0 0 0 0 0 .7 1', op: o.speck }) : '';
+  const m = k.mask(draw('#fff') + sp);
+  return `<g transform="translate(${o.dx || 0} ${o.dy || 0})"><g ${m} style="mix-blend-mode:${o.blend || 'multiply'}" opacity="${o.op ?? 1}">${R(-20, -20, 360, 240, ink)}</g></g>`;
+}
+// a card or sheet lying on a table, slightly turned. inner is drawn in stage coordinates and clipped to the card
+function pr_card(k, inner, o = {}) {
+  const { x = 34, y = 26, w = 252, h = 148, rot = -3, bg = '#3B3833' } = o;
+  return BG(bg) + k.noise({ f: '.004 .05', oct: 3, seed: 5, c: '#000', lin: [1.6, -.6], op: .35 }) + `<g transform="rotate(${rot} 160 100)">` + R(x + 4, y + 9, w, h, '#000', `opacity=".5" ${k.blur(7)}`) + `<g ${k.clip(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.5"/>`)}>${inner}</g></g>`;
+}
+const PR_BEBAS = 'Bebas Neue, Impact, Arial Narrow, sans-serif';
+const PR_MONO = 'IBM Plex Mono, Courier New, monospace';
+// fern frond silhouette, base at (x, y), pointing up then rotated by ang
+function pr_fern(x, y, len, ang, c, op = 1) {
+  let g = `<path d="M0 0 Q${len * .08} ${-len / 2} 0 ${-len}" stroke="${c}" stroke-width="1.6" fill="none"/>`;
+  for (let t = .06; t < .98; t += .055) { const L = 22 * (1 - t) + 4, yy = -t * len, xx = Math.sin(t * 3.1) * len * .04;
+    g += E(xx - L / 2, yy, L / 2, L * .17, c, `transform="rotate(25 ${xx} ${yy})"`) + E(xx + L / 2, yy, L / 2, L * .17, c, `transform="rotate(-25 ${xx} ${yy})"`); }
+  return `<g transform="translate(${x} ${y}) rotate(${ang})" fill="${c}" opacity="${op}">${g}</g>`;
+}
+// tapered gouge marks for relief prints: lens shapes in rows
+function pr_gouges(r, x0, x1, y0, y1, step, lmin, lmax, w, c, skip = () => false) {
+  let g = '';
+  for (let y = y0; y < y1; y += step) for (let x = x0 + r() * 10; x < x1;) { const L = lmin + r() * (lmax - lmin); if (!skip(x + L / 2, y)) g += E(x + L / 2, y + (r() - .5) * 1.5, L / 2, w * (.6 + r() * .6), c); x += L + 3 + r() * 8; }
+  return g;
+}
+
+pool.groups.push({
+  id: 'press', title: 'Presses', slot: 'Print process',
+  intro: 'How the ink got onto the paper. Each press leaves fingerprints: riso grain, the bite of letterpress, the thick flat ink of a screen print, the dots of offset. Naming the press brings those details with it.',
+  terms: [
+    { id: 'riso', name: 'Risograph', aka: 'riso print, stencil duplicator',
+      desc: 'A Japanese office duplicator adopted by artists. It prints one flat soy ink at a time, often fluorescent pink, blue and yellow, so colors overlap into new ones and never line up perfectly.',
+      spot: 'two or three bright flat inks that mix where they overlap, a grainy, slightly patchy fill and layers a millimetre out of line',
+      ref: 'indie zines, Colour Code and Hato Press prints, gig posters, art book fair tables',
+      prompt: 'two-color risograph print in fluorescent pink and blue on cream paper, grainy ink coverage, overlapping colors and slight misregistration',
+      ex: pic(k => { const water = c => Pth('M-20 124 L50 102 L104 118 L170 90 L236 116 L340 98 V220 H-20Z', c);
+        const top = c => C(222, 86, 38, c) + T(24, 62, 'NIGHT', { ff: PR_BEBAS, fs: 46, fw: 400, c, anchor: 'start', x2: 'textLength="118" lengthAdjust="spacingAndGlyphs"' }) + T(24, 100, 'SWIM', { ff: PR_BEBAS, fs: 46, fw: 400, c, anchor: 'start', x2: 'textLength="96" lengthAdjust="spacingAndGlyphs"' }) + [0, 1, 2, 3, 4, 5].map(i => R(222 - (34 - i * 5), 134 + i * 10, (34 - i * 5) * 2, 3.5, c, 'rx="1.7"')).join('');
+        return paper(k, '#F3ECDC', { fop: .2 }) + pr_ink(k, water, '#0078BF', { speck: .85, seed: 3 }) + pr_ink(k, top, '#FF48B0', { dx: 3.5, dy: -2, speck: .85, seed: 9 }) + k.grain(.12); }, undefined, tag('2 inks')) },
+    { id: 'letterpress', name: 'Letterpress', aka: 'relief printing, debossed letterpress, wood type',
+      desc: 'Metal or wood type and plates pressed hard into thick soft paper, so the letters sit in a shallow dent you can feel. Today it signals wedding invitations, fine stationery and craft.',
+      spot: 'crisp ink letters sitting in a visible impression, with a small shadow along one edge of each stroke, on thick fluffy cotton paper',
+      ref: 'wedding suites, Hatch Show Print gig posters, business cards, Moleskine and Smythson stationery',
+      prompt: 'letterpress printed in navy ink on thick white cotton paper, deep debossed impression you can see in the raking light',
+      ex: pic(k => { const txt = c => T(160, 100, 'Thank you', { ff: 'Fraunces, Georgia, serif', fs: 48, fw: 600, c, x2: 'font-style="italic"' }) + R(118, 118, 84, 1.6, c) + T(160, 140, 'PRINTED BY HAND · 2026', { ff: PR_MONO, fs: 9, fw: 500, c, ls: 2 });
+        return pr_card(k, paper(k, '#F6F2E8', { ts: 2.2, top: .8, fop: .15 }) + `<g ${k.relief({ s: 5, az: 45, el: 35, blur: 1 })} style="mix-blend-mode:overlay">${txt('#000')}</g>` + pr_ink(k, txt, '#1F3A5F', { speck: .6, sf: 1, sa: '0 0 0 0 0 0 0 .5 1', seed: 4, dx: .5, dy: .5 }) + k.rake(.14, '0 0 1 1'), { bg: '#5A5149' }); }) },
+    { id: 'screenprint', name: 'Screen print', aka: 'silkscreen, serigraph, screen-printed poster',
+      desc: 'Thick, opaque ink pushed through a fine mesh stencil, one color at a time. The colors are flat and punchy and can sit light on top of dark.',
+      spot: 'bold flat shapes of opaque ink with crisp edges, a slight raised ink film and small gaps or overlaps where colors meet',
+      ref: 'Andy Warhol\'s Marilyns, Mondo film posters, band merch T-shirts, Corita Kent',
+      prompt: 'three-color screen print poster, flat opaque inks in mustard, brick red and navy, crisp edges with slight overlaps',
+      ex: pic(k => { const sun = c => C(160, 98, 62, c);
+        const hills = c => Pth('M-20 200 L66 114 L118 152 L182 84 L250 150 L292 122 L340 168 V220 H-20Z', c);
+        const navy = c => T(160, 42, 'FOLK FEST', { ff: PR_BEBAS, fs: 38, fw: 400, c, ls: 4 }) + `<g ${k.clip('<circle cx="160" cy="98" r="62"/>')}>${[0, 1, 2, 3].map(i => R(90, 104 + i * 9, 140, 3.6, c)).join('')}</g>` + Pth('M-20 200 L40 172 L80 186 L130 160 L200 190 L260 168 L340 192 V220 H-20Z', c);
+        return paper(k, '#F2EADA', { fop: .15 }) + pr_ink(k, sun, '#E9B23A', { blend: 'normal', speck: .3, seed: 2 }) + pr_ink(k, hills, '#C4442E', { blend: 'normal', dx: -1.5, dy: 1, speck: .3, seed: 6 }) + pr_ink(k, navy, '#1E2C4F', { blend: 'normal', dx: 1, dy: -.5, speck: .25, seed: 8 }) + `<g ${k.relief({ s: 1.6, blur: .7 })} style="mix-blend-mode:overlay" opacity=".7">${sun('#000') + hills('#000')}</g>` + k.grain(.1); }) },
+    { id: 'offset', name: 'Offset lithography', aka: 'CMYK offset, four-color process, litho',
+      desc: 'The press behind almost every magazine, book and box. It builds color from tiny dots of cyan, magenta, yellow and black at different angles, which form rosettes under a loupe.',
+      spot: 'up close, a pattern of small colored dots arranged in rosettes; from a distance, smooth full color',
+      ref: 'magazines, paperback covers, cereal boxes, art books printed in Italy',
+      prompt: 'offset-printed four-color CMYK image, visible halftone rosettes up close',
+      ex: pic(k => { const sun = (x, y) => { const d = Math.hypot(x - 196, y - 84); return d < 50 ? 1 : Math.max(0, 1 - (d - 50) / 34) * .35; };
+        const hill = (x, y) => Math.max(0, Math.min(1, (y - (148 + 14 * Math.sin(x / 38))) / 6));
+        const cy = (x, y) => (1 - sun(x, y)) * (.85 - y / 320) * (1 - hill(x, y)) + hill(x, y) * .55, mg = (x, y) => sun(x, y) * .7 + hill(x, y) * .35 + (y / 200) * .18, ye = (x, y) => sun(x, y) * .95 + (y / 200) * .35, bk = (x, y) => hill(x, y) * .7;
+        const mb = 'style="mix-blend-mode:multiply"';
+        return BG('#FBFBF8') + dots(ye, 7, 0, '#FFE600', .62, mb) + dots(mg, 7, 75, '#EC008C', .62, mb) + dots(cy, 7, 15, '#00AEEF', .62, mb) + dots(bk, 7, 45, '#231F20', .62, mb) + k.bump({ f: .6, s: .6, op: .3 }); }, undefined, tag('loupe view')) },
+    { id: 'halftone', name: 'Newsprint halftone', aka: 'coarse halftone, Ben-Day dots, newspaper print',
+      desc: 'A photo turned into a grid of black dots of different sizes, printed coarse on cheap paper. It reads as newspapers, tabloids and pop art.',
+      spot: 'large visible dots on a grey, slightly fibrous paper, with dark areas made of fat dots and light areas of tiny ones',
+      ref: 'old broadsheet photos, Roy Lichtenstein, tabloid covers, punk flyers',
+      prompt: 'coarse black newsprint halftone photo with large visible dots on grey newsprint paper',
+      ex: pic(k => { const v = (x, y) => { const head = Math.hypot(x - 236, y - 96) < 22 ? .85 : 0, sh = ((x - 236) / 52) ** 2 + ((y - 170) / 36) ** 2 < 1 ? .9 : 0; return Math.max(.12 + (x - 160) / 900, head, sh) - (Math.hypot(x - 228, y - 88) < 10 ? .25 : 0); };
+        let col = ''; for (let i = 0; i < 12; i++) col += R(18, 74 + i * 9, i % 5 === 4 ? 70 : 130, 3.2, '#4A4740', 'opacity=".55"');
+        return paper(k, '#E4DFD1', { fleck: '#3A362E', fop: .45 }) + T(18, 52, 'LAKE FREEZES OVER', { ff: 'Fraunces, Georgia, serif', fs: 30, fw: 800, c: '#1A1917', anchor: 'start', x2: 'textLength="290" lengthAdjust="spacingAndGlyphs"' }) + R(18, 60, 290, 1.2, '#1A1917') + col + `<g ${k.clip('<rect x="162" y="70" width="146" height="124"/>')}>${dots(v, 6.5, 45, '#1A1917', .66, k.blur(.25))}</g>` + k.grain(.12); }) },
+    { id: 'photocopy', name: 'Photocopy', aka: 'xerox, zine aesthetic, copier art',
+      desc: 'Pages run through an office copier, often several times, so greys collapse to harsh black and white and the toner leaves specks and streaks. It reads as punk, DIY and underground.',
+      spot: 'crushed high-contrast black and white, toner speckle, a dark band at one edge and collaged pieces with visible cut lines',
+      ref: 'punk and riot grrrl zines, Raymond Pettibon flyers, Xerox art, early hip-hop flyers',
+      prompt: 'photocopied zine page, harsh high-contrast black and white, toner speckle and copier streaks, collaged and taped',
+      ex: pic(k => { const photo = `<g ${k.clip('<rect x="150" y="40" width="140" height="120"/>')}>${R(150, 40, 140, 120, '#F2F2EF')}${k.noise({ f: .018, oct: 3, seed: 14, c: '#111', a: '0 0 0 0 0 1 1 1 1', t: 'discrete' })}${C(222, 92, 26, '#111')}${R(180, 120, 90, 60, '#111')}</g>`;
+        let ty = ''; for (let i = 0; i < 6; i++) ty += R(30, 104 + i * 11, 100 - (i % 3) * 14, 4, '#151515');
+        return BG('#EDEDEA') + `<g transform="rotate(-1.6 160 100)">${T(28, 84, 'ISSUE No.3', { ff: PR_BEBAS, fs: 40, fw: 400, c: '#111', anchor: 'start', x2: 'textLength="108" lengthAdjust="spacingAndGlyphs"' })}${ty}${R(146, 36, 148, 128, '#000', 'opacity=".5"')}${photo}${R(250, 28, 46, 16, '#fff', 'opacity=".55" transform="rotate(12 273 36)"')}</g>` + k.noise({ f: '.9 .004', oct: 2, seed: 2, c: '#000', a: '0 0 0 0 0 .3 .7', op: .4 }) + k.noise({ f: .9, oct: 2, seed: 6, c: '#000', a: '0 0 0 0 0 0 0 1', t: 'discrete', op: .55 }) + R(302, -20, 40, 240, k.lg([[0, '#111', 0], [.4, '#111', .9], [1, '#000']], 'h')) + k.grain(.2); }) },
+    { id: 'duotone', name: 'Duotone', aka: 'two-color halftone, spot color photo',
+      desc: 'A photo printed in two inks, usually one dark and one bright, so the shadows and highlights each take a color. It reads as album covers, festival posters and editorial design.',
+      spot: 'an image made from just two colors and their mix, like navy shadows and orange highlights, with no other hues',
+      ref: 'Spotify campaigns, 1960s Blue Note jazz covers, Penguin Modern Classics, festival line-up posters',
+      prompt: 'duotone image in deep navy and warm orange, shadows in navy and highlights in orange',
+      ex: pic(k => { const mb = 'style="mix-blend-mode:multiply"';
+        const navy = R(-20, -20, 360, 240, k.lg([[0, '#1B2A5C', .95], [.55, '#1B2A5C', .1], [1, '#1B2A5C', .55]]), mb) + Pth('M-20 130 L40 96 L90 118 L150 70 L214 116 L262 92 L340 124 V220 H-20Z', '#1B2A5C', mb) + Pth('M-20 200 L60 176 L120 190 L340 168 V220 H-20Z', '#1B2A5C', mb);
+        const org = R(-20, -20, 360, 240, k.lg([[0, '#F26B3A', .15], [.6, '#F26B3A', .95], [1, '#F26B3A', .4]]), mb) + C(214, 70, 28, '#F26B3A', mb) + [0, 1, 2, 3].map(i => R(196 - i * 2, 144 + i * 8, 36 + i * 4, 2.5, '#FFF', 'opacity=".6"')).join('');
+        return BG('#F6F1E7') + org + navy + dots((x, y) => .25 + y / 500, 4, 45, '#1B2A5C', .5, 'opacity=".35" style="mix-blend-mode:multiply"') + k.grain(.12); }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'hand', title: 'Hand printmaking', slot: 'Print process',
+  intro: 'Prints made by carving, scratching or drawing on a block or plate, inked and pressed by hand. Every one leaves marks of the tool: gouge strokes, hatched lines, crayon grain or a blue chemical glow.',
+  terms: [
+    { id: 'linocut', name: 'Linocut', aka: 'lino print, relief block print',
+      desc: 'An image carved into a sheet of linoleum, then inked and printed. Everything not carved away prints solid, so the picture is built from bold black shapes and white gouge strokes.',
+      spot: 'heavy black areas broken by tapered white cut marks, slightly rough edges and a mottled ink texture',
+      ref: 'Picasso\'s late linocuts, Edward Bawden, folk album covers, hand-printed greeting cards',
+      prompt: 'black linocut print on cream paper, bold carved shapes and tapered white gouge marks, slightly uneven ink',
+      ex: pic(k => { const r = rnd(21); const blk = '#000';
+        const sky = pr_gouges(r, 32, 290, 30, 100, 7, 6, 20, 1.3, blk, (x, y) => Math.hypot(x - 206, y - 60) < 36);
+        let rings = ''; for (let q = 32; q < 52; q += 6) rings += `<circle cx="206" cy="60" r="${q}" fill="none" stroke="${blk}" stroke-width="1.8" stroke-dasharray="${10 + q / 2} 6"/>`;
+        const water = pr_gouges(r, 32, 290, 126, 176, 5, 10, 34, 1.5, blk) + [0, 1, 2, 3, 4, 5, 6].map(i => E(206, 126 + i * 7, 28 - i * 3, 2.2, blk)).join('');
+        const carve = C(206, 60, 24, blk) + rings + sky + Pth('M32 118 Q80 96 126 112 T218 104 T290 114', 'none', `stroke="${blk}" stroke-width="2.4"`) + Pth('M60 116 L74 110 M100 112 L118 108 M150 112 L170 106', 'none', `stroke="${blk}" stroke-width="1.6"`) + water;
+        const m = k.mask(`<g ${k.warp(2.5, .06, 1, 3)}>${R(30, 20, 260, 160, '#fff')}${carve}</g>` + k.noise({ f: .5, oct: 2, seed: 4, c: '#000', a: '0 0 0 0 0 0 .5 .9', op: .9 }));
+        return paper(k, '#EFE7D4', { fop: .2 }) + `<g ${m}>${R(-20, -20, 360, 240, '#16130F')}</g>` + k.grain(.1); }) },
+    { id: 'woodcut', name: 'Woodcut', aka: 'woodblock print, mokuhanga, xylograph',
+      desc: 'An image cut into a plank of wood along the grain. Lines are more angular than linocut and the grain often prints into the solid areas. Japanese woodblocks add flat colors from separate blocks.',
+      spot: 'chunky black lines with a faint wood-grain texture inside the solid ink, angular cuts and sometimes a flat second color',
+      ref: 'Albrecht Dürer, Hokusai\'s Great Wave, German Expressionist prints, Frans Masereel',
+      prompt: 'woodcut print in black with a flat red second block, angular carved lines, wood grain showing in the solid ink',
+      ex: pic(k => { const r = rnd(5); const blk = '#000';
+        const ridge = 'M30 108 L80 70 L112 92 L160 46 L214 96 L246 80 L290 104';
+        let skyl = ''; for (let y = 28; y < 100; y += 6) skyl += R(30, y, 260, 2.2, '#fff');
+        const carve = Pth(`${ridge} L290 20 L30 20Z`, blk) + `<g ${k.clip(`<path d="${ridge} L290 20 L30 20Z"/>`)}>${skyl}</g>` + C(232, 46, 20, blk);
+        let gs = ''; for (let i = 0; i < 26; i++) { const x = 40 + r() * 240, y = 80 + r() * 50; gs += Pth(`M${x} ${y} l${8 + r() * 10} ${-6 - r() * 6} l2 2Z`, blk); }
+        let trees = ''; [[60, 176, 56], [92, 178, 44], [250, 176, 62], [278, 178, 40]].forEach(([x, y, h]) => trees += Pth(`M${x} ${y - h} L${x + h * .3} ${y - h * .4} L${x + h * .14} ${y - h * .42} L${x + h * .38} ${y} L${x - h * .38} ${y} L${x - h * .14} ${y - h * .42} L${x - h * .3} ${y - h * .4}Z`, 'none', `stroke="${blk}" stroke-width="3"`));
+        const lake = [0, 1, 2, 3].map(i => R(110 + i * 6, 146 + i * 8, 100 - i * 12, 2.4, blk)).join('');
+        const m = k.mask(`<g ${k.warp(2, .08, 1, 6)}>${R(30, 20, 260, 160, '#fff')}${carve}${gs}${trees}${lake}</g>` + k.noise({ f: '.006 .25', oct: 3, seed: 7, c: '#000', a: '0 0 0 0 0 0 0 .6 .95', op: .9 }));
+        const red = pr_ink(k, c => C(232, 46, 18, c), '#C8322B', { speck: .5, seed: 2, dx: 1.5 });
+        return paper(k, '#EEE5D0', { fop: .2 }) + red + `<g ${m}>${R(-20, -20, 360, 240, '#15120E')}</g>` + k.grain(.1); }) },
+    { id: 'etching', name: 'Etching', aka: 'intaglio, drypoint, copperplate etching',
+      desc: 'Lines bitten into a metal plate with acid, inked into the grooves and pressed onto damp paper. Tone comes from hatching and cross-hatching, and the plate leaves a pressed rectangle around the image.',
+      spot: 'fine dark lines layered into hatching, a faint grey film of plate tone and a sunken rectangular plate mark in the paper',
+      ref: 'Rembrandt\'s etchings, Goya\'s Caprichos, antique botanical and architectural prints',
+      prompt: 'fine-line etching in warm black ink, cross-hatched shading, soft plate tone and a visible plate mark on heavy cream paper',
+      ex: pic(k => { const ink = '#2A2019', hill = 'M48 124 Q110 92 170 116 T272 104 V166 H48Z', far = 'M48 112 Q100 82 150 98 T272 88 V130 H48Z';
+        const tree = '<path d="M206 150 V96"/><circle cx="206" cy="82" r="22"/><circle cx="190" cy="94" r="14"/><circle cx="222" cy="94" r="15"/>';
+        const plate = R(44, 26, 232, 144, '#fff');
+        const img = `<g ${k.warp(1.2, .05, 1, 2)}>` + `<g ${k.clip('<rect x="48" y="30" width="224" height="80"/>')}>${lines(5, 0, ink, .45)}</g>` + `<g ${k.clip(`<path d="${far}"/>`)}>${lines(3.4, 22, ink, .5)}</g>` + `<g ${k.clip(`<path d="${hill}"/>`)}>${lines(3, -30, ink, .6)}${lines(3.2, 40, ink, .5)}</g>` + `<g ${k.clip(tree.replace('<path d="M206 150 V96"/>', '<rect x="203" y="96" width="6" height="56"/>'))}>${lines(2.2, 45, ink, .7)}${lines(2.2, -45, ink, .7)}${lines(2.6, 0, ink, .6)}</g>` + Pth(hill.split(' V')[0], 'none', `stroke="${ink}" stroke-width=".8"`) + '</g>';
+        return paper(k, '#F0E8D8', { fop: .15, ts: 1.8 }) + `<g ${k.relief({ s: 4, az: 45, el: 35, blur: 1.4 })} style="mix-blend-mode:overlay">${plate}</g>` + R(44, 26, 232, 144, '#6B5A44', 'opacity=".07"') + img + T(48, 188, '3/20', { ff: 'Fraunces, Georgia, serif', fs: 9, fw: 400, c: '#7A7064', anchor: 'start', x2: 'font-style="italic"' }) + T(272, 188, 'A. Vale', { ff: 'Fraunces, Georgia, serif', fs: 10, fw: 400, c: '#7A7064', anchor: 'end', x2: 'font-style="italic"' }); }) },
+    { id: 'engraving', name: 'Engraving', aka: 'line engraving, banknote engraving, guilloche',
+      desc: 'Lines cut directly into metal with a burin, so they are very fine, regular and swell and taper. Paired with spirograph-like guilloche patterns it is the look of money and certificates.',
+      spot: 'extremely fine, even parallel lines that build tone, intricate looping rosette patterns and a single ink color',
+      ref: 'banknotes, stock certificates, postage stamps, the Wall Street Journal hedcut portraits',
+      prompt: 'banknote-style line engraving in dark green, fine parallel shading lines and intricate guilloche rosettes',
+      ex: pic(k => { const ink = '#22533F'; let gu = '';
+        for (let q = 0; q < 16; q++) { let d = ''; for (let i = 0; i <= 360; i++) { const t = i / 360 * Math.PI * 2, rr = 44 + 12 * Math.sin(9 * t + q * .39) + 4 * Math.sin(3 * t); d += `${i ? 'L' : 'M'}${(92 + rr * Math.cos(t)).toFixed(1)} ${(100 + rr * Math.sin(t)).toFixed(1)}`; } gu += `<path d="${d}Z" fill="none" stroke="${ink}" stroke-width=".45"/>`; }
+        const prof = 'M214 156 L214 138 Q204 132 205 118 Q200 98 210 82 Q222 62 246 62 Q268 64 274 84 Q277 94 274 102 L282 112 L276 115 Q278 122 274 126 Q277 132 272 135 Q272 144 262 144 L254 146 L254 156Z';
+        const oval = '<ellipse cx="244" cy="104" rx="50" ry="62"/>';
+        let ring = ''; for (let q = 0; q < 6; q++) ring += E(244, 104, 52 + q * 2.2, 64 + q * 2.2, 'none', `stroke="${ink}" stroke-width=".5"`);
+        return paper(k, '#EDEADB', { fleck: '#7A8A6A', fop: .2 }) + R(10, 10, 300, 180, 'none', `stroke="${ink}" stroke-width="1.4"`) + R(15, 15, 290, 170, 'none', `stroke="${ink}" stroke-width=".5" stroke-dasharray="1.5 1.5"`) + gu + C(92, 100, 24, '#EDEADB') + T(92, 108, '1', { ff: 'Fraunces, Georgia, serif', fs: 26, fw: 700, c: ink }) + `<g ${k.clip(oval)}>${lines(2.1, 0, ink, .5)}<g ${k.clip(`<path d="${prof}"/>`)}>${lines(2.1, 0, ink, 1.3)}${lines(2.6, 30, ink, .5)}</g></g>` + ring + T(244, 184, 'ONE', { ff: 'Fraunces, Georgia, serif', fs: 12, fw: 700, c: ink, ls: 6 }); }) },
+    { id: 'litho', name: 'Stone lithograph', aka: 'lithograph, crayon litho, chromolithograph',
+      desc: 'An image drawn with greasy crayon on a slab of limestone, then printed. The grain of the stone breaks the crayon into soft speckled tones, often with flat colors added. It is the look of 1890s Paris posters.',
+      spot: 'soft, grainy crayon shading that breaks into speckles, flat areas of color, warm aged paper',
+      ref: 'Toulouse-Lautrec and Alphonse Mucha posters, Daumier caricatures, vintage travel posters',
+      prompt: 'stone lithograph with grainy crayon shading and flat areas of mustard and red, on warm aged paper',
+      ex: pic(k => { const pear = 'M150 52 Q170 50 172 74 Q174 92 190 108 Q212 134 196 160 Q178 184 146 182 Q110 180 100 156 Q90 128 118 104 Q132 92 134 74 Q136 54 150 52Z';
+        const flat = pr_ink(k, c => Pth(pear, c), '#E5B33C', { speck: .4, seed: 3 }) + pr_ink(k, c => R(210, 30, 86, 140, c), '#C0402F', { speck: .4, seed: 5 });
+        const shade = `<g ${k.clip(`<path d="${pear}"/>`)}>${R(80, 40, 140, 150, k.rg([[0, '#2A2420', 0], [.5, '#2A2420', .25], [1, '#2A2420', .95]], .35, .35, .75))}</g>` + Pth('M150 54 Q148 40 156 30', 'none', 'stroke="#2A2420" stroke-width="3"') + E(176, 134, 28, 6, '#2A2420', `opacity=".5" ${k.blur(4)}`);
+        const grain = `<g ${k.clip(`<path d="${pear}"/>`)}>${k.noise({ f: 1.1, oct: 2, seed: 9, c: '#EFE3C6', a: '0 0 0 0 0 1 1', t: 'discrete', op: .9 })}</g>`;
+        return paper(k, '#EFE3C6', { fop: .25 }) + flat + shade + grain + T(253, 112, 'POIRE', { ff: 'Fraunces, Georgia, serif', fs: 22, fw: 800, c: '#EFE3C6', x2: 'transform="rotate(-90 253 100)"' }) + Pth(pear, 'none', `stroke="#2A2420" stroke-width="1.6" opacity=".8" ${k.warp(2, .2, 1, 4)}`) + k.grain(.15); }) },
+    { id: 'cyanotype', name: 'Cyanotype', aka: 'sun print, blueprint, photogram',
+      desc: 'Paper brushed with iron salts and exposed to sunlight with objects laid on top. The paper turns a deep Prussian blue and the shapes stay white, often with brushy edges where the coating stops.',
+      spot: 'deep blue with crisp white silhouettes of leaves or ferns and a ragged brushed border of blue on white paper',
+      ref: 'Anna Atkins\' algae albums, architectural blueprints, botanical wall art, Robert Rauschenberg',
+      prompt: 'cyanotype sun print, deep Prussian blue with white fern and leaf silhouettes, brushed edges on watercolor paper',
+      ex: pic(k => { const coat = `<g ${k.warp(9, .035, 2, 3)}>${R(30, 20, 260, 160, '#fff')}</g>`;
+        const blue = `<g ${k.mask(coat + k.noise({ f: '.02 .6', oct: 2, seed: 4, c: '#000', a: '0 0 0 0 0 0 .3 .7', op: .6 }))}>${R(-20, -20, 360, 240, '#18467F')}${k.noise({ f: .02, oct: 4, seed: 6, c: '#0C2A55', lin: [2.2, -.9], op: .7 })}${k.noise({ f: .5, oct: 2, seed: 2, c: '#3E74B0', a: '0 0 0 0 0 .5 .9', op: .4 })}</g>`;
+        const leaf = Pth('M236 150 Q196 100 230 52 Q276 92 236 150Z', '#EEF2F3', 'opacity=".95"') + Pth('M236 150 Q232 100 230 54', 'none', 'stroke="#9DB6CF" stroke-width="1.2"');
+        return paper(k, '#F4F2EC', { ts: 2, fop: .15 }) + blue + `<g ${k.blur(.5)}>${pr_fern(90, 176, 150, 12, '#EEF2F3')}${pr_fern(150, 180, 110, -18, '#EEF2F3', .7)}${leaf}</g>` + k.grain(.1); }) },
+    { id: 'stencil', name: 'Stencil spray', aka: 'spray stencil, street stencil, aerosol',
+      desc: 'Spray paint through a cut stencil onto a wall or board. Edges are soft with a fine overspray mist, letters have little bridges holding them together, and paint sometimes drips.',
+      spot: 'blocky letters with small gaps, a fuzzy halo of tiny paint dots around every edge and the odd run of paint',
+      ref: 'Banksy, Blek le Rat, military crate markings, skate shop graphics',
+      prompt: 'spray paint stencil on a concrete wall, soft overspray edges, stencil bridges in the letters and a few drips',
+      ex: pic(k => { const txt = c => T(160, 120, 'SKATE', { ff: PR_BEBAS, fs: 92, fw: 400, c, x2: 'textLength="250" lengthAdjust="spacingAndGlyphs"' });
+        const wall = BG('#A39F98') + k.noise({ f: .01, oct: 3, seed: 3, c: '#7E7A73', lin: [2, -.8], op: .5 }) + k.bump({ f: .3, s: 2, op: .7 }) + k.noise({ f: .8, oct: 2, seed: 4, c: '#4A4740', a: '0 0 0 0 0 0 .6 1', op: .35 });
+        const drips = [92, 147, 212, 238].map((x, i) => R(x, 118, 2.2, 14 + i * 7, '#121212', 'rx="1.1"') + C(x + 1.1, 132 + i * 7, 2, '#121212')).join('');
+        const bridge = R(-20, 86, 360, 3, '#A39F98');
+        return wall + pr_ink(k, c => C(160, 60, 28, c) + Pth('M146 54 L160 38 L174 54 L168 74 L152 74Z', c), '#E0457B', { blend: 'normal', speck: .5, seed: 5 }) + `<g ${k.blur(4)} opacity=".35">${txt('#121212')}</g>` + `<g ${k.mask(`<g ${k.blur(3)}>${txt('#fff')}</g>` + R(-20, -20, 360, 240, '#000', 'opacity=".5"'))}>${k.noise({ f: .9, oct: 1, seed: 8, c: '#121212', a: '0 0 0 0 0 1', t: 'discrete' })}</g>` + `<g ${k.blur(.6)}>${txt('#121212')}${drips}</g>` + bridge + k.vignette(.3); }) },
+    { id: 'blockprint', name: 'Hand block print', aka: 'Bagru, Sanganeri, block-printed textile',
+      desc: 'A carved wooden block stamped by hand over and over across cloth, one block per color. Each repeat is a little different: ink weight varies and the colors drift out of line.',
+      spot: 'a small repeating motif on cotton where each copy is slightly off in position and ink density',
+      ref: 'Jaipur block-printed quilts, Anokhi, Indian kalamkari, William Morris printed textiles',
+      prompt: 'hand block-printed cotton with a small repeating floral motif in madder red and black, slightly uneven ink and registration',
+      ex: pic(k => { const r1 = rnd(3), r2 = rnd(8);
+        const grid = (r, fn) => { let g = ''; for (let j = 0; j < 6; j++) for (let i = 0; i < 9; i++) { const x = i * 40 + (j % 2) * 20 - 6 + (r() - .5) * 3, y = j * 38 + 4 + (r() - .5) * 3; g += fn(x, y); } return g; };
+        const red = c => grid(r1, (x, y) => [0, 1, 2, 3, 4, 5].map(q => C(x + Math.cos(q * 1.047) * 6, y + Math.sin(q * 1.047) * 6, 4.6, c)).join(''));
+        const blk = c => grid(r2, (x, y) => C(x, y, 2.6, c) + [0, 1, 2, 3, 4, 5].map(q => `<circle cx="${(x + Math.cos(q * 1.047) * 6).toFixed(1)}" cy="${(y + Math.sin(q * 1.047) * 6).toFixed(1)}" r="5" fill="none" stroke="${c}" stroke-width=".9"/>`).join('') + E(x + 14, y + 12, 5, 2, c, `transform="rotate(40 ${x + 14} ${y + 12})"`) + E(x - 14, y + 12, 5, 2, c, `transform="rotate(-40 ${x - 14} ${y + 12})"`) + C(x + 20, y - 14, 1.4, c));
+        return swatch(k, BG('#EFE7D6') + k.noise({ f: '.9 .02', oct: 2, seed: 2, c: '#B7AA90', a: '0 0 0 .4 .8', op: .4 }) + k.noise({ f: '.02 .9', oct: 2, seed: 5, c: '#B7AA90', a: '0 0 0 .4 .8', op: .4 }) + pr_ink(k, red, '#B5372B', { speck: .8, seed: 4, sa: '0 0 0 0 0 .5 .9' }) + pr_ink(k, blk, '#24201C', { speck: .6, seed: 7, dx: 1.2, dy: -.8 }) + k.bump({ f: .6, s: 1.2, op: .5 }), .2); }) }
+  ]
+});
+
+pool.groups.push({
+  id: 'finishing', title: 'Print finishing', slot: 'Finishing',
+  intro: 'What happens after the ink: metal foil, raised and sunken shapes, gloss on matte, cut-outs and painted edges. These are the touches that make a card or a box feel expensive in the hand.',
+  terms: [
+    { id: 'foil', name: 'Foil stamping', aka: 'hot foil, gold foil, foil blocking',
+      desc: 'A heated die presses a thin metallic film onto the paper, leaving shiny gold, silver or copper that catches the light. It is pressed in, so it sits in a slight dent.',
+      spot: 'mirror-like metallic letters or lines that flash bright and dark as the light moves, on otherwise flat paper',
+      ref: 'wedding invitations, luxury packaging, hardback book spines, whisky labels',
+      prompt: 'gold hot-foil stamped lettering and border on deep navy uncoated card, metallic sheen catching the light',
+      ex: pic(k => { const gold = k.lg([[0, '#6E4E18'], [.18, '#F7E08A'], [.32, '#B0802A'], [.5, '#FFF3C4'], [.64, '#9C7224'], [.82, '#EBC76C'], [1, '#6E4E18']], '60 20 260 180', true);
+        const art = c => T(160, 112, 'Aurora', { ff: 'Fraunces, Georgia, serif', fs: 50, fw: 600, c, x2: 'font-style="italic"' }) + R(56, 38, 208, 124, 'none', `stroke="${c}" stroke-width="1.6"`) + R(62, 44, 196, 112, 'none', `stroke="${c}" stroke-width=".7"`) + Pth('M160 128 l3 7 7 0 -6 4 2 7 -6 -4 -6 4 2 -7 -6 -4 7 0Z', c);
+        return pr_card(k, BG('#1C2644') + k.noise({ f: .9, oct: 2, seed: 2, c: '#000', a: '0 0 0 .4 .7', op: .3 }) + `<g ${k.relief({ s: 3, az: 45, el: 40, blur: .8 })} style="mix-blend-mode:overlay" opacity=".6">${art('#000')}</g>` + art(gold) + `<g ${k.mask(art('#fff'))}>${k.noise({ f: .9, oct: 1, seed: 4, c: '#FFFBE6', a: '0 0 0 0 0 0 0 1', t: 'discrete', op: .5 })}</g>`, { bg: '#4C4842' }); }) },
+    { id: 'emboss', name: 'Blind embossing', aka: 'emboss, raised relief, blind emboss',
+      desc: 'Paper pressed between two shaped dies so a logo or pattern rises out of the sheet. With no ink, you see it only in the shadows and highlights.',
+      spot: 'a white shape on white paper, visible only because one side is lit and the other side casts a soft shadow',
+      ref: 'notary seals, luxury stationery, Apple packaging, high-end book covers',
+      prompt: 'blind embossed crest raised from thick white cotton card, no ink, revealed by soft raking light',
+      ex: pic(k => { const crest = C(160, 92, 46, 'none', 'stroke="#000" stroke-width="3"') + C(160, 92, 38, 'none', 'stroke="#000" stroke-width="1.2"') + T(160, 110, 'M', { ff: 'Fraunces, Georgia, serif', fs: 50, fw: 700, c: '#000' }) + [...Array(9)].map((_, i) => E(160 - 54 * Math.cos(.9 + i * .16), 92 + 54 * Math.sin(.9 + i * .16), 6, 2.6, '#000', `transform="rotate(${-40 + i * 10} ${160 - 54 * Math.cos(.9 + i * .16)} ${92 + 54 * Math.sin(.9 + i * .16)})"`) + E(160 + 54 * Math.cos(.9 + i * .16), 92 + 54 * Math.sin(.9 + i * .16), 6, 2.6, '#000', `transform="rotate(${40 - i * 10} ${160 + 54 * Math.cos(.9 + i * .16)} ${92 + 54 * Math.sin(.9 + i * .16)})"`)).join('') + T(160, 162, 'MERIDIAN HOUSE', { ff: PR_MONO, fs: 9, fw: 600, c: '#000', ls: 3 });
+        const rel = `<g ${k.relief({ s: 6, az: 225, el: 32, blur: 1.6 })} style="mix-blend-mode:overlay">${crest}</g>`;
+        return pr_card(k, paper(k, '#F5F2EA', { fop: .1, ts: 1.6 }) + rel + rel + k.rake(.12, '0 0 1 1'), { bg: '#6F7A82', rot: 2 }); }) },
+    { id: 'deboss', name: 'Debossing', aka: 'deboss, blind deboss, pressed-in',
+      desc: 'The opposite of embossing: the design is pressed down into the board, leaving a sunken shape. It is often used on thick board, leather and book covers.',
+      spot: 'letters or shapes sunk into the surface, with the shadow on the upper edge and a highlight on the lower edge',
+      ref: 'notebook covers, chipboard packaging, leather patches, hardback cloth covers',
+      prompt: 'debossed lettering pressed into thick kraft board, no ink, crisp sunken edges',
+      ex: pic(k => { const art = T(160, 104, 'Field Journal', { ff: 'Fraunces, Georgia, serif', fs: 36, fw: 700, c: '#000' }) + R(110, 120, 100, 3, '#000') + T(160, 146, 'VOL. 07', { ff: PR_MONO, fs: 11, fw: 600, c: '#000', ls: 4 });
+        const rel = `<g ${k.relief({ s: 3, az: 45, el: 38, blur: 1.2 })} style="mix-blend-mode:overlay">${art}</g>`;
+        return pr_card(k, paper(k, '#B99B70', { fleck: '#4A3418', fop: .5, ts: 2 }) + rel + `<g opacity=".08" style="mix-blend-mode:multiply">${art}</g>`, { bg: '#2F3236' }); }) },
+    { id: 'spotuv', name: 'Spot UV', aka: 'spot gloss, spot varnish, raised UV',
+      desc: 'A clear glossy varnish printed only on chosen areas, usually over a matte background, so a logo or pattern shines when you tilt it. It reads as premium print and packaging.',
+      spot: 'a matte surface with some shapes in the same color but glossy, flashing a sharp reflection only where the gloss is',
+      ref: 'business cards, book jackets, cosmetics boxes, record sleeves',
+      prompt: 'matte black card with a glossy spot UV pattern and logo, visible only where the light reflects',
+      ex: pic(k => { let ar = ''; for (let q = 14; q < 220; q += 14) ar += `<circle cx="250" cy="170" r="${q}" fill="none" stroke="#fff" stroke-width="4.5"/>`;
+        const uv = ar + T(110, 108, 'NOIR', { ff: PR_BEBAS, fs: 56, fw: 400, c: '#fff', x2: 'textLength="110" lengthAdjust="spacingAndGlyphs"' });
+        const shine = R(-20, -20, 360, 240, k.lg([[0, '#fff', 0], [.38, '#fff', .02], [.47, '#fff', .55], [.52, '#fff', .2], [.6, '#fff', 0], [1, '#fff', 0]], '20 0 300 200', true));
+        return pr_card(k, BG('#1C1C1E') + k.noise({ f: .9, oct: 2, seed: 3, c: '#3A3A3D', a: '0 0 0 .4 .8', op: .5 }) + `<g ${k.mask(uv)}>${BG('#0B0B0C')}${shine}</g>` + `<g ${k.relief({ s: 1.5, blur: .6 })} style="mix-blend-mode:overlay" opacity=".5">${uv.replace(/#fff/g, '#000')}</g>`, { bg: '#8C8478', rot: -4 }); }) },
+    { id: 'diecut', name: 'Die cut', aka: 'die-cut window, cut-out, kiss cut',
+      desc: 'A shaped steel blade punches holes or custom outlines through the sheet. A die-cut window lets you see the layer behind, and a cut outline gives a card or sticker its own shape.',
+      spot: 'clean shaped holes through paper or board, with a thin shadow edge where you look through to the layer below',
+      ref: 'Penguin and Pushkin Press covers, cereal box windows, children\'s books, tea packaging',
+      prompt: 'die-cut cover with a round window and arch cut-outs revealing a patterned inner page, crisp cut edges with soft shadow',
+      ex: pic(k => { const holes = '<circle cx="118" cy="94" r="36" fill="#000"/><path d="M190 140 V96 A20 20 0 0 1 230 96 V140Z" fill="#000"/><path d="M240 140 V106 A12 12 0 0 1 264 106 V140Z" fill="#000"/>';
+        const front = k.mask(R(-20, -20, 360, 240, '#fff') + holes);
+        const inner = BG('#F3E5C4') + `<g opacity=".9">${lines(10, -30, '#2E5A8A', 4)}</g>` + dots(() => .5, 9, 0, '#E7A23B', .4);
+        return pr_card(k, inner + `<g ${front}><g transform="translate(3 4)" ${k.blur(3)} opacity=".55">${BG('#000')}</g></g>` + `<g ${front}>${BG('#E5452F')}${k.noise({ f: .9, oct: 2, seed: 2, c: '#7A1A0C', a: '0 0 0 .4 .7', op: .3 })}${T(60, 168, 'OPEN UP', { ff: PR_BEBAS, fs: 24, fw: 400, c: '#F7E9CF', anchor: 'start', ls: 3 })}</g>` + `<g ${k.relief({ s: 1.4, blur: .5, az: 225 })} style="mix-blend-mode:overlay" opacity=".6">${R(-20, -20, 360, 240, '#000', `${front}`)}</g>`, { bg: '#C9C3B8', rot: 3 }); }) },
+    { id: 'thermo', name: 'Thermography', aka: 'raised printing, raised ink',
+      desc: 'Wet ink dusted with resin powder and heated so it swells into glossy raised lettering. It looks like engraving at a fraction of the price and is common on business cards.',
+      spot: 'shiny, slightly bulging ink that sits on top of the paper, with a highlight along the top of each letter',
+      ref: 'business cards, law firm letterheads, invitation suites, church bulletins',
+      prompt: 'thermographed business card with glossy raised black ink lettering on bright white stock',
+      ex: pic(k => { const art = c => T(160, 100, 'J. Morrow', { ff: 'Fraunces, Georgia, serif', fs: 36, fw: 700, c }) + T(160, 126, 'ARCHITECT', { ff: PR_MONO, fs: 11, fw: 600, c, ls: 5 });
+        return pr_card(k, paper(k, '#FAFAF7', { fop: .05, ts: 1 }) + `<g transform="translate(1.2 1.8)" ${k.blur(1.2)} opacity=".35">${art('#000')}</g>` + art('#141414') + `<g ${k.mask(art('#fff'))}><g transform="translate(-.8 -1)" ${k.blur(.4)}>${R(-20, -20, 360, 240, '#000')}</g><g transform="translate(.9 1.1)">${R(-20, -20, 360, 240, '#fff', 'opacity=".55"')}</g></g>` + R(-20, 60, 360, 20, '#fff', `opacity=".12" ${k.blur(6)}`), { bg: '#9BA4A8', rot: -2 }); }) },
+    { id: 'edgepaint', name: 'Edge painting', aka: 'painted edges, gilded edges, colored edges',
+      desc: 'Color painted or foiled onto the cut edges of thick cards or a book block, so a stack shows a bright stripe. It reads as boutique stationery and special editions.',
+      spot: 'cream or white faces with a vivid stripe of color along every cut edge',
+      ref: 'triplex business cards, special-edition books with sprayed edges, Bibles with gilt edges',
+      prompt: 'stack of thick cotton business cards with hot pink painted edges',
+      ex: pic(k => { let g = BG('#D9D4CB') + k.noise({ f: .02, oct: 3, seed: 4, c: '#A9A296', lin: [2, -.9], op: .4 }) + E(184, 142, 120, 18, '#000', `opacity=".35" ${k.blur(10)}`); const r = rnd(4);
+        for (let i = 0; i < 7; i++) { const dx = (r() - .5) * 8, y = -i * 7; const P = (x, yy) => `${(x + dx).toFixed(1)} ${(yy + y).toFixed(1)}`;
+          g += Pth(`M${P(66, 92)} L${P(104, 142)} L${P(104, 149)} L${P(66, 99)}Z`, '#C42A62') + Pth(`M${P(104, 142)} L${P(296, 118)} L${P(296, 125)} L${P(104, 149)}Z`, '#FF4F8B') + Pth(`M${P(104, 148.6)} L${P(296, 124.6)}`, 'none', 'stroke="#8A1A42" stroke-width=".6" opacity=".6"');
+          if (i === 6) g += Pth(`M${P(66, 92)} L${P(258, 70)} L${P(296, 118)} L${P(104, 142)}Z`, '#F5F0E6') + `<text font-family="${PR_MONO}" font-size="9" font-weight="600" fill="#3A3530" transform="translate(${116 + dx} ${y + 108}) rotate(-7) skewX(28)" letter-spacing="2">MARA LIND · CERAMICS</text>`; }
+        return g + k.bump({ f: .5, s: 1, op: .3 }); }) }
+  ]
+});
+
+/* ---------- paper ---------- */
+// a sheet of paper with a soft drop shadow, on a dark desk
+const pa_sheet = (k, d, inner, o = {}) => Pth(d, '#000', `opacity="${o.sh ?? .45}" transform="translate(4 6)" ${k.blur(6)}`) + `<g ${k.clip(`<path d="${d}"/>`)}>${inner}</g>`;
+// grey bars standing in for a column of body text
+const pa_text = (x, y, w, rows, c = '#2A2724', lh = 7, h = 2.6, seed = 3) => { const r = rnd(seed); let g = ''; for (let i = 0; i < rows; i++) g += R(x, y + i * lh, i === rows - 1 ? w * (.3 + r() * .4) : w * (.86 + r() * .14), h, c); return g; };
+pool.groups.push({
+  id: 'paper', title: 'Paper stock', slot: 'Paper',
+  intro: 'Paper sets the color of the white, how ink sits on it, and how the piece feels in the hand. Naming the stock tells an image model whether the print should look cheap and fast, soft and handmade, or slick.',
+  terms: [
+    { id: 'newsprint', name: 'Newsprint', aka: 'newspaper stock, groundwood paper',
+      desc: 'Cheap, thin, slightly grey paper made from wood pulp. Ink soaks in and looks a little soft and grey, and the sheet yellows within months. It reads as news, zines and urgency.',
+      spot: 'a dull grey-cream sheet with tiny dark flecks, soft greyish blacks and show-through from the other side',
+      ref: 'daily newspapers, The Face and early i-D, punk zines, newspaper-format gig posters',
+      prompt: 'printed on grey-cream newsprint with soft absorbent ink and faint show-through',
+      ex: pic(k => { const r = rnd(4); let col = ''; for (let c = 0; c < 4; c++) col += pa_text(18 + c * 76, 86, 66, 15, '#3A3733', 7, 2.4, 5 + c);
+        return paper(k, '#DCD6C6', { fleck: '#4A4438', fop: .5, top: .4 }) + R(-20, -20, 360, 240, '#A69F8C', 'opacity=".12"') + T(160, 46, 'THE EVENING POST', { ff: 'Fraunces, Georgia, serif', fs: 30, fw: 800, c: '#2E2B27', ls: 1 }) + R(18, 58, 284, 1.4, '#2E2B27') + R(18, 62, 284, .6, '#2E2B27') + `<g opacity=".85">${col}</g>` + `<g transform="scale(-1 1) translate(-320 0)" opacity=".08">${pa_text(18, 40, 284, 22, '#000', 7, 2.4, 9)}</g>` + k.noise({ f: .02, oct: 3, seed: 6, c: '#C2B48A', lin: [2, -.9], op: .4 }); }) },
+    { id: 'kraft', name: 'Kraft paper', aka: 'brown paper, kraft board, butcher paper',
+      desc: 'Unbleached brown paper with long, visible fibers. Printed on in black or white, it reads as natural, honest, shipping and farmers-market packaging.',
+      spot: 'mid-brown paper with darker streaky fibers, usually printed in one flat dark ink or white',
+      ref: 'shopping bags, Muji and Aesop packaging, coffee bags, wedding stationery',
+      prompt: 'printed in black ink on unbleached brown kraft paper with visible fibers',
+      ex: pic(k => paper(k, '#B4875A', { fleck: '#4E3418', fop: .55, top: .5 }) + k.noise({ f: '.6 .04', oct: 2, seed: 7, c: '#7A5530', a: '0 0 0 .3 .7', op: .4 }) + k.noise({ f: '.04 .6', oct: 2, seed: 8, c: '#D6AE80', a: '0 0 0 .3 .6', op: .25 }) + `<g opacity=".88" style="mix-blend-mode:multiply">${C(160, 84, 44, 'none', 'stroke="#1C140C" stroke-width="3"')}${T(160, 96, 'Est. 1974', { ff: 'Fraunces, Georgia, serif', fs: 22, fw: 600, c: '#1C140C' })}${T(160, 160, 'FIELD COFFEE CO.', { ff: '"Bebas Neue", Impact, sans-serif', fs: 26, fw: 400, c: '#1C140C', ls: 4 })}</g>` + k.vignette(.3)) },
+    { id: 'cottonrag', name: 'Cotton rag paper', aka: 'cold-press paper, watercolor paper, mould-made cotton',
+      desc: 'Thick paper made from cotton fiber with a soft, toothy surface. It takes ink and paint beautifully and feels expensive in the hand. It is the paper of fine-art prints and letterpress invitations.',
+      spot: 'a warm white sheet with a pronounced bumpy tooth that catches the light',
+      ref: 'Arches and Fabriano watercolor papers, letterpress wedding suites, fine-art giclée prints',
+      prompt: 'thick cold-press cotton rag paper with a pronounced soft tooth, warm white',
+      ex: pic(k => BG('#F4EFE4') + k.bump({ f: .07, oct: 4, s: 3.2, op: .95, seed: 6, el: 34 }) + k.bump({ f: .4, oct: 2, s: 1, op: .5, seed: 2 }) + `<g ${k.warp(5, .08, 2, 3)} opacity=".55">${E(196, 112, 74, 44, '#5C8FB0', k.blur(3))}${E(150, 92, 40, 26, '#C9785B', `opacity=".6" ${k.blur(4)}`)}</g>` + k.rake(.18, '0 0 1 1')) },
+    { id: 'deckle', name: 'Deckle edge', aka: 'torn edge, feathered edge, handmade paper',
+      desc: 'The rough, feathered edge left on handmade paper where the pulp thinned out in the mould. It says handmade, artisanal and slow.',
+      spot: 'one or more wavy, fibrous, thinning edges instead of a clean cut',
+      ref: 'handmade wedding invitations, artisan chocolate wrappers, fine-art editions, old books with uncut pages',
+      prompt: 'handmade paper with soft feathered deckle edges',
+      ex: pic(k => { const d = 'M40 22 H286 V182 H40Z';
+        return BG('#3B3530') + k.noise({ f: '.003 .04', oct: 3, seed: 3, c: '#4E463E', lin: [2, -.7], op: .6 }) + E(168, 112, 140, 90, '#000', `opacity=".45" ${k.blur(10)}`) + `<g ${k.warp(12, .09, 3, 5)}><g ${k.warp(4, .5, 2, 8)}>${Pth(d, '#F2EBDD')}</g></g>` + `<g ${k.clip(`<rect x="54" y="36" width="218" height="132"/>`)}>${paper(k, '#F2EBDD', { top: .5 })}</g>` + `<g ${k.warp(12, .09, 3, 5)} opacity=".7"><g ${k.warp(4, .5, 2, 8)}>${Pth(d, 'none', 'stroke="#FFFFFF" stroke-width="5" opacity=".5"')}</g></g>` + T(163, 110, 'Lake &amp; Lantern', { ff: 'Fraunces, Georgia, serif', fs: 22, fw: 500, c: '#5A4632', x2: 'font-style="italic"' }); }) },
+    { id: 'washi', name: 'Washi', aka: 'Japanese paper, kozo, mulberry paper, unryu',
+      desc: 'Japanese paper made from long mulberry fibers, light and strong, often translucent with fibers floating in it. It reads as delicate, natural and quietly crafted.',
+      spot: 'a soft translucent sheet with long wispy fibers visible in it, glowing when backlit',
+      ref: 'shoji screens, Japanese lanterns, tea packaging, the paper of ukiyo-e prints',
+      prompt: 'translucent kozo washi paper with long visible mulberry fibers, softly backlit',
+      ex: pic(k => { const r = rnd(8); let fb = ''; for (let i = 0; i < 70; i++) { const x = r() * 340 - 10, y = r() * 220 - 10, l = 20 + r() * 70, a = r() * 6.28; fb += `<path d="M${x.toFixed(1)} ${y.toFixed(1)} q${(Math.cos(a) * l / 2 + r() * 20 - 10).toFixed(1)} ${(Math.sin(a) * l / 2 + r() * 20 - 10).toFixed(1)} ${(Math.cos(a) * l).toFixed(1)} ${(Math.sin(a) * l).toFixed(1)}" stroke="${r() > .3 ? '#FFFFFF' : '#C9B996'}" stroke-width="${(.5 + r() * 1.3).toFixed(1)}" fill="none" opacity="${(.4 + r() * .5).toFixed(2)}"/>`; }
+        return BG('#E9E0CC') + R(-20, -20, 360, 240, k.rg([[0, '#FFF8E6'], [1, '#CDBF9F']], .5, .45, .7)) + k.noise({ f: .03, oct: 4, seed: 5, c: '#FFFFFF', lin: [2, -.8], op: .45 }) + k.noise({ f: .015, oct: 3, seed: 2, c: '#B8A57C', lin: [2.4, -1.3], op: .35 }) + `<g ${k.blur(.3)}>${fb}</g>` + E(150, 90, 30, 46, '#7E9A5A', `opacity=".18" ${k.blur(6)} transform="rotate(30 150 90)"`); }) },
+    { id: 'vellum', name: 'Vellum', aka: 'tracing paper, translucent overlay, glassine',
+      desc: 'A smooth, frosted, translucent paper laid over something so it shows through softly. It reads as refined: invitation wraps, book fly-leaves and architects\' drawings.',
+      spot: 'a milky sheet with sharp edges through which colors and type behind it are blurred and pale',
+      ref: 'wedding invitation overlays, luxury book endpapers, architectural tracing, Kinfolk-style stationery',
+      prompt: 'a translucent frosted vellum overlay softly veiling the print beneath',
+      ex: pic(k => { const und = C(204, 100, 54, '#E0603A') + R(40, 40, 90, 120, '#24485E') + T(204, 108, 'RSVP', { ff: '"Bebas Neue", Impact, sans-serif', fs: 30, fw: 400, c: '#FFF' });
+        return BG('#F1ECE2') + und + `<g ${k.clip('<path d="M96 -20 H340 V220 H70Z"/>')}>${BG('#F1ECE2')}<g ${k.blur(3.5)} opacity=".55">${und}</g>${R(-20, -20, 360, 240, '#FFFFFF', 'opacity=".42"')}${k.noise({ f: .9, oct: 2, seed: 2, c: '#FFFFFF', lin: [1, -.3], op: .4 })}</g>` + Pth('M96 -20 L70 220', 'none', 'stroke="#FFFFFF" stroke-width="1.6" opacity=".9"') + Pth('M98 -20 L72 220', 'none', 'stroke="#000" stroke-width="1" opacity=".08"') + k.rake(.15, '0 0 1 1'); }) },
+    { id: 'coated', name: 'Gloss coated paper', aka: 'glossy art paper, magazine stock, silk coated',
+      desc: 'Paper with a smooth clay coating so ink sits on top, sharp and saturated, with a shine that catches the light. It reads as magazines, catalogs and commercial print.',
+      spot: 'punchy, crisp color with a glare band where the light hits the page',
+      ref: 'fashion magazines, IKEA catalogs, photo books, supermarket flyers',
+      prompt: 'printed on glossy coated magazine paper, saturated color and a soft glare across the page',
+      ex: pic(k => BG('#F7F7F5') + R(30, 20, 260, 160, k.lg([[0, '#FF5A36'], [.5, '#FF2E6E'], [1, '#6A2CFF']], '0 0 1 1')) + C(200, 100, 46, '#FFD23F') + T(90, 160, 'SUMMER', { ff: '"Bebas Neue", Impact, sans-serif', fs: 40, fw: 400, c: '#FFFFFF', anchor: 'start', ls: 2, x2: 'transform="translate(-50 0)"' }) + Pth('M-20 150 L150 -20 H230 L40 220 H-20Z', '#FFFFFF', `opacity=".35" ${k.blur(10)}`) + Pth('M60 220 L250 -20 H262 L72 220Z', '#FFFFFF', `opacity=".5" ${k.blur(4)}`) + k.vignette(.25)) },
+    { id: 'corrugated', name: 'Corrugated cardboard', aka: 'fluted board, cardboard, shipping box',
+      desc: 'Two sheets of kraft with a wavy fluted layer glued between them. Torn or cut, the flutes show. It reads as shipping, DIY, protest signs and rough-and-ready packaging.',
+      spot: 'brown board with a torn edge revealing a row of little arches, or faint ridged stripes under the surface',
+      ref: 'shipping boxes, cardboard protest signs, Frank Gehry\'s Wiggle chair, DIY craft packaging',
+      prompt: 'corrugated cardboard with a torn top layer revealing the wavy brown flutes',
+      ex: pic(k => { let fl = 'M-20 130'; for (let x = -20; x < 360; x += 14) fl += ` Q${x + 3.5} 106 ${x + 7} 118 T${x + 14} 130`;
+        const brown = c => paper(k, c, { fleck: '#4E3418', fop: .4, top: .4 }) + lines(14, 90, '#6E4C28', 6, `opacity=".12" ${k.blur(3)}`);
+        return brown('#B98C5C') + `<g ${k.clip('<rect x="-20" y="100" width="360" height="40"/>')}>${R(-20, 100, 360, 40, '#5A3E20')}${Pth(fl, 'none', 'stroke="#C9A06E" stroke-width="2.4"')}${R(-20, 100, 360, 40, k.lg([[0, '#000', .45], [1, '#000', 0]]))}</g>` + `<g ${k.warp(10, .06, 2, 4)}><g ${k.clip('<rect x="-20" y="-20" width="360" height="124"/>')}>${brown('#C49766')}${R(-20, 96, 360, 8, '#E8CCA4', 'opacity=".9"')}</g><g ${k.clip('<rect x="-20" y="138" width="360" height="90"/>')}>${brown('#B4875A')}${R(-20, 138, 360, 4, '#E8CCA4', 'opacity=".8"')}</g></g>` + k.vignette(.3); }) },
+    { id: 'marbled', name: 'Marbled paper', aka: 'ebru, suminagashi, Florentine endpaper',
+      desc: 'Paper laid on a bath of floating inks that have been combed and swirled, so it picks up flowing, feathered patterns. It reads as antique books, Italian stationery and Turkish craft.',
+      spot: 'swirling, feathered bands of color, often combed into repeating peacock or wave shapes',
+      ref: 'endpapers of old leather-bound books, Il Papiro in Florence, Turkish ebru art',
+      prompt: 'hand-marbled endpaper with combed swirls of indigo, rust and gold on cream',
+      ex: pic(k => { const cs = ['#1F3A6B', '#F1E7D2', '#B5502E', '#F1E7D2', '#C9A046', '#2D5A54', '#F1E7D2']; let st = ''; for (let i = 0; i < 40; i++) st += R(-40 + i * 11, -40, 11, 280, cs[i % cs.length]);
+        return `<g ${k.warp(70, '.012 .006', 2, 6)}><g ${k.warp(18, '.004 .05', 1, 3)}>${st}</g></g>` + k.noise({ f: .9, oct: 2, seed: 2, c: '#FFFFFF', a: '0 0 0 .3 .6', op: .2 }) + k.bump({ f: .4, s: 1, op: .4 }); }) }
+  ]
+});
+
+/* ---------- print imperfections ---------- */
+const pa_poster = (k, a, b, dx = 0, dy = 0, op = .9) => `<g style="mix-blend-mode:multiply" opacity="${op}">${C(160, 92, 48, a)}${R(-20, 128, 360, 90, a)}</g><g style="mix-blend-mode:multiply" opacity="${op}" transform="translate(${dx} ${dy})">${Pth('M-20 150 Q60 128 120 142 T240 138 T340 146 V220 H-20Z', b)}${T(160, 54, 'NIGHT SWIM', { ff: '"Bebas Neue", Impact, sans-serif', fs: 38, fw: 400, c: b, ls: 3 })}</g>`;
+pool.groups.push({
+  id: 'flaw', title: 'Print imperfections', slot: 'Imperfection',
+  intro: 'Real printing is never perfectly clean, and the small mistakes are what make a print look printed rather than rendered. Name the flaw and say where you want it, and keep it a little.',
+  terms: [
+    { id: 'misreg', name: 'Misregistration', aka: 'off-register, registration shift, plate shift',
+      desc: 'When each ink color is printed in a separate pass and the passes do not line up, colors slip off their outlines, leaving slivers of paper or overlap. Loved in riso and screen printing.',
+      spot: 'one color sitting a few millimeters off the other, with thin gaps and overlaps along edges',
+      ref: 'risograph zines, screen-printed gig posters, vintage comics, Andy Warhol\'s Marilyns',
+      prompt: 'slight misregistration between the ink layers, colors shifted a few millimeters off their outlines',
+      ex: pic(k => paper(k, '#F3EDE0', { top: .4 }) + `<g style="mix-blend-mode:multiply">${C(160, 108, 50, '#FF48B0')}${T(160, 58, 'NIGHT SWIM', { ff: '"Bebas Neue", Impact, sans-serif', fs: 44, fw: 400, c: '#FF48B0', ls: 3 })}${Pth('M-20 160 Q60 140 120 152 T240 148 T340 156 V220 H-20Z', '#FF48B0')}</g><g style="mix-blend-mode:multiply" transform="translate(8 -5)">${C(160, 108, 50, 'none', 'stroke="#1E5BC6" stroke-width="5"')}${C(160, 108, 30, '#1E5BC6')}${T(160, 58, 'NIGHT SWIM', { ff: '"Bebas Neue", Impact, sans-serif', fs: 44, fw: 400, c: '#1E5BC6', ls: 3 })}${Pth('M-20 160 Q60 140 120 152 T240 148 T340 156 V220 H-20Z', '#1E5BC6', 'opacity=".7"')}</g>` + k.noise({ f: .8, oct: 2, seed: 4, c: '#F3EDE0', a: '0 0 0 0 0 .5 1', op: .45 })) },
+    { id: 'inkbleed', name: 'Ink bleed', aka: 'ink spread, feathering, dot gain',
+      desc: 'Ink wicking into absorbent paper so edges go soft and furry and fine details fill in. It reads as cheap stock, rubber stamps and wet ink on cotton.',
+      spot: 'type and lines with fuzzy, slightly swollen edges, small details clogged',
+      ref: 'rubber stamps, old newspapers, fountain pen on cheap paper, block-printed textiles',
+      prompt: 'soft ink bleed into absorbent paper, edges slightly feathered and swollen',
+      ex: pic(k => paper(k, '#EFE8D8', { top: .45 }) + `<g ${k.filter('<feTurbulence type="fractalNoise" baseFrequency=".25" numOctaves="3" seed="4" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="3" xChannelSelector="R" yChannelSelector="G" result="d"/><feGaussianBlur in="d" stdDeviation="1.4" result="b"/><feComponentTransfer in="b"><feFuncA type="table" tableValues="0 0 .4 .9 1 1"/></feComponentTransfer>', `filterUnits="userSpaceOnUse" ${STAGE}`)} style="mix-blend-mode:multiply">${T(160, 118, 'Postmark', { ff: 'Fraunces, Georgia, serif', fs: 50, fw: 700, c: '#203A6E' })}${R(40, 56, 240, 90, 'none', 'rx="10" stroke="#203A6E" stroke-width="4"')}${R(48, 64, 224, 74, 'none', 'rx="6" stroke="#203A6E" stroke-width="1.4"')}${T(160, 80, 'AIR MAIL · PAR AVION', { ff: '"IBM Plex Mono", monospace', fs: 11, fw: 600, c: '#203A6E', ls: 2 })}</g>`) },
+    { id: 'moire', name: 'Moiré', aka: 'interference pattern, screen clash',
+      desc: 'A shimmering ripple pattern that appears when two fine grids, like halftone screens or fabric weaves, overlap at slightly different angles. A defect in print, now used on purpose for a glitchy, op-art feel.',
+      spot: 'wavy bands or rosettes of light and dark that are not in either pattern on its own',
+      ref: 'scanned magazine pages, TV screens on camera, op-art, Y2K and rave flyers',
+      prompt: 'a visible moiré interference pattern from two overlapping fine line screens',
+      ex: pic(k => BG('#F4F2EC') + lines(3.4, 0, '#14151A', .9) + lines(3.4, 4, '#14151A', .9) + `<g opacity=".9" style="mix-blend-mode:multiply">${C(160, 100, 64, 'none', `stroke="#E2336B" stroke-width="128" ${k.clip('<circle cx="160" cy="100" r="64"/>')}`)}</g>` + `<g ${k.clip('<circle cx="160" cy="100" r="64"/>')}>${lines(3.2, -8, '#14151A', .9, 'opacity=".6"')}</g>`) },
+    { id: 'patchy', name: 'Uneven ink coverage', aka: 'patchy solids, ink starvation, roller marks',
+      desc: 'Large areas of solid color that come out mottled, streaky or lighter in places because the press could not lay down an even film. It is the signature of riso and hand-pulled prints.',
+      spot: 'a flat color block with lighter blotches, speckles of paper showing through and faint streaks',
+      ref: 'risograph posters, linocut solids, old letterpress wood type, screen-printed T-shirts',
+      prompt: 'uneven, mottled ink coverage in the solid areas, with speckles of paper showing through',
+      ex: pic(k => paper(k, '#F2ECDF', { top: .4 }) + `<g ${k.clip('<rect x="24" y="22" width="272" height="156"/>')}>${R(24, 22, 272, 156, '#1C6E8C')}${k.noise({ f: '.006 .03', oct: 3, seed: 5, c: '#F2ECDF', lin: [2.4, -1.2], op: .7 })}${k.noise({ f: .6, oct: 2, seed: 3, c: '#F2ECDF', a: '0 0 0 0 0 .6 1', op: .7 })}${k.noise({ f: '.004 .3', oct: 2, seed: 9, c: '#F2ECDF', lin: [2, -1.1], op: .35 })}</g>`) },
+    { id: 'folds', name: 'Fold lines & creases', aka: 'folded poster, crease marks',
+      desc: 'Creases from a print folded to post or pocket, with the ink cracked along the fold and soft light and shadow across the panels. It says this was handed out, carried and kept.',
+      spot: 'straight crease lines dividing the sheet into panels, with ink worn white along them',
+      ref: 'folded gig flyers, road maps, letters, protest leaflets, vintage posters',
+      prompt: 'creased from being folded in quarters, the ink cracked and worn white along the fold lines',
+      ex: pic(k => paper(k, '#EFE6D3', { top: .4 }) + pa_poster(k, '#E2563B', '#232A4E', 1, 0, .92) + R(-20, -20, 180, 120, '#fff', 'opacity=".1"') + R(160, 100, 180, 120, '#000', 'opacity=".08"') + R(160, -20, 180, 120, '#000', 'opacity=".04"') + `<g ${k.warp(2, .3, 1, 2)}>${R(158.6, -20, 2.8, 240, '#F6EFE0', 'opacity=".95"')}${R(-20, 98.6, 360, 2.8, '#F6EFE0', 'opacity=".95"')}</g>` + R(161.4, -20, 2, 240, '#000', `opacity=".18" ${k.blur(1)}`) + R(-20, 101.4, 360, 2, '#000', `opacity=".18" ${k.blur(1)}`) + k.noise({ f: '.9 .05', oct: 2, seed: 4, c: '#F6EFE0', a: '0 0 0 0 .6 1', op: .3 })) },
+    { id: 'foxing', name: 'Foxing & age stains', aka: 'yellowed paper, age spots, coffee ring',
+      desc: 'Brown speckles and blotches that appear on old paper, with yellowed edges and the odd ring from a cup. It reads as archives, old letters and found ephemera.',
+      spot: 'rust-brown freckles and tide marks scattered over a yellowed sheet, darker toward the edges',
+      ref: 'antique books, old maps, family letters, archive scans, vintage sheet music',
+      prompt: 'aged paper with brown foxing spots, yellowed edges and a faint coffee ring stain',
+      ex: pic(k => { const r = rnd(6); let sp = ''; for (let i = 0; i < 70; i++) sp += C(r() * 320, r() * 200, .6 + Math.pow(r(), 3) * 5, '#8A5A2A', `opacity="${(.2 + r() * .5).toFixed(2)}"`);
+        return paper(k, '#EAD9B4', { top: .45 }) + R(-20, -20, 360, 240, k.rg([[.4, '#B08440', 0], [1, '#8A5A20', .55]], .5, .5, .72)) + pa_text(40, 40, 240, 14, '#3A2E22', 9, 2, 2).replace(/<rect/g, '<rect opacity=".55"') + `<g ${k.blur(.6)}>${sp}</g>` + C(222, 122, 38, 'none', `stroke="#7A4A1E" stroke-width="3.5" opacity=".35" ${k.warp(4, .05, 2, 3)}`) + C(222, 122, 36, '#A07040', `opacity=".08"`) + k.noise({ f: .04, oct: 3, seed: 7, c: '#A07436', lin: [3, -1.7], op: .5 }); }) },
+    { id: 'overprint', name: 'Overprint', aka: 'multiply overlap, transparent inks, trapping',
+      desc: 'Transparent inks printed on top of each other so they mix where they overlap, making a third color: blue over yellow goes green, pink over yellow goes orange. Riso and screen artists design with it.',
+      spot: 'shapes in two or three colors that make new colors where they cross',
+      ref: 'Bauhaus-inspired posters, riso zines, Saul Bass, Corita Kent\'s serigraphs',
+      prompt: 'transparent overprinting inks, fluorescent pink, yellow and blue mixing into new colors where they overlap',
+      ex: pic(k => paper(k, '#F6F1E6', { top: .35 }) + `<g style="mix-blend-mode:multiply">${C(124, 82, 56, '#FFD400', 'opacity=".95"')}${C(196, 82, 56, '#FF4FA0', 'opacity=".9"')}${C(160, 136, 56, '#2E8BD6', 'opacity=".85"')}</g>` + k.noise({ f: .8, oct: 2, seed: 4, c: '#F6F1E6', a: '0 0 0 0 0 .4 .9', op: .4 })) },
+    { id: 'torn', name: 'Torn paper collage', aka: 'ripped paper, cut-and-paste, scrap collage',
+      desc: 'Pieces of printed paper torn by hand and layered, with white fibrous edges where the tear went through the paper and the odd bit of tape. It reads as punk, scrapbooks and handmade.',
+      spot: 'overlapping scraps with rough white torn edges, shadows under each layer, tape strips',
+      ref: 'punk flyers, Hannah Höch, Jamie Reid\'s Sex Pistols artwork, scrapbook journaling',
+      prompt: 'layered torn paper collage, rough white fibrous tear edges and strips of masking tape',
+      ex: pic(k => { const scrap = (d, c, s, inner = '') => `<g ${k.warp(9, .08, 2, s)}>${Pth(d, '#000', `opacity=".35" transform="translate(3 4)" ${k.blur(3)}`)}${Pth(d, '#FBF8F1')}<g transform="translate(-2 -1)">${Pth(d, c)}${inner}</g></g>`;
+        return paper(k, '#2B2A28', { fleck: '#000', top: .4 }) + scrap('M10 20 L180 6 L196 130 L22 150Z', '#D6C9A8', 3, `<g opacity=".6">${pa_text(30, 30, 140, 12, '#2A2620', 8, 2.4, 4)}</g>`) + scrap('M140 50 L310 40 L300 190 L130 176Z', '#E2452F', 7, T(222, 128, 'NO', { ff: '"Bebas Neue", Impact, sans-serif', fs: 90, fw: 400, c: '#111' })) + scrap('M60 110 L190 120 L170 196 L40 186Z', '#2E5BA8', 11) + R(150, 32, 70, 18, '#E8DDB0', `opacity=".75" transform="rotate(-8 185 41)"`) + R(40, 130, 60, 16, '#E8DDB0', `opacity=".75" transform="rotate(12 70 138)"`); }) }
+  ]
+});
+
+/* ---------- render properties ---------- */
+// fn_stage, fn_sph and fn_lab come from 40-finish.js
+// pillowy 3D shading from a shape's own outline: blurred alpha as height, lit diffuse + specular, kept inside the shape
+const rd_puff = (k, o = {}) => { const { b = 7, s = 9, exp = 25, sc = 1, az = 235, el = 50, kd = 1.15 } = o;
+  return k.filter(`<feGaussianBlur in="SourceAlpha" stdDeviation="${b}" result="h"/><feDiffuseLighting in="h" surfaceScale="${s}" diffuseConstant="${kd}" lighting-color="#fff" result="d"><feDistantLight azimuth="${az}" elevation="${el}"/></feDiffuseLighting><feComposite in="SourceGraphic" in2="d" operator="arithmetic" k1="1" result="m"/><feSpecularLighting in="h" surfaceScale="${s}" specularConstant="${sc}" specularExponent="${exp}" lighting-color="#fff" result="sp"><feDistantLight azimuth="${az}" elevation="${el}"/></feSpecularLighting><feComposite in="sp" in2="SourceAlpha" operator="in" result="sp2"/><feComposite in="m" in2="sp2" operator="arithmetic" k2="1" k3="1" result="o"/><feComposite in="o" in2="SourceAlpha" operator="in"/>`, `filterUnits="userSpaceOnUse" ${STAGE}`); };
+const rd_drop = (k, inner, dx = 4, dy = 6, b = 5, op = .35) => `<g transform="translate(${dx} ${dy})" opacity="${op}" ${k.blur(b)}><g style="filter:brightness(0)">${inner}</g></g>`;
+const RD_ORANGE = '#D9772E';
+
+pool.groups.push({
+  id: 'pbr', title: 'Render properties', slot: 'Render',
+  intro: 'The dials on a 3D material, named the way Blender, Cinema 4D and Unreal name them. Image models learned these words from render galleries, so they work in prompts for still images too.',
+  terms: [
+    { id: 'roughness', name: 'Roughness', aka: 'glossiness (inverted), microsurface',
+      desc: 'How blurry a surface\'s reflections are. Low roughness gives sharp, mirror-like highlights; high roughness spreads them into a soft glow. It is the single most useful dial for realism.',
+      spot: 'the same color sphere goes from chalky to polished just by tightening the highlight',
+      ref: 'Blender Principled BSDF, Substance Painter, Unreal Engine materials, KeyShot',
+      prompt: 'low roughness, crisp sharp reflections',
+      ex: pic(k => fn_stage(k) + fn_sph(k, fn_solid(RD_ORANGE), { cx: 62, cy: 92, r: 42, gloss: 0, rim: .05 }) + fn_sph(k, fn_solid(RD_ORANGE), { cx: 160, cy: 92, r: 42, gloss: .5, env: true, rim: .12 }) + fn_sph(k, fn_solid(RD_ORANGE), { cx: 258, cy: 92, r: 42, gloss: 1, env: true, rim: .2 }) + fn_lab(62, 172, 'rough 0.9') + fn_lab(160, 172, '0.4') + fn_lab(258, 172, '0.05')) },
+    { id: 'metalness', name: 'Metalness', aka: 'metallic, conductor vs dielectric',
+      desc: 'Whether a surface behaves like metal. Plastic and paint show the color with a white highlight on top; metal has no color of its own beneath and tints its reflections instead.',
+      spot: 'on the plastic sphere the highlight is white; on the metal one the highlight and reflections take the gold color',
+      ref: 'Blender and Unreal metallic slider, product renders of anodized and plastic parts side by side',
+      prompt: 'fully metallic gold surface with tinted, mirror-like reflections',
+      ex: pic(k => fn_stage(k) + fn_sph(k, fn_solid('#C08A2C'), { cx: 92, cy: 90, r: 54, gloss: .75, env: true, rim: .1 }) + fn_sph(k, kk => R(-20, -20, 360, 240, kk.lg([[0, '#FFF0BC'], [.42, '#D6A23E'], [.5, '#4A3008'], [.62, '#7A5418'], [1, '#F2CF72']])), { cx: 228, cy: 90, r: 54, gloss: .9, env: true, spec: '#FFE9A8', shade: .3, rim: .35, rimc: '#FFE6A0' }) + fn_lab(92, 170, 'metallic 0') + fn_lab(228, 170, 'metallic 1')) },
+    { id: 'sss', name: 'Subsurface scattering', aka: 'SSS, translucency, waxy skin',
+      desc: 'Light that enters a material, bounces around inside and comes out somewhere else. It is why skin, wax, marble, jade and milk glow softly instead of looking like painted plastic.',
+      spot: 'soft, glowing shadows that turn warm red or orange at the edges, as if lit from inside',
+      ref: 'Pixar skin shaders, candle renders, jade carvings, the glow of an ear against the sun',
+      prompt: 'subsurface scattering, soft waxy translucency with warm light glowing through the edges',
+      ex: pic(k => fn_stage(k, ['#3A332E', '#1C1916'], '#000') + C(196, 70, 70, '#FFB070', `opacity=".35" ${k.blur(24)}`) + fn_sph(k, kk => R(-20, -20, 360, 240, kk.rg([[0, '#FFE8D0'], [.55, '#F2A882'], [1, '#D24E34']], .38, .34, .75)), { gloss: .25, shade: .22, rim: .8, rimc: '#FF7A48', spec: '#FFF4E6' }) + E(160, 160, 50, 6, '#FF6A3A', `opacity=".35" ${k.blur(6)}`)) },
+    { id: 'aniso', name: 'Anisotropic', aka: 'anisotropy, brushed reflection, spun metal',
+      desc: 'Reflections stretched in one direction because the surface has fine grooves, as on brushed or spun metal. It is what makes a pan bottom or a watch dial show a bow-tie of light.',
+      spot: 'highlights smeared into long streaks or a bow-tie shape instead of a round spot',
+      ref: 'spun aluminium speaker caps, saucepan bases, watch dials, hair shaders',
+      prompt: 'spun brushed aluminium with anisotropic reflections forming a bow-tie highlight',
+      ex: pic(k => { let rings = ''; for (let r = 3; r < 86; r += 1.5) rings += `<circle cx="160" cy="100" r="${r}" fill="none" stroke="${Math.round(r * 7) % 3 ? '#5E646A' : '#E0E4E8'}" stroke-width=".7" opacity=".35"/>`;
+        return BG('#16171A') + C(164, 106, 86, '#000', `opacity=".6" ${k.blur(8)}`) + `<g ${k.clip('<circle cx="160" cy="100" r="85"/>')}>${C(160, 100, 85, '#8E949A')}${Pth('M160 100 L112 0 L208 0Z M160 100 L112 200 L208 200Z', '#F4F7FA', `opacity=".85" ${k.blur(7)}`)}${Pth('M160 100 L60 64 L60 136Z M160 100 L260 64 L260 136Z', '#2A2E33', `opacity=".7" ${k.blur(9)}`)}${rings}</g>` + C(160, 100, 85, 'none', 'stroke="#C8CDD2" stroke-width="1.5"') + C(160, 100, 6, '#1A1C1F');
+      }) },
+    { id: 'clearcoat', name: 'Clearcoat', aka: 'coat layer, clear lacquer layer, car paint shader',
+      desc: 'A thin clear varnish layer over a base material, so you see two highlights at once: a soft one from the color underneath and a sharp one from the gloss on top.',
+      spot: 'a crisp window-like reflection riding over a broader, softer glow in the color',
+      ref: 'car paint renders, lacquered toys, glazed pottery, Blender coat settings',
+      prompt: 'deep red car paint with a glossy clearcoat, sharp top reflections over a soft colored glow',
+      ex: pic(k => ball(k, kk => BG('#9C0E18') + R(-20, -20, 360, 240, kk.rg([[0, '#FF5A52', .9], [1, '#9C0E18', 0]], .32, .28, .45)) + kk.noise({ f: .9, oct: 1, seed: 5, c: '#FF9A90', a: '0 0 0 0 0 0 0 0 0 0 1', t: 'discrete', op: .4 }), { gloss: 1, env: true, rim: .3, bg: ['#E6E3DD', '#A49F96'] }), undefined, tag('base + coat')) },
+    { id: 'thinfilm', name: 'Thin-film iridescence', aka: 'oil slick, soap bubble, iridescent',
+      desc: 'Rainbow colors that swirl and shift with the viewing angle, caused by light bouncing inside a very thin layer. It reads as soap bubbles, oil on water, beetle shells and futuristic packaging.',
+      spot: 'swirling magenta, green, gold and blue bands that follow the curve of the surface',
+      ref: 'soap bubbles, oil puddles, beetle wings, holographic cosmetics packaging',
+      prompt: 'thin-film iridescence like a soap bubble, swirling magenta, green and gold bands',
+      ex: pic(k => BG('#0A0C14') + R(-20, -20, 360, 240, k.rg([[0, '#1E2440'], [1, '#0A0C14']], .5, .4, .7)) + `<g ${k.clip('<circle cx="160" cy="98" r="76"/>')}><g ${k.warp(40, .012, 1, 4)}>${k.noise({ f: .011, oct: 2, seed: 3, c: '#FF3FD0', lin: [3.2, -1.3], op: .8, blend: 'screen' })}${k.noise({ f: .011, oct: 2, seed: 9, c: '#2CFFB0', lin: [3.2, -1.3], op: .7, blend: 'screen' })}${k.noise({ f: .011, oct: 2, seed: 15, c: '#FFD23A', lin: [3.2, -1.4], op: .6, blend: 'screen' })}${k.noise({ f: .011, oct: 2, seed: 21, c: '#4A6CFF', lin: [3.2, -1.2], op: .8, blend: 'screen' })}</g>${C(160, 98, 76, k.rg([[0, '#000', .55], [.7, '#000', .2], [1, '#fff', .3]]))}${R(108, 44, 22, 26, '#fff', `rx="5" opacity=".75" ${k.blur(1.2)}`)}${R(134, 44, 8, 26, '#fff', 'rx="3" opacity=".5"')}</g>` + C(160, 98, 76, 'none', 'stroke="#fff" stroke-width=".8" opacity=".35"')) },
+    { id: 'transmission', name: 'Transmission & refraction', aka: 'glass shader, IOR, refraction',
+      desc: 'Light passing through a clear solid and bending as it goes, so what is behind it appears flipped and squeezed. The index of refraction, or IOR, sets how strongly it bends.',
+      spot: 'the background seen through the object is upside down and shrunk, with dark edges and a bright caustic below',
+      ref: 'crystal ball photography, glass product renders, perfume bottles, IOR 1.5 in any 3D app',
+      prompt: 'solid clear glass sphere refracting the background upside down, IOR 1.5, bright caustic on the floor',
+      ex: pic(k => { const bgd = R(-20, -20, 360, 160, k.pattern(26, 10, R(0, 0, 13, 10, '#2E3A5A') + R(13, 0, 13, 10, '#EDE6D6'))) + R(-20, 140, 360, 80, k.lg([[0, '#C9A276'], [1, '#8E6A44']]));
+        return bgd + E(172, 160, 62, 8, '#000', `opacity=".35" ${k.blur(5)}`) + E(176, 160, 26, 5, '#FFF4D0', `opacity=".9" ${k.blur(3)}`) + `<g ${k.clip('<circle cx="160" cy="92" r="60"/>')}><g transform="translate(160 92) scale(-.5 -.5) translate(-160 -92)">${bgd}</g>${C(160, 92, 60, '#BFE6FF', 'opacity=".12"')}${C(160, 92, 60, k.rg([[.6, '#000', 0], [1, '#000', .7]]))}${R(122, 50, 18, 20, '#fff', `rx="4" opacity=".85" ${k.blur(1)}`)}</g>`;
+      }) },
+    { id: 'displacement', name: 'Displacement', aka: 'displacement map, height map, vs bump map',
+      desc: 'Texture that actually moves the geometry, so bumps change the silhouette and cast real shadows. A bump or normal map only fakes the shading and leaves the outline smooth.',
+      spot: 'the bumpy sphere\'s outline is lumpy; a bump-mapped one looks textured but its edge is a perfect circle',
+      ref: 'rock and terrain renders, ZBrush sculpts, Substance height maps, Blender displacement modifier',
+      prompt: 'true displacement mapping, deep bumpy surface relief that breaks the silhouette',
+      ex: pic(k => { const tex = kk => BG('#9A8A72') + kk.bump({ f: .05, oct: 3, type: 'turbulence', s: 6, op: 1, seed: 7, blend: 'overlay' });
+        return fn_stage(k) + fn_sph(k, tex, { cx: 88, cy: 90, r: 52, gloss: .1 }) + `<g ${k.warp(22, .04, 1, 7)}>${fn_sph(k, tex, { cx: 232, cy: 90, r: 52, gloss: .1 })}</g>` + fn_lab(88, 172, 'bump map') + fn_lab(232, 172, 'displacement');
+      }) }
+  ]
+});
+
+/* ---------- material looks ---------- */
+pool.groups.push({
+  id: 'look', title: 'Material looks', slot: 'Look',
+  intro: 'Whole-image material styles that recur in illustration, motion and 3D: everything made of clay, felt, paper or chrome. One of these sets the entire world, so it usually goes first in a prompt.',
+  terms: [
+    { id: 'clay', name: 'Claymation', aka: 'plasticine, stop-motion clay, clay render',
+      desc: 'Everything sculpted from soft modelling clay, with rounded forms, saturated colors and tiny fingerprints. It reads as handmade, funny and warm.',
+      spot: 'chunky rounded shapes, slightly lumpy outlines and faint thumbprints on a matte surface',
+      ref: 'Wallace & Gromit, Aardman, Shaun the Sheep, Pingu, clay-style 3D ads',
+      prompt: 'claymation style, soft plasticine with visible fingerprints and slightly lumpy hand-sculpted forms',
+      ex: pic(k => { const body = E(160, 110, 62, 56, '#F07A2E') + C(122, 168, 14, '#F07A2E') + C(198, 168, 14, '#F07A2E');
+        return BG('#86BCD9') + R(-20, 150, 360, 70, '#5E9AB8') + E(164, 178, 70, 10, '#000', `opacity=".3" ${k.blur(6)}`) + `<g ${k.warp(5, .03, 1, 3)}><g ${rd_puff(k, { b: 9, s: 7, exp: 8, sc: .35 })}>${body}</g><g ${k.mask(`<g fill="#fff">${body.replace(/#F07A2E/g, '#fff')}</g>`)}>${k.bump({ f: .035, oct: 2, type: 'turbulence', s: 1.5, op: .22, seed: 4 })}</g>${C(140, 96, 13, '#FFF8EE')}${C(180, 96, 13, '#FFF8EE')}${C(143, 99, 6, '#1A1410')}${C(177, 99, 6, '#1A1410')}${E(160, 128, 14, 7, '#7A2410')}${E(128, 118, 8, 5, '#FF9E8A', 'opacity=".7"')}${E(192, 118, 8, 5, '#FF9E8A', 'opacity=".7"')}</g>`;
+      }) },
+    { id: 'feltcraft', name: 'Felt craft', aka: 'felted, needle felt, felt cut-outs',
+      desc: 'Flat shapes cut from wool felt and stitched or glued together, with fuzzy edges and visible stitching. It reads as cozy, childlike and handmade.',
+      spot: 'soft fuzzy colored shapes with no shine, dashed stitch lines around the edges',
+      ref: 'children\'s picture books, Etsy felt mobiles, quiet books, Kirby\'s Epic Yarn',
+      prompt: 'felt craft style, fuzzy wool felt cut-outs with visible blanket stitching',
+      ex: pic(k => { const fz = (inner) => `<g ${k.warp(2.5, .7, 1, 5)}>${inner}</g>`;
+        const sun = C(232, 64, 36, '#F2B632'), cloud = Pth('M60 120 Q60 92 88 94 Q96 66 126 72 Q150 58 168 82 Q194 82 194 108 Q196 128 172 128 L80 128 Q60 128 60 120Z', '#F6F1E6'), hill = Pth('M-20 220 L-20 170 Q80 130 180 168 Q260 196 340 160 L340 220Z', '#7FAE5A');
+        const all = sun + cloud + hill;
+        return BG('#3F6E8C') + k.noise({ f: .8, oct: 3, seed: 2, c: '#7FA6C0', lin: [1.6, -.6], op: .4 }) + rd_drop(k, all, 2, 3, 3, .35) + fz(all) + `<g ${k.mask(fz(all.replace(/#[0-9A-F]{6}/g, '#fff')))}>${k.noise({ f: .9, oct: 3, seed: 7, c: '#FFFFFF', lin: [1.4, -.5], op: .35 })}${k.bump({ f: .3, s: 1, op: .25 })}</g>` + C(232, 64, 29, 'none', 'stroke="#7A4A08" stroke-width="1.6" stroke-dasharray="4 4"') + Pth('M72 118 Q72 100 92 102 Q100 78 126 82 Q148 70 162 90 Q184 90 184 108 Q184 120 170 120 L84 120 Q72 120 72 118Z', 'none', 'stroke="#8A8270" stroke-width="1.6" stroke-dasharray="4 4"') + Pth('M-20 182 Q80 142 180 180 Q260 206 340 172', 'none', 'stroke="#3E6A28" stroke-width="1.6" stroke-dasharray="4 4"');
+      }) },
+    { id: 'papercut', name: 'Layered paper cut', aka: 'paper craft, cut-paper diorama, kirigami',
+      desc: 'A scene built from stacked layers of cut colored paper, each casting a soft shadow on the one behind. It reads as crafted, calm and storybook.',
+      spot: 'flat colored layers with crisp cut edges and soft drop shadows that make shallow depth',
+      ref: 'Elsa Mora, shadow-box art, paper-craft explainer videos, Google Doodles',
+      prompt: 'layered paper-cut diorama, stacked colored paper with crisp edges and soft shadows between layers',
+      ex: pic(k => { const L = [['M-20 220 L-20 110 Q40 80 100 100 Q170 124 230 92 Q290 66 340 90 L340 220Z', '#F0B07A'], ['M-20 220 L-20 136 Q60 106 130 132 Q200 156 260 124 Q300 106 340 118 L340 220Z', '#DB7A52'], ['M-20 220 L-20 160 Q50 136 120 158 Q190 180 250 150 Q300 132 340 146 L340 220Z', '#A8483C'], ['M-20 220 L-20 184 Q80 160 160 182 Q240 202 340 176 L340 220Z', '#5A2630']];
+        let g = BG('#F7DDB6') + C(222, 64, 28, '#FFF2D6');
+        L.forEach(([d, c]) => g += Pth(d, '#2A0E10', `opacity=".45" transform="translate(0 -4)" ${k.blur(4)}`) + Pth(d, c));
+        return g + k.bump({ f: .5, s: 1.2, op: .5 }) + k.noise({ f: .9, oct: 2, seed: 3, c: '#fff', a: '0 0 0 0 .3 .5', op: .25 });
+      }) },
+    { id: 'glassmorph', name: 'Glassmorphism', aka: 'frosted glass UI, acrylic material, backdrop blur',
+      desc: 'Translucent frosted panels floating over bright blurred color, with a thin light border. It is a UI style from Apple and Microsoft design systems.',
+      spot: 'a semi-clear card that blurs the colors behind it, with a fine white edge and soft shadow',
+      ref: 'macOS Big Sur and visionOS panels, Windows Fluent acrylic, crypto and fintech landing pages',
+      prompt: 'glassmorphism, a frosted translucent glass card with a thin white border over vivid blurred color blobs',
+      ex: pic(k => { const blobs = C(90, 64, 56, '#FF5FA2') + C(244, 140, 66, '#36CFFF') + C(226, 40, 34, '#FFC24B') + C(70, 170, 30, '#8A5CFF');
+        const card = 'x="70" y="44" width="180" height="112" rx="18"';
+        return R(-20, -20, 360, 240, k.lg([[0, '#1E1B4B'], [1, '#3B1E5E']], '0 0 1 1')) + blobs + R(74, 54, 180, 112, '#000', `rx="18" opacity=".3" ${k.blur(10)}`) + `<g ${k.clip(`<rect ${card}/>`)}><g ${k.blur(16)}>${blobs}</g><rect ${card} fill="#fff" opacity=".16"/>${k.noise({ f: .9, oct: 2, c: '#fff', lin: [1, -.4], op: .15 })}</g><rect ${card} fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/>` + C(102, 78, 14, '#fff', 'opacity=".75"') + R(124, 70, 86, 7, '#fff', 'rx="3.5" opacity=".75"') + R(124, 84, 54, 6, '#fff', 'rx="3" opacity=".45"') + R(88, 116, 144, 24, '#fff', 'rx="12" opacity=".3"');
+      }) },
+    { id: 'liquidchrome', name: 'Liquid chrome', aka: 'Y2K chrome, melted metal, mercury',
+      desc: 'Molten, mirror-bright metal in blobby organic shapes, reflecting a stretched sky and horizon. It is the signature of Y2K and acid graphics.',
+      spot: 'a fluid silver blob with sharp bands of light and dark that flow with its curves',
+      ref: 'T-1000 in Terminator 2, Y2K album covers, acid graphics, early-2000s logos',
+      prompt: 'liquid chrome blob, molten mirror-polished metal with flowing sharp reflections',
+      ex: pic(k => { const blob = 'M86 62 C118 8 206 18 236 56 C276 98 254 160 194 158 C152 156 146 190 104 176 C56 160 50 100 86 62Z';
+        return R(-20, -20, 360, 240, k.lg([[0, '#E9E2F6'], [1, '#B8B0D4']])) + Pth(blob, '#2A2440', `opacity=".35" transform="translate(8 12)" ${k.blur(9)}`) + `<g ${k.clip(`<path d="${blob}"/>`)}><g ${k.warp(60, .012, 1, 6)}>${R(-20, -20, 360, 240, k.lg([[0, '#FFFFFF'], [.2, '#B6C2D6'], [.36, '#3A4252'], [.4, '#0E1118'], [.5, '#D8DEE8'], [.62, '#5A6272'], [.7, '#F4F6FA'], [.84, '#2A303C'], [1, '#C6CEDA']]))}</g>${Pth(blob, 'none', `stroke="#0E1118" stroke-width="10" opacity=".5" ${k.blur(5)}`)}${E(120, 52, 18, 6, '#fff', `transform="rotate(-25 120 52)" ${k.blur(1)}`)}${E(214, 120, 6, 16, '#fff', `opacity=".8" ${k.blur(1)}`)}</g>`;
+      }) },
+    { id: 'holo', name: 'Holographic foil', aka: 'holo, iridescent foil, rainbow foil',
+      desc: 'A thin film that splits light into pastel rainbows that slide as it moves. It reads as Y2K, trading cards, festival fashion and beauty packaging.',
+      spot: 'pastel pink, blue, mint and yellow washed diagonally across a crinkled, metallic surface',
+      ref: 'holographic Pokémon cards, Glossier and Fenty packaging, festival jackets, holo stickers',
+      prompt: 'holographic iridescent foil with pastel rainbow gradients and a crinkled metallic sheen',
+      ex: pic(k => `<g ${k.warp(46, .01, 1, 3)}>${R(-40, -40, 400, 280, k.lg([[0, '#FFB3E6'], [.2, '#B3C3FF'], [.4, '#A8FFE2'], [.6, '#FFF2A8'], [.8, '#FFB3C1'], [1, '#C9B3FF']], '0 0 1 1'))}</g>` + k.bump({ f: .015, oct: 2, type: 'turbulence', s: 2, op: .3, seed: 6, spec: .6, exp: 12 }) + lines(2.6, 35, '#fff', .5, 'opacity=".22"') + R(-20, -20, 360, 240, k.lg([[.3, '#fff', 0], [.45, '#fff', .55], [.6, '#fff', 0]], '0 0 1 1')) + k.noise({ f: .9, oct: 1, seed: 4, c: '#FFFFFF', a: '0 0 0 0 0 0 0 0 0 1', t: 'discrete', op: .9 })) },
+    { id: 'inflatable', name: 'Inflatable', aka: 'puffy 3D, balloon type, blow-up',
+      desc: 'Shapes and letters that look pumped full of air, with soft rounded edges, glossy highlights and pinched seams. It reads as playful, pop and current motion design.',
+      spot: 'fat rounded forms with a shiny highlight along the top of each bulge',
+      ref: 'Jeff Koons balloon dogs, inflatable 3D type in ads, pool floats, puffer jackets',
+      prompt: 'inflatable puffy 3D shapes, glossy balloon-like vinyl with soft rounded seams',
+      ex: pic(k => { const t = T(160, 128, 'puff', { ff: 'Bricolage Grotesque, Arial Black, sans-serif', fs: 104, fw: 800, c: '#FF4F9A', ls: 2, x2: 'stroke="#FF4F9A" stroke-width="16" stroke-linejoin="round"' });
+        return BG('#FFD84A') + R(-20, -20, 360, 240, k.rg([[0, '#FFE88A'], [1, '#F5B820']], .5, .3, .8)) + rd_drop(k, t, 6, 10, 7, .3) + `<g ${rd_puff(k, { b: 8, s: 10, exp: 30, sc: 1.2 })}>${t}</g>`;
+      }) },
+    { id: 'vinyltoy', name: 'Vinyl toy', aka: 'designer toy, art toy, soft vinyl',
+      desc: 'Smooth, chunky collectible figures in glossy molded vinyl with simplified faces. It reads as street-culture collectibles and cute 3D characters.',
+      spot: 'a big round head on a small body, flat colors, smooth satin plastic highlights',
+      ref: 'Kidrobot Dunny, Medicom Bearbrick, Pop Mart, Funko Pop',
+      prompt: 'designer vinyl toy figure, glossy smooth molded plastic, big head and simple face',
+      ex: pic(k => { const fx = rd_puff(k, { b: 6, s: 7, exp: 40, sc: 1 });
+        const head = C(160, 70, 44, '#F4EEE4') + C(124, 34, 15, '#F4EEE4') + C(196, 34, 15, '#F4EEE4'), body = R(130, 108, 60, 56, '#FF6A3D', 'rx="22"') + R(110, 116, 22, 36, '#FF6A3D', 'rx="11"') + R(188, 116, 22, 36, '#FF6A3D', 'rx="11"'), feet = R(132, 160, 24, 16, '#2E2A28', 'rx="7"') + R(164, 160, 24, 16, '#2E2A28', 'rx="7"');
+        return BG('#BFE6D6') + R(-20, 170, 360, 50, '#9CD3BE') + E(162, 178, 56, 7, '#000', `opacity=".3" ${k.blur(5)}`) + `<g ${fx}>${feet}</g><g ${fx}>${body}</g><g ${fx}>${head}</g>` + C(146, 74, 5, '#1A1A1A') + C(174, 74, 5, '#1A1A1A') + C(147.5, 72.5, 1.4, '#fff') + C(175.5, 72.5, 1.4, '#fff') + Pth('M154 88 Q160 93 166 88', 'none', 'stroke="#1A1A1A" stroke-width="2" stroke-linecap="round"');
+      }) }
+  ]
+});
+
+/* ---------- families: one page each ---------- */
+const G = Object.fromEntries(pool.groups.map(g => [g.id, g]));
+const WORKBOOK = {};
+WORKBOOK.areas = [
+  { id: 'natural', title: 'Natural materials', preview: 'calacatta', blurb: 'Woods by species and cut, stones from marble to terrazzo, and the cloths and leathers that make a room or an object feel soft.', groups: ['wood', 'stone', 'fiber'] },
+  { id: 'built', title: 'Built & industrial', preview: 'brass', blurb: 'Concrete, plaster and clay, the metals from brushed steel to weathered copper, and glass, plastics and rubber.', groups: ['mineral', 'metal', 'synth'] },
+  { id: 'finish', title: 'Finishes & wear', preview: 'verdigris', blurb: 'How shiny a surface is, what was done to it after it was made, and what time, weather and hands have done since.', groups: ['sheen', 'treat', 'wear'] },
+  { id: 'print', title: 'Print processes', preview: 'riso', blurb: 'Risograph, letterpress, screen print and offset, the hand processes from linocut to cyanotype, and the finishing that makes print feel expensive.', groups: ['press', 'hand', 'finishing'] },
+  { id: 'paper', title: 'Paper & imperfections', preview: 'misreg', blurb: 'Paper stocks from newsprint to handmade cotton, and the happy accidents of real printing: misregistration, bleed, moiré and wear.', groups: ['paper', 'flaw'] },
+  { id: 'render', title: '3D & digital surfaces', preview: 'thinfilm', blurb: 'The shader words 3D artists use, from roughness to subsurface scattering, and the material looks that recur in illustration and motion.', groups: ['pbr', 'look'] }
+].map(a => ({ ...a, groups: a.groups.map(id => G[id]).filter(Boolean) })).filter(a => a.groups.length);
+WORKBOOK.recipes = [
+  { label: 'A gig poster in the Lord Huron mood', parts: [['A '], ['risograph', 'riso'], [' poster in two inks on '], ['cotton rag', 'cottonrag'], [' paper: a '], ['linocut', 'linocut'], ['-style moon over a lake, a little '], ['misregistration', 'misreg'], [' and '], ['uneven ink', 'patchy'], [', with '], ['fold lines', 'folds'], [' from being carried in a pocket.']] },
+  { label: 'A product shot', parts: [['A coffee grinder in '], ['brushed stainless steel', 'brushed'], [' with a '], ['walnut', 'walnut'], [' handle and a '], ['knurled', 'knurled'], [' dial, a '], ['soft-touch', 'softtouch'], [' black base, on a '], ['travertine', 'travertine'], [' plinth.']] },
+  { label: 'A quiet interior', parts: [['A living room with '], ['limewash', 'limewash'], [' walls, '], ['white oak', 'oak'], [' floors, a '], ['bouclé', 'boucle'], [' armchair, '], ['reeded glass', 'reeded'], [' doors and a '], ['brass', 'brass'], [' lamp gone soft with '], ['patina', 'patina'], ['.']] }
+];
+WORKBOOK.xcols = ['Material', 'Finish', 'Wear', 'Print & paper'];
+WORKBOOK.xlate = [
+  { job: 'Warm & handmade', note: 'crafted, honest', cells: [['oak', 'linen', 'terracotta'], ['oiled', 'matte'], ['edgewear'], ['letterpress', 'cottonrag']] },
+  { job: 'Luxurious', note: 'quiet money', cells: [['calacatta', 'velvet', 'brass'], ['lacquer', 'gilded'], ['patina'], ['foil', 'emboss']] },
+  { job: 'Industrial', note: 'raw, functional', cells: [['boardform', 'blackened', 'galvanized'], ['powdercoat', 'sandblasted'], ['rust'], ['photocopy', 'kraft']] },
+  { job: 'Futuristic', note: 'clean, synthetic', cells: [['chrome', 'dichroic', 'carbon'], ['pearl', 'gloss'], [], ['holo', 'thinfilm']] },
+  { job: 'Retro', note: 'mid-century, 70s', cells: [['terrazzo', 'walnut', 'rattan'], ['enamel', 'satin'], ['faded'], ['screenprint', 'halftone']] },
+  { job: 'Weathered', note: 'time, coastline', cells: [['reclaimed', 'slate', 'copper'], ['shou'], ['verdigris', 'peeling'], ['cyanotype', 'foxing']] },
+  { job: 'Playful', note: 'toy-like, soft', cells: [['felt', 'abs', 'recycled'], ['softtouch'], [], ['riso', 'misreg', 'clay']] },
+  { job: 'Calm & minimal', note: 'Japanese, spa', cells: [['tadelakt', 'washi', 'bamboo'], ['eggshell', 'matte'], ['kintsugi'], ['deboss', 'vellum']] }
+];
+WORKBOOK.mediums = ['product photo', '3D render', 'gig poster', 'book cover', 'interior photo', 'packaging mockup'];
+/* ---------- rendering ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
+};
+const picks = new Set(store.get('mtw-picks', []));
+let fmt = store.get('mtw-fmt', 'list');
+const TERMS = {};
+WORKBOOK.areas.forEach(a => a.groups.forEach(g => g.terms.forEach(t => TERMS[t.id] = { t, g, a })));
+const totalTerms = Object.keys(TERMS).length;
+let pendingJump = null;
+
+const cardHTML = (t, g) => `
+  <article class="card${picks.has(t.id) ? ' picked' : ''}" id="t-${t.id}" data-search="${esc((t.name + ' ' + (t.aka || '') + ' ' + t.desc + ' ' + (t.ref || '') + ' ' + (t.spot || '') + ' ' + g.title).toLowerCase())}">
+    <div class="ex" aria-hidden="true">${t.ex}</div>
+    <div class="cbody">
+      <h3>${esc(t.name)}</h3>
+      ${t.aka ? `<div class="aka">Also called ${esc(t.aka)}</div>` : ''}
+      <p class="desc">${esc(t.desc)}</p>
+      ${t.spot ? `<p class="ref spot"><b>Spot it</b>${esc(t.spot)}</p>` : ''}
+      ${t.ref ? `<p class="ref"><b>Think</b>${esc(t.ref)}</p>` : ''}
+      <div class="phrase">
+        <code id="p-${t.id}">${esc(t.prompt)}</code>
+        <div class="btns">
+          <button type="button" class="btn add" data-add="${t.id}" aria-pressed="${picks.has(t.id)}">${picks.has(t.id) ? 'Added' : 'Add to prompt'}</button>
+          <button type="button" class="btn" data-copy="${t.id}">Copy phrase</button>
+        </div>
+      </div>
+    </div>
+  </article>`;
+const groupHTML = (g, sub) => `
+  <section class="group" id="g-${g.id}" aria-labelledby="h-${g.id}">
+    <div class="ghead">${sub ? `<div class="eyebrow">${esc(sub)}</div>` : ''}<h2 id="h-${g.id}">${esc(g.title)}</h2><p>${esc(g.intro)}</p></div>
+    <div class="cards">${g.terms.map(t => cardHTML(t, g)).join('')}</div>
+  </section>`;
+const emptyMsg = `<p class="empty" id="empty" hidden>Nothing matches that search. Try a plainer word like "wood", "shiny", "paper" or "rust".</p>`;
+const chip = (id, txt) => TERMS[id] ? `<a class="chip" href="#${TERMS[id].a.id}" data-jump="${id}"><span>${esc(txt || TERMS[id].t.name)}</span><small>${esc(TERMS[id].g.slot)}</small></a>` : esc(txt || '');
+const link = id => TERMS[id] ? `<a href="#${TERMS[id].a.id}" data-jump="${id}">${esc(TERMS[id].t.name)}</a>` : '';
+const reId = s => s.replace(/id="([^"]+)"/g, 'id="tile-$1"').replace(/url\(#([^)]+)\)/g, 'url(#tile-$1)');
+
+function renderHome() {
+  $('#home').hidden = false; $('#subject').hidden = true; $('#main').innerHTML = '';
+  $('#homeCount').textContent = `${totalTerms} surfaces on ${WORKBOOK.areas.length} pages`;
+  $('#recipes').innerHTML = WORKBOOK.recipes.map(r => `<div class="rcp"><div class="eyebrow">${esc(r.label)}</div><p class="sentence">${r.parts.map(([txt, id]) => id ? chip(id, txt) : esc(txt)).join('')}</p></div>`).join('');
+  $('#xtable').innerHTML = `<thead><tr><th>The mood</th>${WORKBOOK.xcols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
+    WORKBOOK.xlate.map(r => `<tr><th>${esc(r.job)}<small>${esc(r.note)}</small></th>${r.cells.map(c => `<td>${c.map(link).join(' ')}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  $('#tiles').innerHTML = WORKBOOK.areas.map(a => `
+    <a class="tile" href="#${a.id}">
+      <div class="ex" aria-hidden="true">${TERMS[a.preview] ? reId(TERMS[a.preview].t.ex) : ''}</div>
+      <div class="tbody"><h3>${esc(a.title)}</h3><p>${esc(a.blurb)}</p>
+      <div class="tmeta">${a.groups.reduce((n, g) => n + g.terms.length, 0)} cards · ${a.groups.map(g => esc(g.title)).join(' · ')}</div></div>
+    </a>`).join('');
+  $('#results').innerHTML = WORKBOOK.areas.map(a => a.groups.map(g => groupHTML(g, a.title)).join('')).join('') + emptyMsg;
+  filter($('#qh'), $('#results'), true);
+}
+
+function renderSubject(a) {
+  $('#home').hidden = true; $('#subject').hidden = false; $('#results').innerHTML = '';
+  $('#subTitle').textContent = a.title;
+  $('#subBlurb').textContent = a.blurb;
+  const i = WORKBOOK.areas.indexOf(a), next = WORKBOOK.areas[(i + 1) % WORKBOOK.areas.length];
+  $('#nav').innerHTML = a.groups.map(g => `<a href="#g-${g.id}" data-g="${g.id}">${esc(g.title)}<span>${g.terms.length}</span></a>`).join('');
+  $('#main').innerHTML = a.groups.map(g => groupHTML(g)).join('') + emptyMsg + `<a class="next" href="#${next.id}">Next: ${esc(next.title)} →</a>`;
+  $('#q').value = '';
+  document.title = `${a.title} · Materials & Textures Workbook`;
+}
+
+function route() {
+  const id = location.hash.slice(1);
+  const a = WORKBOOK.areas.find(x => x.id === id);
+  if (a) renderSubject(a);
+  else if (!id || !document.getElementById(id)) { renderHome(); document.title = 'Materials & Textures Workbook'; }
+  else return;
+  if (pendingJump) { const j = pendingJump; pendingJump = null; setTimeout(() => jumpTo(j), 60); }
+  else if (a || !id) window.scrollTo(0, 0);
+}
+
+function compose() {
+  const subj = $('#subject-in').value.trim() || '[the object or scene]';
+  const medium = $('#medium-in').value.trim();
+  const chosen = [];
+  WORKBOOK.areas.forEach(a => a.groups.forEach(g => {
+    const ps = g.terms.filter(t => picks.has(t.id));
+    if (ps.length) chosen.push([g, ps]);
+  }));
+  const n = chosen.reduce((s, [, ps]) => s + ps.length, 0);
+  if (fmt === 'line') {
+    const parts = [medium ? `${medium} of ${subj}` : subj, ...chosen.flatMap(([, ps]) => ps.map(t => t.prompt))];
+    return { text: parts.join(', ') + '.', n };
+  }
+  const lines = [`Create ${medium ? `a ${medium.replace(/^an? /i, '')} of ` : 'an image of '}${subj}.`];
+  lines.push('', 'Materials and surfaces:');
+  chosen.forEach(([g, ps]) => lines.push(`- ${g.slot}: ${ps.map(t => t.prompt).join('; ')}`));
+  if (!n) lines.push('- (add terms from the workbook)');
+  lines.push('', 'Make every surface read as physical: one consistent light that shows texture (a low raking light helps), believable scale for grain, weave and print dots, and wear only where hands and weather would put it.');
+  return { text: lines.join('\n'), n };
+}
+
+function renderTray() {
+  const { text, n } = compose();
+  $('#out').textContent = text;
+  const names = [...picks].filter(id => TERMS[id]).map(id => TERMS[id].t.name);
+  $('#count').innerHTML = n
+    ? `${n} pick${n > 1 ? 's' : ''}<small>${esc(names.join(' · '))}</small>`
+    : `Nothing picked yet<small>Press "Add to prompt" on any card to start</small>`;
+  $('#fmt-list').setAttribute('aria-pressed', fmt === 'list');
+  $('#fmt-line').setAttribute('aria-pressed', fmt === 'line');
+}
+
+function copyText(text, btn, fallbackEl) {
+  const done = ok => { const o = btn.textContent; btn.textContent = ok ? 'Copied' : 'Selected, press Ctrl+C'; setTimeout(() => btn.textContent = o, 1400); };
+  const select = () => { if (!fallbackEl) return; const r = document.createRange(); r.selectNodeContents(fallbackEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+  try { navigator.clipboard.writeText(text).then(() => done(true), () => { select(); done(false); }); }
+  catch (e) { select(); done(false); }
+}
+
+function jumpTo(id) {
+  const el = document.getElementById('t-' + id);
+  if (!el || el.hidden) return;
+  el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+}
+
+function filter(input, scope, homeMode) {
+  const q = input.value.trim().toLowerCase();
+  let any = false;
+  scope.querySelectorAll('.group').forEach(g => {
+    let vis = 0;
+    g.querySelectorAll('.card').forEach(c => { const ok = !q || c.dataset.search.includes(q); c.hidden = !ok; if (ok) vis++; });
+    g.hidden = !vis; if (vis) any = true;
+    const nav = document.querySelector(`#nav [data-g="${g.id.slice(2)}"]`); if (nav) nav.hidden = !vis;
+  });
+  const empty = scope.querySelector('#empty'); if (empty) empty.hidden = any;
+  if (homeMode) { $('#results').hidden = !q; ['#tiles', '#recipe', '#xlate'].forEach(s => $(s).hidden = !!q); }
+}
+
+document.addEventListener('click', e => {
+  const add = e.target.closest('[data-add]');
+  if (add) {
+    const id = add.dataset.add;
+    picks.has(id) ? picks.delete(id) : picks.add(id);
+    store.set('mtw-picks', [...picks]);
+    const on = picks.has(id);
+    add.setAttribute('aria-pressed', on); add.textContent = on ? 'Added' : 'Add to prompt';
+    document.getElementById('t-' + id).classList.toggle('picked', on);
+    renderTray(); return;
+  }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) { const el = document.getElementById('p-' + cp.dataset.copy); copyText(el.textContent, cp, el); return; }
+  const sk = e.target.closest('[data-medium]');
+  if (sk) { $('#medium-in').value = sk.dataset.medium; store.set('mtw-medium', sk.dataset.medium); renderTray(); return; }
+  const j = e.target.closest('[data-jump]');
+  if (j) {
+    e.preventDefault();
+    const target = TERMS[j.dataset.jump].a.id;
+    pendingJump = j.dataset.jump;
+    if (location.hash.slice(1) === target) route(); else location.hash = target;
+  }
+});
+
+window.addEventListener('hashchange', route);
+$('#q').addEventListener('input', () => filter($('#q'), $('#main')));
+$('#qh').addEventListener('input', () => filter($('#qh'), $('#results'), true));
+$('#toggle').addEventListener('click', () => {
+  const body = $('#trayBody'), open = body.hidden;
+  body.hidden = !open; $('#toggle').setAttribute('aria-expanded', open); $('#toggle').textContent = open ? 'Hide prompt' : 'Show prompt';
+});
+$('#copyAll').addEventListener('click', e => copyText(compose().text, e.currentTarget, $('#out')));
+$('#clear').addEventListener('click', () => {
+  picks.clear(); store.set('mtw-picks', []);
+  document.querySelectorAll('.card.picked').forEach(c => c.classList.remove('picked'));
+  document.querySelectorAll('[data-add]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.textContent = 'Add to prompt'; });
+  renderTray();
+});
+$('#fmt-list').addEventListener('click', () => { fmt = 'list'; store.set('mtw-fmt', fmt); renderTray(); });
+$('#fmt-line').addEventListener('click', () => { fmt = 'line'; store.set('mtw-fmt', fmt); renderTray(); });
+$('#mediums').innerHTML = WORKBOOK.mediums.map(s => `<button type="button" data-medium="${esc(s)}">${esc(s)}</button>`).join('');
+$('#subject-in').value = store.get('mtw-subject', '');
+$('#medium-in').value = store.get('mtw-medium', '');
+$('#subject-in').addEventListener('input', () => { store.set('mtw-subject', $('#subject-in').value); renderTray(); });
+$('#medium-in').addEventListener('input', () => { store.set('mtw-medium', $('#medium-in').value); renderTray(); });
+
+route();
+renderTray();
