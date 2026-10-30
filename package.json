@@ -12,6 +12,6 @@
     "all": "npm run vocab && npm run build && npm run cheatsheets && npm run check"
   },
   "devDependencies": {
-    "playwright": "1.49.1"
+    "playwright": "1.55.1"
   }
 }
